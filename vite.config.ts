@@ -3,8 +3,9 @@ import react from '@vitejs/plugin-react'
 import { fileURLToPath, URL } from 'node:url'
 
 const dktRoot = fileURLToPath(new URL('../tmp/dkt', import.meta.url))
-const dktProvodaRoot = fileURLToPath(
-  new URL('../tmp/dkt/libs/provoda/provoda', import.meta.url),
+const dktRootDirect = fileURLToPath(new URL('../dkt/js', import.meta.url))
+const dktProvodaRootDirect = fileURLToPath(
+  new URL('../dkt/js/libs/provoda/provoda', import.meta.url),
 )
 
 export default defineConfig({
@@ -16,8 +17,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      dkt: dktProvodaRoot,
-      'dkt-all': dktRoot,
+      dkt: dktProvodaRootDirect,
+      'dkt-all': dktRootDirect,
     },
   },
 })

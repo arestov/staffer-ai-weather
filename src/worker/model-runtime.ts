@@ -97,7 +97,7 @@ export const createWeatherModelRuntime = () => {
     const runtime = prepareAppRuntime({
       sync_sender: true,
       warnUnexpectedAttrs: true,
-      onError(error) {
+      onError(error: unknown) {
         for (const connection of connections) {
           emitError(connection, error)
         }

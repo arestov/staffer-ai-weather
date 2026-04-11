@@ -38,11 +38,10 @@ export const shapeOf = <T extends ComponentType<any>>(
   })
 
   const WrappedComponent = (props: ComponentProps<T>) =>
-    createElement(
-      MountedShape,
-      { shape },
-      createElement(component as ComponentType<any>, props),
-    )
+    createElement(MountedShape, {
+      shape,
+      children: createElement(component as ComponentType<any>, props),
+    })
 
   WrappedComponent.displayName =
     component.displayName || component.name || 'ShapedComponent'
@@ -56,4 +55,6 @@ export const shapeOf = <T extends ComponentType<any>>(
 }
 
 export const getShapeOf = (component: ComponentType<any>) =>
-  (component as Record<symbol, DefinedReactShape | undefined>)[SHAPE_META] ?? null
+  (component as ComponentType<any> & {
+    [SHAPE_META]?: DefinedReactShape
+  })[SHAPE_META] ?? null
