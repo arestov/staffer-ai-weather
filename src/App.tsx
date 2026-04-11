@@ -1,0 +1,121 @@
+import { useEffect, useState } from 'react'
+import type { WeatherAppSession } from './page/createWeatherAppSession'
+import { useModelAttrs } from './page/react/useModelAttrs'
+import { useSyncRoot } from './page/react/useSyncRoot'
+
+const formatUpdatedAt = (value: string | null) => {
+  if (!value) {
+    return 'not updated yet'
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return date.toLocaleString()
+}
+
+export default function App({ session }: { session: WeatherAppSession }) {
+  const snapshot = useSyncRoot(session.runtime)
+  const attrs = useModelAttrs(session.runtime, [
+    'location',
+    'status',
+    'temperatureText',
+    'summary',
+    'updatedAt',
+  ])
+  const [location, setLocation] = useState('Moscow')
+
+  useEffect(() => {
+    if (typeof attrs.location === 'string' && attrs.location) {
+      setLocation(attrs.location)
+    }
+  }, [attrs.location])
+
+  const bootedLabel = snapshot.booted ? 'Booted' : 'Not booted'
+  const statusLabel = String(attrs.status || 'booting')
+  const temperatureText = String(attrs.temperatureText || '-- \u00b0C')
+  const summary = String(attrs.summary || '')
+  const rootNodeId = snapshot.rootNodeId || 'pending'
+
+  const submitLocation = () => {
+    const nextLocation = location.trim()
+    if (!nextLocation) {
+      return
+    }
+
+    session.dispatchAction('setLocation', nextLocation)
+  }
+
+  const refreshWeather = () => {
+    session.dispatchAction('refreshWeather')
+  }
+
+  return (
+    <main className="app-shell">
+      <section className="app-panel app-panel--hero">
+        <div className="eyebrow">Weather / DKT / SharedWorker</div>
+        <h1>Weather state rendered from SyncReceiver</h1>
+        <p className="lede">
+          The UI reads the shared model graph directly from the page-side
+          receiver. The worker owns the weather state, the page only paints the
+          latest snapshot.
+        </p>
+
+        <div className="metric-grid">
+          <article className="metric-card">
+            <span>Boot state</span>
+            <strong>{bootedLabel}</strong>
+          </article>
+          <article className="metric-card">
+            <span>Root node</span>
+            <strong>{rootNodeId}</strong>
+          </article>
+          <article className="metric-card">
+            <span>Status</span>
+            <strong className={`status-pill status-pill--${statusLabel}`}>
+              {statusLabel}
+            </strong>
+          </article>
+        </div>
+      </section>
+
+      <section className="app-panel app-panel--content">
+        <div className="weather-readout">
+          <div className="weather-readout__label">Temperature</div>
+          <div className="weather-readout__value">{temperatureText}</div>
+          <p className="weather-readout__summary">{summary}</p>
+          <p className="weather-readout__meta">
+            Updated {formatUpdatedAt((attrs.updatedAt as string | null) ?? null)}
+          </p>
+        </div>
+
+        <form
+          className="control-bar"
+          onSubmit={(event) => {
+            event.preventDefault()
+            submitLocation()
+          }}
+        >
+          <label className="control-bar__field">
+            <span>Set location</span>
+            <input
+              value={location}
+              onChange={(event) => setLocation(event.target.value)}
+              placeholder="Type a city name"
+              spellCheck={false}
+            />
+          </label>
+
+          <div className="control-bar__actions">
+            <button type="submit">Set location</button>
+            <button type="button" className="secondary" onClick={refreshWeather}>
+              Refresh weather
+            </button>
+          </div>
+        </form>
+      </section>
+    </main>
+  )
+}
