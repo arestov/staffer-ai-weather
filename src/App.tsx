@@ -56,11 +56,11 @@ export default function App({ session }: { session: WeatherAppSession }) {
     <main className="app-shell">
       <section className="app-panel app-panel--hero">
         <div className="eyebrow">Weather / DKT / SharedWorker</div>
-        <h1>Weather state rendered from SyncReceiver</h1>
+        <h1>Weather state rendered from a page-side sync graph</h1>
         <p className="lede">
-          The UI reads the shared model graph directly from the page-side
+          The UI reads the shared model graph from a lightweight page-side
           receiver. The worker owns the weather state, the page only paints the
-          latest snapshot.
+          synced root data.
         </p>
 
         <div className="metric-grid">

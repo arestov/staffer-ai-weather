@@ -1,6 +1,6 @@
-import { SyncReceiver } from 'dkt/SyncReceiver.js'
 import { SYNCR_TYPES } from 'dkt-all/libs/provoda/SyncR_TYPES.js'
 import { BlankAppRootView } from '../app/createBlankAppRootView'
+import { ReactSyncReceiver } from '../react-sync/receiver/ReactSyncReceiver'
 import { APP_MSG, RUNTIME_LOG_SCOPE } from '../shared/messageTypes'
 import { createSyncStore, type SyncStore } from './createSyncStore'
 
@@ -9,12 +9,6 @@ export interface WeatherRootSnapshot {
   ready: boolean
   version: number
   rootNodeId: string | null
-  location: string
-  status: string
-  temperatureText: string
-  summary: string
-  updatedAt: string | null
-  rootMpx: any | null
 }
 
 export interface WeatherPageSyncRuntime {
@@ -23,19 +17,17 @@ export interface WeatherPageSyncRuntime {
   dispatchAction(actionName: string, payload?: unknown): void
   destroy(): void
   getSnapshot(): WeatherRootSnapshot
+  getRootAttrs(attrNames: readonly string[]): Record<string, unknown>
   subscribe(listener: () => void): () => void
+  subscribeRootAttrs(
+    attrNames: readonly string[],
+    listener: () => void,
+  ): () => void
 }
 
-const createDeferred = <T,>() => {
-  let resolve: ((value: T) => void) | null = null
-  const promise = new Promise<T>((nextResolve) => {
-    resolve = nextResolve
-  })
-
-  return {
-    promise,
-    resolve,
-  }
+type RootAttrsCacheEntry = {
+  rootNodeId: string | null
+  values: Record<string, unknown>
 }
 
 const createEmptySnapshot = (): WeatherRootSnapshot => ({
@@ -43,12 +35,15 @@ const createEmptySnapshot = (): WeatherRootSnapshot => ({
   ready: false,
   version: 0,
   rootNodeId: null,
-  location: '',
-  status: 'booting',
-  temperatureText: '-- \u00b0C',
-  summary: 'Booting weather runtime',
-  updatedAt: null,
-  rootMpx: null,
+})
+
+const createSnapshotWithVersion = (
+  current: WeatherRootSnapshot,
+  patch: Partial<WeatherRootSnapshot>,
+): WeatherRootSnapshot => ({
+  ...current,
+  ...patch,
+  version: current.version + 1,
 })
 
 export const createPageSyncReceiverRuntime = ({
@@ -61,12 +56,11 @@ export const createPageSyncReceiverRuntime = ({
   }
 }): WeatherPageSyncRuntime => {
   const store = createSyncStore(createEmptySnapshot())
-  const root_ready = createDeferred<void>()
-  let sync_r: SyncReceiver | null = null
-  let prototype_usage_promise:
+  const rootAttrsCache = new Map<string, RootAttrsCacheEntry>()
+  let prototypeUsagePromise:
     | Promise<{ graph: Record<string, unknown>; used_structures: unknown }>
     | null = null
-  let prototype_usage_sent = false
+  let prototypeUsageSent = false
 
   const emit = (message: unknown) => {
     transport.send(message)
@@ -83,21 +77,21 @@ export const createPageSyncReceiverRuntime = ({
     )
   }
 
-  const buildStream = () => ({
-    RPCLegacy(node_id: string | number, args: unknown[]) {
+  const syncReceiver = new ReactSyncReceiver({
+    RPCLegacy(nodeId, args) {
       emit({
         type: APP_MSG.SYNC_RPC,
-        node_id,
+        node_id: nodeId,
         args,
       })
     },
-    updateStructureUsage(data: unknown) {
+    updateStructureUsage(data) {
       emit({
         type: APP_MSG.SYNC_UPDATE_STRUCTURE_USAGE,
         data,
       })
     },
-    requireShapeForModel(data: unknown) {
+    requireShapeForModel(data) {
       emit({
         type: APP_MSG.SYNC_REQUIRE_SHAPE,
         data,
@@ -105,50 +99,64 @@ export const createPageSyncReceiverRuntime = ({
     },
   })
 
-  const sync_stream = buildStream()
-
-  const getRootMpx = () => store.getSnapshot().rootMpx
-
-  const refreshSnapshot = () => {
+  const syncSnapshotWithReceiver = () => {
     const current = store.getSnapshot()
-    const rootMpx = current.rootNodeId
-      ? sync_r?.md_proxs_index[current.rootNodeId] || null
-      : null
+    const rootNodeId = syncReceiver.getRootNodeId()
+    const ready = Boolean(current.booted && rootNodeId)
 
-    const nextSnapshot: WeatherRootSnapshot = {
-      ...current,
-      version: current.version + 1,
-      rootMpx,
-      location: rootMpx?.getAttr?.('location') ?? '',
-      status: rootMpx?.getAttr?.('status') ?? 'booting',
-      temperatureText: rootMpx?.getAttr?.('temperatureText') ?? '-- \u00b0C',
-      summary: rootMpx?.getAttr?.('summary') ?? '',
-      updatedAt: rootMpx?.getAttr?.('updatedAt') ?? null,
-      ready: Boolean(rootMpx && current.booted),
-    }
-
-    store.setSnapshot(nextSnapshot)
-  }
-
-  const tryResolveReady = () => {
-    const snapshot = store.getSnapshot()
-    if (snapshot.booted && snapshot.rootMpx) {
-      root_ready.resolve?.(void 0)
-      root_ready.resolve = null
-    }
-  }
-
-  const sendPrototypeUsage = async () => {
-    if (prototype_usage_sent || !prototype_usage_promise || !getRootMpx()) {
+    if (current.rootNodeId === rootNodeId && current.ready === ready) {
       return
     }
 
-    const usage = await prototype_usage_promise
+    store.setSnapshot(
+      createSnapshotWithVersion(current, {
+        rootNodeId,
+        ready,
+      }),
+    )
+  }
+
+  const sendPrototypeUsage = async () => {
+    if (prototypeUsageSent || !prototypeUsagePromise || !syncReceiver.getRootNodeId()) {
+      return
+    }
+
+    const usage = await prototypeUsagePromise
     emit({
       type: APP_MSG.SYNC_UPDATE_STRUCTURE_USAGE,
       data: usage,
     })
-    prototype_usage_sent = true
+    prototypeUsageSent = true
+  }
+
+  const getRootAttrs = (attrNames: readonly string[]) => {
+    const rootNodeId = syncReceiver.getRootNodeId()
+    const cacheKey = attrNames.join('\u001f')
+    const nextValues = syncReceiver.readRootAttrs(attrNames)
+    const cached = rootAttrsCache.get(cacheKey)
+
+    if (cached && cached.rootNodeId === rootNodeId) {
+      let changed = false
+
+      for (let i = 0; i < attrNames.length; i += 1) {
+        const name = attrNames[i]
+        if (!Object.is(cached.values[name], nextValues[name])) {
+          changed = true
+          break
+        }
+      }
+
+      if (!changed) {
+        return cached.values
+      }
+    }
+
+    rootAttrsCache.set(cacheKey, {
+      rootNodeId,
+      values: nextValues,
+    })
+
+    return nextValues
   }
 
   const bootstrap = () => {
@@ -175,28 +183,9 @@ export const createPageSyncReceiverRuntime = ({
       case SYNCR_TYPES.SET_MODEL_SCHEMA:
       case SYNCR_TYPES.UPDATE:
       case SYNCR_TYPES.TREE_ROOT: {
-        sync_r?.handleByType(message.sync_type, message.payload)
-
-        if (message.sync_type === SYNCR_TYPES.TREE_ROOT) {
-          const root_node_id = message.payload?.node_id ?? null
-          const root_mpx = root_node_id
-            ? sync_r?.md_proxs_index[root_node_id] || null
-            : null
-          const current = store.getSnapshot()
-          store.setSnapshot({
-            ...current,
-            version: current.version + 1,
-            rootNodeId: root_node_id,
-            rootMpx: root_mpx,
-            booted: current.booted,
-            ready: Boolean(root_mpx && current.booted),
-          })
-        } else {
-          refreshSnapshot()
-        }
-
+        syncReceiver.handleSync(message.sync_type, message.payload)
+        syncSnapshotWithReceiver()
         await sendPrototypeUsage()
-        tryResolveReady()
         return
       }
     }
@@ -206,14 +195,13 @@ export const createPageSyncReceiverRuntime = ({
     switch (message?.type) {
       case APP_MSG.MODEL_BOOTED: {
         const current = store.getSnapshot()
-        store.setSnapshot({
-          ...current,
-          version: current.version + 1,
-          booted: true,
-          rootNodeId: message.root_node_id ?? current.rootNodeId,
-          ready: Boolean(current.rootMpx),
-        })
-        tryResolveReady()
+        store.setSnapshot(
+          createSnapshotWithVersion(current, {
+            booted: true,
+            rootNodeId: message.root_node_id ?? syncReceiver.getRootNodeId(),
+            ready: Boolean(message.root_node_id ?? syncReceiver.getRootNodeId()),
+          }),
+        )
         return
       }
       case APP_MSG.RUNTIME_LOG: {
@@ -235,21 +223,24 @@ export const createPageSyncReceiverRuntime = ({
     Promise.resolve(handleMessage(message)).catch(emitError)
   })
 
-  sync_r = new SyncReceiver(sync_stream)
-  prototype_usage_promise = BlankAppRootView.prototype._getPrototypeStructure()
+  prototypeUsagePromise = BlankAppRootView.prototype._getPrototypeStructure()
 
   return {
     store,
     bootstrap,
     dispatchAction,
     getSnapshot: () => store.getSnapshot(),
+    getRootAttrs,
     subscribe: store.subscribe,
+    subscribeRootAttrs: (attrNames, listener) =>
+      syncReceiver.subscribeRootAttrs(attrNames, listener),
     destroy() {
       unlisten?.()
       transport.destroy()
-      sync_r = null
-      prototype_usage_promise = null
-      prototype_usage_sent = false
+      syncReceiver.destroy()
+      rootAttrsCache.clear()
+      prototypeUsagePromise = null
+      prototypeUsageSent = false
     },
   }
 }
