@@ -15,12 +15,20 @@ export interface WeatherRootSnapshot {
   ready: boolean
   version: number
   rootNodeId: string | null
+  sessionId: string | null
 }
 
 export interface WeatherPageSyncRuntime extends ReactScopeRuntime {
   store: SyncStore<WeatherRootSnapshot>
   bootstrap(): void
-  dispatchAction(actionName: string, payload?: unknown): void
+  debugDescribeNode(nodeId: string): unknown
+  debugDumpGraph(): unknown
+  debugMessages(): readonly unknown[]
+  dispatchAction(
+    actionName: string,
+    payload?: unknown,
+    scope?: ReactSyncScopeHandle | null,
+  ): void
   destroy(): void
   getSnapshot(): WeatherRootSnapshot
   getRootAttrs(attrNames: readonly string[]): Record<string, unknown>
@@ -41,6 +49,7 @@ const createEmptySnapshot = (): WeatherRootSnapshot => ({
   ready: false,
   version: 0,
   rootNodeId: null,
+  sessionId: null,
 })
 
 const createSnapshotWithVersion = (
@@ -63,8 +72,22 @@ export const createPageSyncReceiverRuntime = ({
 }): WeatherPageSyncRuntime => {
   const store = createSyncStore(createEmptySnapshot())
   const rootAttrsCache = new Map<string, RootAttrsCacheEntry>()
+  const debugMessageLog: unknown[] = []
+
+  const pushDebugMessage = (direction: 'in' | 'out', message: unknown) => {
+    debugMessageLog.push({
+      at: new Date().toISOString(),
+      direction,
+      message,
+    })
+
+    if (debugMessageLog.length > 100) {
+      debugMessageLog.splice(0, debugMessageLog.length - 100)
+    }
+  }
 
   const emit = (message: unknown) => {
+    pushDebugMessage('out', message)
     transport.send(message)
   }
 
@@ -180,11 +203,15 @@ export const createPageSyncReceiverRuntime = ({
 
   const bootstrap = () => {
     emit({
-      type: APP_MSG.CONTROL_BOOTSTRAP_MODEL,
+      type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
     })
   }
 
-  const dispatchAction = (actionName: string, payload?: unknown) => {
+  const dispatchAction = (
+    actionName: string,
+    payload?: unknown,
+    scope?: ReactSyncScopeHandle | null,
+  ) => {
     if (!actionName) {
       throw new Error('action name is required')
     }
@@ -193,6 +220,7 @@ export const createPageSyncReceiverRuntime = ({
       type: APP_MSG.CONTROL_DISPATCH_APP_ACTION,
       action_name: actionName,
       payload,
+      scope_node_id: scope?._nodeId ?? null,
     })
   }
 
@@ -211,11 +239,13 @@ export const createPageSyncReceiverRuntime = ({
 
   const handleMessage = (message: any) => {
     switch (message?.type) {
-      case APP_MSG.MODEL_BOOTED: {
+      case APP_MSG.MODEL_BOOTED:
+      case APP_MSG.SESSION_BOOTED: {
         const current = store.getSnapshot()
         store.setSnapshot(
           createSnapshotWithVersion(current, {
             booted: true,
+            sessionId: message.session_id ?? current.sessionId,
             rootNodeId: message.root_node_id ?? syncReceiver.getRootNodeId(),
             ready: Boolean(message.root_node_id ?? syncReceiver.getRootNodeId()),
           }),
@@ -238,12 +268,16 @@ export const createPageSyncReceiverRuntime = ({
   }
 
   const unlisten = transport.listen((message) => {
+    pushDebugMessage('in', message)
     Promise.resolve(handleMessage(message)).catch(emitError)
   })
 
   return {
     store,
     bootstrap,
+    debugDescribeNode: (nodeId) => syncReceiver.debugDescribeNode(nodeId),
+    debugDumpGraph: () => syncReceiver.debugDumpGraph(),
+    debugMessages: () => debugMessageLog.slice(),
     dispatchAction,
     getSnapshot: () => store.getSnapshot(),
     getRootScope: () => syncReceiver.getRootScope(),
@@ -261,15 +295,22 @@ export const createPageSyncReceiverRuntime = ({
     dispatch: (
       actionName: string,
       payload?: unknown,
-      _scope?: ReactSyncScopeHandle | null,
+      scope?: ReactSyncScopeHandle | null,
     ) => {
-      dispatchAction(actionName, payload)
+      dispatchAction(actionName, payload, scope)
     },
     getRootAttrs,
     subscribe: store.subscribe,
     subscribeRootAttrs: (attrNames, listener) =>
       syncReceiver.subscribeRootAttrs(attrNames, listener),
     destroy() {
+      const sessionId = store.getSnapshot().sessionId
+      if (sessionId) {
+        emit({
+          type: APP_MSG.CONTROL_CLOSE_SESSION,
+          session_id: sessionId,
+        })
+      }
       unlisten?.()
       transport.destroy()
       syncReceiver.destroy()

@@ -6,6 +6,24 @@ type Listener = () => void
 type NodeRef = string
 type RelValue = NodeRef | NodeRef[] | null
 
+export type ReactSyncDebugNode = {
+  nodeId: string
+  modelName: string | null
+  hierarchyNum: number | null
+  constrId: number | string | null
+  attrsVersion: number
+  relsVersion: number
+  attrs: Record<string, unknown>
+  rels: Record<string, RelValue>
+}
+
+export type ReactSyncDebugGraph = {
+  rootNodeId: string | null
+  dict: readonly (string | undefined)[] | null
+  modelSchema: unknown | null
+  nodes: ReactSyncDebugNode[]
+}
+
 /*
   tmp/dkt currently does not export SyncR_U_TYPES.js and SyncR_cursor.js correctly.
   Keep the compact protocol cursor constants local here until DKT build is fixed.
@@ -204,6 +222,51 @@ export class ReactSyncReceiver {
     }
 
     return this.resolveName(node.modelNameKey)
+  }
+
+  debugDescribeNode(nodeId: string): ReactSyncDebugNode | null {
+    const node = this.nodesById.get(nodeId)
+    if (!node) {
+      return null
+    }
+
+    const attrs: Record<string, unknown> = {}
+    const rels: Record<string, RelValue> = {}
+
+    for (const [key, value] of node.attrs) {
+      const name = this.resolveName(key) ?? `${key}`
+      attrs[name] = value
+    }
+
+    for (const [key, value] of node.rels) {
+      const name = this.resolveName(key) ?? `${key}`
+      rels[name] = value
+    }
+
+    return {
+      nodeId: node.nodeId,
+      modelName: node.modelNameKey == null ? null : this.resolveName(node.modelNameKey),
+      hierarchyNum: node.hierarchyNum,
+      constrId: node.constrId,
+      attrsVersion: node.attrsVersion,
+      relsVersion: node.relsVersion,
+      attrs,
+      rels,
+    }
+  }
+
+  debugDumpGraph(): ReactSyncDebugGraph {
+    const nodes = Array.from(this.nodesById.keys())
+      .sort()
+      .map((nodeId) => this.debugDescribeNode(nodeId))
+      .filter((item): item is ReactSyncDebugNode => item != null)
+
+    return {
+      rootNodeId: this.rootNodeId,
+      dict: this.dictFlat,
+      modelSchema: this.modelSchema,
+      nodes,
+    }
   }
 
   readRootAttrs(attrNames: readonly string[]) {

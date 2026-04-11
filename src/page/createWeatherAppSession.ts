@@ -2,6 +2,7 @@ import { createPageSyncReceiverRuntime } from './createPageSyncReceiverRuntime'
 import { createSharedWorkerTransport } from '../shared/createSharedWorkerTransport'
 
 export interface WeatherAppSession {
+  sessionId: string | null
   worker: SharedWorker
   runtime: ReturnType<typeof createPageSyncReceiverRuntime>
   store: ReturnType<typeof createPageSyncReceiverRuntime>['store']
@@ -26,6 +27,9 @@ export const createWeatherAppSession = (): WeatherAppSession => {
   const runtime = createPageSyncReceiverRuntime({ transport })
 
   return {
+    get sessionId() {
+      return runtime.getSnapshot().sessionId
+    },
     worker,
     runtime,
     store: runtime.store,

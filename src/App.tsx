@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { One } from './react-sync/components/One'
 import { RootScope } from './react-sync/scope/RootScope'
 import { defineShape, shapeOf } from './react-sync/shape/defineShape'
 import { useActions } from './react-sync/hooks/useActions'
@@ -22,6 +23,7 @@ const formatUpdatedAt = (value: string | null) => {
 export default function App({ session }: { session: WeatherAppSession }) {
   const snapshot = useSyncRoot(session.runtime)
   const rootNodeId = snapshot.rootNodeId || 'pending'
+  const sessionId = snapshot.sessionId || 'pending'
   const bootedLabel = snapshot.booted ? 'Booted' : 'Not booted'
 
   return (
@@ -32,7 +34,7 @@ export default function App({ session }: { session: WeatherAppSession }) {
         <p className="lede">
           The UI reads the shared model graph from a lightweight page-side
           receiver. The worker owns the weather state, the page only paints the
-          synced root data.
+          synced app graph through the current session root.
         </p>
 
         <div className="metric-grid">
@@ -44,15 +46,23 @@ export default function App({ session }: { session: WeatherAppSession }) {
             <span>Root node</span>
             <strong>{rootNodeId}</strong>
           </article>
+          <article className="metric-card">
+            <span>Session</span>
+            <strong>{sessionId}</strong>
+          </article>
           <RootScope runtime={session.runtime} fallback={<StatusFallback />}>
-            <StatusMetric />
+            <One rel="pioneer" fallback={<StatusFallback />}>
+              <StatusMetric />
+            </One>
           </RootScope>
         </div>
       </section>
 
       <section className="app-panel app-panel--content">
         <RootScope runtime={session.runtime} fallback={<ContentFallback />}>
-          <WeatherContent />
+          <One rel="pioneer" fallback={<ContentFallback />}>
+            <WeatherContent />
+          </One>
         </RootScope>
       </section>
     </main>
@@ -162,7 +172,7 @@ function ContentFallback() {
   return (
     <div className="weather-readout">
       <div className="weather-readout__label">Temperature</div>
-      <div className="weather-readout__value">-- °C</div>
+      <div className="weather-readout__value">-- {'\u00b0'}C</div>
       <p className="weather-readout__summary">Booting weather runtime</p>
       <p className="weather-readout__meta">Updated not updated yet</p>
     </div>

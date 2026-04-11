@@ -1,5 +1,6 @@
 import { appRoot } from 'dkt/appRoot.js'
 import { merge as mergeDcl } from 'dkt/dcl/merge.js'
+import { createWeatherSessionRoot } from './createWeatherSessionRoot'
 
 const WEATHER_PRESETS = [
   {
@@ -45,9 +46,11 @@ const normalizeLocation = (value: unknown, fallback: string) => {
 
 const hashText = (value: string) => {
   let hash = 0
+
   for (let i = 0; i < value.length; i += 1) {
     hash = (hash * 31 + value.charCodeAt(i)) | 0
   }
+
   return Math.abs(hash)
 }
 
@@ -78,11 +81,12 @@ const pickPreset = (location: string) => {
   }
 }
 
-const buildWeatherState = (location: string, status_override?: string) => {
+const buildWeatherState = (location: string, statusOverride?: string) => {
   const report = pickPreset(location)
+
   return {
     location: report.location,
-    status: status_override || report.status,
+    status: statusOverride || report.status,
     temperatureText: `${report.temperatureC} \u00b0C`,
     summary: report.summary,
     updatedAt: new Date().toISOString(),
@@ -94,6 +98,12 @@ const app_props = {
     target.start_page = target
   },
   model_name: 'weather_app_root',
+  rels: {
+    $session_root: ['model', createWeatherSessionRoot()],
+    common_session_root: ['input', { linking: '<< $session_root' }],
+    sessions: ['input', { linking: '<< $session_root', many: true }],
+    free_sessions: ['input', { linking: '<< $session_root', many: true }],
+  },
   attrs: {
     location: ['input', 'Moscow'],
     status: ['input', 'booting'],

@@ -1,7 +1,14 @@
 import { prepare as prepareAppRuntime } from 'dkt/runtime/app/prepare.js'
 import { SYNCR_TYPES } from 'dkt-all/libs/provoda/SyncR_TYPES.js'
+import { hookSessionRoot } from 'dkt-all/libs/provoda/provoda/BrowseMap.js'
+import { getModelById } from 'dkt-all/libs/provoda/utils/getModelById.js'
 import { APP_MSG, RUNTIME_LOG_SCOPE } from '../shared/messageTypes'
 import { createWeatherAppRoot } from '../app/createWeatherAppRoot'
+import { createSessionManager } from './session-manager'
+
+const SESSION_IMPORTANT_REL_PATHS = Object.freeze([
+  Object.freeze(['pioneer']),
+])
 
 const createWorkerStream = (transport: {
   send(message: unknown, transfer_list?: Transferable[]): void
@@ -33,6 +40,7 @@ const createWorkerStream = (transport: {
 export const createWeatherModelRuntime = () => {
   let current_app: any = null
   let booting = false
+  const sessionManager = createSessionManager()
   const connections = new Set<{
     transport: {
       send(message: unknown, transfer_list?: Transferable[]): void
@@ -41,6 +49,7 @@ export const createWeatherModelRuntime = () => {
     }
     stream: ReturnType<typeof createWorkerStream>
     destroyed: boolean
+    sessionId: string | null
   }>()
 
   const emitForConnection = (
@@ -116,34 +125,143 @@ export const createWeatherModelRuntime = () => {
   }
 
   const handleDispatchAction = async (
-    connection: { transport: { send(message: unknown): void } },
+    connection: {
+      transport: { send(message: unknown): void }
+      stream: ReturnType<typeof createWorkerStream>
+      sessionId: string | null
+    },
     action_name: string,
     payload: unknown,
+    scope_node_id?: string | null,
   ) => {
     const app = await bootstrapApp()
-    await app.inited.app_model.dispatch(action_name, payload)
-    appendLog(connection, `dispatched app action -> ${action_name}`)
+    const appModel = app.inited.app_model
+    const session = connection.sessionId
+      ? sessionManager.getSessionByStreamId(connection.stream.id)
+      : null
+
+    let dispatchTarget = session?.sessionRoot ?? appModel
+
+    if (typeof scope_node_id === 'string' && scope_node_id) {
+      dispatchTarget =
+        (session && getModelById(session.sessionRoot, scope_node_id)) ||
+        getModelById(appModel, scope_node_id) ||
+        dispatchTarget
+    }
+
+    try {
+      await dispatchTarget.dispatch(action_name, payload)
+      appendLog(
+        connection,
+        `dispatched action -> ${action_name} @ ${dispatchTarget.model_name || dispatchTarget._node_id}`,
+      )
+      return
+    } catch (error) {
+      if (dispatchTarget !== appModel) {
+        await appModel.dispatch(action_name, payload)
+        appendLog(connection, `fallback app action -> ${action_name}`)
+        return
+      }
+
+      throw error
+    }
+  }
+
+  const getSessionRoot = async (
+    app: any,
+    sessionId: string,
+    route?: unknown,
+  ) => {
+    return new Promise((resolve, reject) => {
+      app.inited.app_model.input(async () => {
+        try {
+          const sessionRoot = await hookSessionRoot(
+            app.inited.app_model,
+            app.inited.app_model.start_page,
+            {
+              sessionKey: sessionId,
+              route: route ?? null,
+            },
+          )
+
+          resolve(sessionRoot)
+        } catch (error) {
+          reject(error)
+        }
+      })
+    })
+  }
+
+  const bootstrapSession = async (
+    connection: {
+      transport: { send(message: unknown): void }
+      stream: ReturnType<typeof createWorkerStream>
+      sessionId: string | null
+    },
+    {
+      session_id,
+      route,
+    }: {
+      session_id?: string
+      route?: unknown
+    } = {},
+  ) => {
+    const app = await bootstrapApp()
+    const session = await sessionManager.ensureSession(
+      (nextSessionId) => getSessionRoot(app, nextSessionId, route),
+      session_id,
+    )
+
+    if (connection.sessionId && connection.sessionId !== session.sessionId) {
+      sessionManager.detachStream(connection.stream.id, () => {})
+      app.runtime.sync_sender.removeSyncStream(connection.stream)
+    }
+
+    connection.sessionId = session.sessionId
+    sessionManager.attachStream(session.sessionId, connection.stream.id)
+
+    await app.runtime.sync_sender.addSyncStream(
+      session.sessionRoot,
+      connection.stream,
+      SESSION_IMPORTANT_REL_PATHS,
+    )
+
+    emitForConnection(connection, {
+      type: APP_MSG.SESSION_BOOTED,
+      session_id: session.sessionId,
+      root_node_id: session.sessionRoot._node_id,
+    })
+
+    appendLog(connection, `session booted -> ${session.sessionId}`)
   }
 
   const handleMessage = async (
     connection: {
       transport: { send(message: unknown): void }
       stream: ReturnType<typeof createWorkerStream>
+      sessionId: string | null
     },
     message: any,
   ) => {
     switch (message?.type) {
       case APP_MSG.CONTROL_BOOTSTRAP_MODEL: {
-        const app = await bootstrapApp()
-        await app.runtime.sync_sender.addSyncStream(
-          app.inited.app_model,
-          connection.stream,
-        )
-        emitForConnection(connection, {
-          type: APP_MSG.MODEL_BOOTED,
-          root_node_id: app.inited.app_model._node_id,
+        await bootstrapSession(connection, {})
+        return
+      }
+      case APP_MSG.CONTROL_BOOTSTRAP_SESSION: {
+        await bootstrapSession(connection, {
+          session_id: message.session_id,
+          route: message.route,
         })
-        appendLog(connection, 'shared worker connection booted')
+        return
+      }
+      case APP_MSG.CONTROL_CLOSE_SESSION: {
+        if (connection.sessionId) {
+          const app = await bootstrapApp()
+          app.runtime.sync_sender.removeSyncStream(connection.stream)
+          sessionManager.destroySession(connection.sessionId)
+          connection.sessionId = null
+        }
         return
       }
       case APP_MSG.CONTROL_DISPATCH_APP_ACTION: {
@@ -151,15 +269,26 @@ export const createWeatherModelRuntime = () => {
           connection,
           message.action_name,
           message.payload,
+          message.scope_node_id,
         )
         return
       }
       case APP_MSG.CONTROL_SET_LOCATION: {
-        await handleDispatchAction(connection, 'setLocation', message.payload)
+        await handleDispatchAction(
+          connection,
+          'setLocation',
+          message.payload,
+          message.scope_node_id,
+        )
         return
       }
       case APP_MSG.CONTROL_REFRESH_WEATHER: {
-        await handleDispatchAction(connection, 'refreshWeather', message.payload)
+        await handleDispatchAction(
+          connection,
+          'refreshWeather',
+          message.payload,
+          message.scope_node_id,
+        )
         return
       }
       case APP_MSG.SYNC_UPDATE_STRUCTURE_USAGE: {
@@ -184,8 +313,14 @@ export const createWeatherModelRuntime = () => {
       transport,
       stream: createWorkerStream(transport),
       destroyed: false,
+      sessionId: null,
     }
     connections.add(connection)
+    sessionManager.registerConnection({
+      streamId: connection.stream.id,
+      transport,
+      connectedAt: Date.now(),
+    })
 
     const unlisten = transport.listen((message) => {
       Promise.resolve(handleMessage(connection, message)).catch((error) =>
@@ -207,6 +342,13 @@ export const createWeatherModelRuntime = () => {
 
         connection.destroyed = true
         unlisten?.()
+        const app = current_app
+        if (app?.runtime?.sync_sender) {
+          app.runtime.sync_sender.removeSyncStream(connection.stream)
+        }
+        sessionManager.detachStream(connection.stream.id, (session) => {
+          appendLog(connection, `session released -> ${session.sessionId}`)
+        })
         connections.delete(connection)
         transport.destroy()
       },
