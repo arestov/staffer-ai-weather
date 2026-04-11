@@ -8,7 +8,7 @@ import { hookSessionRoot } from 'dkt-all/libs/provoda/provoda/BrowseMap.js'
 import { getModelById } from 'dkt-all/libs/provoda/utils/getModelById.js'
 import { APP_MSG, RUNTIME_LOG_SCOPE } from '../shared/messageTypes'
 import type { ReactSyncTransportMessage } from '../shared/messageTypes'
-import { createWeatherAppRoot } from '../app/createWeatherAppRoot'
+import { AppRoot } from '../app/createWeatherAppRoot'
 import { createSessionManager } from './session-manager'
 
 const SESSION_IMPORTANT_REL_PATHS = Object.freeze([
@@ -104,7 +104,6 @@ export const createWeatherModelRuntime = () => {
         }
       },
     })
-    const { AppRoot } = createWeatherAppRoot()
     const inited = await runtime.start({
       App: AppRoot,
       interfaces: {

@@ -145,9 +145,4 @@ const app_props = mergeDcl({
   },
 })
 
-const createWeatherStartPage = () => appRoot(app_props, app_props.init)
-
-export const createWeatherAppRoot = () => {
-  const AppRoot = createWeatherStartPage()
-  return { AppRoot }
-}
+export const AppRoot =  appRoot(app_props, app_props.init)
