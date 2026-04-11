@@ -1,6 +1,6 @@
 import { appRoot } from 'dkt/appRoot.js'
 import { merge as mergeDcl } from 'dkt/dcl/merge.js'
-import { createWeatherSessionRoot } from './createWeatherSessionRoot'
+import { SessionRoot } from './createWeatherSessionRoot'
 
 const WEATHER_PRESETS = [
   {
@@ -99,7 +99,7 @@ const app_props = mergeDcl({
   },
   model_name: 'weather_app_root',
   rels: {
-    $session_root: ['model', createWeatherSessionRoot()],
+    $session_root: ['model', SessionRoot],
     common_session_root: ['input', { linking: '<< $session_root' }],
     sessions: ['input', { linking: '<< $session_root', many: true }],
     free_sessions: ['input', { linking: '<< $session_root', many: true }],
