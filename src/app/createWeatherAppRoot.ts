@@ -1,6 +1,6 @@
 import { appRoot } from 'dkt/appRoot.js'
 import { merge as mergeDcl } from 'dkt/dcl/merge.js'
-import { SessionRoot } from './createWeatherSessionRoot'
+import { SessionRoot } from './SessionRoot'
 
 const WEATHER_PRESETS = [
   {
