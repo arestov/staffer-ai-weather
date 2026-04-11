@@ -1,4 +1,5 @@
 import { SYNCR_TYPES } from 'dkt-all/libs/provoda/SyncR_TYPES.js'
+import type { ReactSyncScopeHandle } from '../scope/ScopeHandle'
 
 type DictKey = number | string
 type Listener = () => void
@@ -127,6 +128,8 @@ export class ReactSyncReceiver {
 
   private nodesById: Map<string, ReactSyncNode>
 
+  private scopesByNodeId: Map<string, ReactSyncScopeHandle>
+
   private rootSubs: Set<Listener>
 
   private attrSubsByNodeId: Map<string, Map<string, Set<Listener>>>
@@ -135,6 +138,16 @@ export class ReactSyncReceiver {
 
   private listSubsByNodeId: Map<string, Map<string, Set<Listener>>>
 
+  private attrsReadCache: Map<string, { nodeId: string | null; values: Record<string, unknown> }>
+
+  private manyReadCache: Map<
+    string,
+    {
+      relValue: RelValue
+      scopes: readonly ReactSyncScopeHandle[]
+    }
+  >
+
   constructor(bridge: ReactSyncBridge | null) {
     this.bridge = bridge
     this.rootNodeId = null
@@ -142,14 +155,38 @@ export class ReactSyncReceiver {
     this.dictNumsByName = new Map()
     this.modelSchema = null
     this.nodesById = new Map()
+    this.scopesByNodeId = new Map()
     this.rootSubs = new Set()
     this.attrSubsByNodeId = new Map()
     this.relSubsByNodeId = new Map()
     this.listSubsByNodeId = new Map()
+    this.attrsReadCache = new Map()
+    this.manyReadCache = new Map()
   }
 
   getRootNodeId() {
     return this.rootNodeId
+  }
+
+  getScope(nodeId: string | null) {
+    if (!nodeId) {
+      return null
+    }
+
+    let scope = this.scopesByNodeId.get(nodeId)
+    if (!scope) {
+      scope = Object.freeze({
+        kind: 'scope' as const,
+        _nodeId: nodeId,
+      })
+      this.scopesByNodeId.set(nodeId, scope)
+    }
+
+    return scope
+  }
+
+  getRootScope() {
+    return this.getScope(this.rootNodeId)
   }
 
   getModelSchema() {
@@ -169,28 +206,12 @@ export class ReactSyncReceiver {
     return this.resolveName(node.modelNameKey)
   }
 
-  readAttrs(nodeId: string | null, attrNames: readonly string[]) {
-    if (!nodeId) {
-      return EMPTY_OBJECT
-    }
-
-    const node = this.nodesById.get(nodeId)
-    if (!node) {
-      return EMPTY_OBJECT
-    }
-
-    const result: Record<string, unknown> = {}
-
-    for (let i = 0; i < attrNames.length; i += 1) {
-      const name = attrNames[i]
-      result[name] = this.readAttrFromNode(node, name)
-    }
-
-    return result
-  }
-
   readRootAttrs(attrNames: readonly string[]) {
     return this.readAttrs(this.rootNodeId, attrNames)
+  }
+
+  readScopeAttrs(scope: ReactSyncScopeHandle, attrNames: readonly string[]) {
+    return this.readAttrs(scope._nodeId, attrNames)
   }
 
   readRel(nodeId: string | null, relName: string): RelValue {
@@ -208,6 +229,60 @@ export class ReactSyncReceiver {
 
   readRootRel(relName: string) {
     return this.readRel(this.rootNodeId, relName)
+  }
+
+  readOneScope(scope: ReactSyncScopeHandle, relName: string) {
+    const value = this.readRel(scope._nodeId, relName)
+
+    if (value == null) {
+      return null
+    }
+
+    if (Array.isArray(value)) {
+      throw new Error(`rel ${relName} is many, expected one`)
+    }
+
+    return this.getScope(value)
+  }
+
+  readManyScopes(scope: ReactSyncScopeHandle, relName: string) {
+    const cacheKey = `${scope._nodeId}\u001f${relName}`
+    const relValue = this.readRel(scope._nodeId, relName)
+    const cached = this.manyReadCache.get(cacheKey)
+
+    if (relValue == null) {
+      if (cached && cached.relValue == null) {
+        return cached.scopes
+      }
+
+      const nextScopes = Object.freeze([]) as readonly ReactSyncScopeHandle[]
+      this.manyReadCache.set(cacheKey, {
+        relValue: null,
+        scopes: nextScopes,
+      })
+      return nextScopes
+    }
+
+    if (!Array.isArray(relValue)) {
+      throw new Error(`rel ${relName} is one, expected many`)
+    }
+
+    if (cached && cached.relValue === relValue) {
+      return cached.scopes
+    }
+
+    const nextScopes = Object.freeze(
+      relValue
+        .map((nodeId) => this.getScope(nodeId))
+        .filter((item): item is ReactSyncScopeHandle => item != null),
+    )
+
+    this.manyReadCache.set(cacheKey, {
+      relValue,
+      scopes: nextScopes,
+    })
+
+    return nextScopes
   }
 
   subscribeRoot(listener: Listener) {
@@ -382,10 +457,13 @@ export class ReactSyncReceiver {
     this.dictNumsByName.clear()
     this.modelSchema = null
     this.nodesById.clear()
+    this.scopesByNodeId.clear()
     this.rootSubs.clear()
     this.attrSubsByNodeId.clear()
     this.relSubsByNodeId.clear()
     this.listSubsByNodeId.clear()
+    this.attrsReadCache.clear()
+    this.manyReadCache.clear()
   }
 
   private handleTreeRoot(payload: {
@@ -406,6 +484,8 @@ export class ReactSyncReceiver {
     }
 
     this.rootNodeId = nextRootNodeId
+    this.attrsReadCache.clear()
+    this.manyReadCache.clear()
 
     if (previousRootNodeId !== nextRootNodeId) {
       notifyAll(this.rootSubs)
@@ -732,5 +812,48 @@ export class ReactSyncReceiver {
         store.delete(nodeId)
       }
     }
+  }
+
+  readAttrs(nodeId: string | null, attrNames: readonly string[]) {
+    if (!nodeId) {
+      return EMPTY_OBJECT
+    }
+
+    const node = this.nodesById.get(nodeId)
+    if (!node) {
+      return EMPTY_OBJECT
+    }
+
+    const cacheKey = `${nodeId}\u001f${attrNames.join('\u001f')}`
+    const nextValues: Record<string, unknown> = {}
+
+    for (let i = 0; i < attrNames.length; i += 1) {
+      const name = attrNames[i]
+      nextValues[name] = this.readAttrFromNode(node, name)
+    }
+
+    const cached = this.attrsReadCache.get(cacheKey)
+    if (cached && cached.nodeId === nodeId) {
+      let changed = false
+
+      for (let i = 0; i < attrNames.length; i += 1) {
+        const name = attrNames[i]
+        if (!Object.is(cached.values[name], nextValues[name])) {
+          changed = true
+          break
+        }
+      }
+
+      if (!changed) {
+        return cached.values
+      }
+    }
+
+    this.attrsReadCache.set(cacheKey, {
+      nodeId,
+      values: nextValues,
+    })
+
+    return nextValues
   }
 }

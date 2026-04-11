@@ -1,6 +1,12 @@
 import { SYNCR_TYPES } from 'dkt-all/libs/provoda/SyncR_TYPES.js'
-import { BlankAppRootView } from '../app/createBlankAppRootView'
 import { ReactSyncReceiver } from '../react-sync/receiver/ReactSyncReceiver'
+import type { ReactScopeRuntime } from '../react-sync/runtime/ReactScopeRuntime'
+import type { ReactSyncScopeHandle } from '../react-sync/scope/ScopeHandle'
+import {
+  ShapeRegistry,
+  type ShapeRegistryRuntime,
+  type ReactTransportShape,
+} from '../react-sync/shape/ShapeRegistry'
 import { APP_MSG, RUNTIME_LOG_SCOPE } from '../shared/messageTypes'
 import { createSyncStore, type SyncStore } from './createSyncStore'
 
@@ -11,7 +17,7 @@ export interface WeatherRootSnapshot {
   rootNodeId: string | null
 }
 
-export interface WeatherPageSyncRuntime {
+export interface WeatherPageSyncRuntime extends ReactScopeRuntime {
   store: SyncStore<WeatherRootSnapshot>
   bootstrap(): void
   dispatchAction(actionName: string, payload?: unknown): void
@@ -57,10 +63,6 @@ export const createPageSyncReceiverRuntime = ({
 }): WeatherPageSyncRuntime => {
   const store = createSyncStore(createEmptySnapshot())
   const rootAttrsCache = new Map<string, RootAttrsCacheEntry>()
-  let prototypeUsagePromise:
-    | Promise<{ graph: Record<string, unknown>; used_structures: unknown }>
-    | null = null
-  let prototypeUsageSent = false
 
   const emit = (message: unknown) => {
     transport.send(message)
@@ -98,6 +100,36 @@ export const createPageSyncReceiverRuntime = ({
       })
     },
   })
+  const shapeRegistry = new ShapeRegistry()
+
+  const shapeRuntime: ShapeRegistryRuntime = {
+    publishShapeGraph(graph: Record<string, ReactTransportShape>) {
+      syncReceiver.updateStructureUsage({ graph })
+    },
+    requireNodeShapes(nodeId: string, shapeIds: readonly string[]) {
+      syncReceiver.requireShapeForModel([nodeId, ...shapeIds])
+    },
+    readOne(scope: ReactSyncScopeHandle, relName: string) {
+      return syncReceiver.readOneScope(scope, relName)
+    },
+    subscribeOne(
+      scope: ReactSyncScopeHandle,
+      relName: string,
+      listener: () => void,
+    ) {
+      return syncReceiver.subscribeNodeRel(scope._nodeId, relName, listener)
+    },
+    readMany(scope: ReactSyncScopeHandle, relName: string) {
+      return syncReceiver.readManyScopes(scope, relName)
+    },
+    subscribeMany(
+      scope: ReactSyncScopeHandle,
+      relName: string,
+      listener: () => void,
+    ) {
+      return syncReceiver.subscribeNodeList(scope._nodeId, relName, listener)
+    },
+  }
 
   const syncSnapshotWithReceiver = () => {
     const current = store.getSnapshot()
@@ -114,19 +146,6 @@ export const createPageSyncReceiverRuntime = ({
         ready,
       }),
     )
-  }
-
-  const sendPrototypeUsage = async () => {
-    if (prototypeUsageSent || !prototypeUsagePromise || !syncReceiver.getRootNodeId()) {
-      return
-    }
-
-    const usage = await prototypeUsagePromise
-    emit({
-      type: APP_MSG.SYNC_UPDATE_STRUCTURE_USAGE,
-      data: usage,
-    })
-    prototypeUsageSent = true
   }
 
   const getRootAttrs = (attrNames: readonly string[]) => {
@@ -177,7 +196,7 @@ export const createPageSyncReceiverRuntime = ({
     })
   }
 
-  const handleSyncMessage = async (message: any) => {
+  const handleSyncMessage = (message: any) => {
     switch (message?.sync_type) {
       case SYNCR_TYPES.SET_DICT:
       case SYNCR_TYPES.SET_MODEL_SCHEMA:
@@ -185,13 +204,12 @@ export const createPageSyncReceiverRuntime = ({
       case SYNCR_TYPES.TREE_ROOT: {
         syncReceiver.handleSync(message.sync_type, message.payload)
         syncSnapshotWithReceiver()
-        await sendPrototypeUsage()
         return
       }
     }
   }
 
-  const handleMessage = async (message: any) => {
+  const handleMessage = (message: any) => {
     switch (message?.type) {
       case APP_MSG.MODEL_BOOTED: {
         const current = store.getSnapshot()
@@ -213,7 +231,7 @@ export const createPageSyncReceiverRuntime = ({
         return
       }
       case APP_MSG.SYNC_HANDLE: {
-        await handleSyncMessage(message)
+        handleSyncMessage(message)
         return
       }
     }
@@ -223,13 +241,30 @@ export const createPageSyncReceiverRuntime = ({
     Promise.resolve(handleMessage(message)).catch(emitError)
   })
 
-  prototypeUsagePromise = BlankAppRootView.prototype._getPrototypeStructure()
-
   return {
     store,
     bootstrap,
     dispatchAction,
     getSnapshot: () => store.getSnapshot(),
+    getRootScope: () => syncReceiver.getRootScope(),
+    subscribeRootScope: (listener) => syncReceiver.subscribeRoot(listener),
+    readAttrs: (scope, attrNames) => syncReceiver.readScopeAttrs(scope, attrNames),
+    subscribeAttrs: (scope, attrNames, listener) =>
+      syncReceiver.subscribeNodeAttrs(scope._nodeId, attrNames, listener),
+    readOne: (scope, relName) => syncReceiver.readOneScope(scope, relName),
+    subscribeOne: (scope, relName, listener) =>
+      syncReceiver.subscribeNodeRel(scope._nodeId, relName, listener),
+    readMany: (scope, relName) => syncReceiver.readManyScopes(scope, relName),
+    subscribeMany: (scope, relName, listener) =>
+      syncReceiver.subscribeNodeList(scope._nodeId, relName, listener),
+    mountShape: (scope, shape) => shapeRegistry.mount(shapeRuntime, scope, shape),
+    dispatch: (
+      actionName: string,
+      payload?: unknown,
+      _scope?: ReactSyncScopeHandle | null,
+    ) => {
+      dispatchAction(actionName, payload)
+    },
     getRootAttrs,
     subscribe: store.subscribe,
     subscribeRootAttrs: (attrNames, listener) =>
@@ -238,9 +273,8 @@ export const createPageSyncReceiverRuntime = ({
       unlisten?.()
       transport.destroy()
       syncReceiver.destroy()
+      shapeRegistry.destroy()
       rootAttrsCache.clear()
-      prototypeUsagePromise = null
-      prototypeUsageSent = false
     },
   }
 }

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
+import { RootScope } from './react-sync/scope/RootScope'
+import { defineShape, shapeOf } from './react-sync/shape/defineShape'
+import { useActions } from './react-sync/hooks/useActions'
+import { useAttrs } from './react-sync/hooks/useAttrs'
 import type { WeatherAppSession } from './page/createWeatherAppSession'
-import { useModelAttrs } from './page/react/useModelAttrs'
 import { useSyncRoot } from './page/react/useSyncRoot'
 
 const formatUpdatedAt = (value: string | null) => {
@@ -18,39 +21,8 @@ const formatUpdatedAt = (value: string | null) => {
 
 export default function App({ session }: { session: WeatherAppSession }) {
   const snapshot = useSyncRoot(session.runtime)
-  const attrs = useModelAttrs(session.runtime, [
-    'location',
-    'status',
-    'temperatureText',
-    'summary',
-    'updatedAt',
-  ])
-  const [location, setLocation] = useState('Moscow')
-
-  useEffect(() => {
-    if (typeof attrs.location === 'string' && attrs.location) {
-      setLocation(attrs.location)
-    }
-  }, [attrs.location])
-
-  const bootedLabel = snapshot.booted ? 'Booted' : 'Not booted'
-  const statusLabel = String(attrs.status || 'booting')
-  const temperatureText = String(attrs.temperatureText || '-- \u00b0C')
-  const summary = String(attrs.summary || '')
   const rootNodeId = snapshot.rootNodeId || 'pending'
-
-  const submitLocation = () => {
-    const nextLocation = location.trim()
-    if (!nextLocation) {
-      return
-    }
-
-    session.dispatchAction('setLocation', nextLocation)
-  }
-
-  const refreshWeather = () => {
-    session.dispatchAction('refreshWeather')
-  }
+  const bootedLabel = snapshot.booted ? 'Booted' : 'Not booted'
 
   return (
     <main className="app-shell">
@@ -72,50 +44,127 @@ export default function App({ session }: { session: WeatherAppSession }) {
             <span>Root node</span>
             <strong>{rootNodeId}</strong>
           </article>
-          <article className="metric-card">
-            <span>Status</span>
-            <strong className={`status-pill status-pill--${statusLabel}`}>
-              {statusLabel}
-            </strong>
-          </article>
+          <RootScope runtime={session.runtime} fallback={<StatusFallback />}>
+            <StatusMetric />
+          </RootScope>
         </div>
       </section>
 
       <section className="app-panel app-panel--content">
-        <div className="weather-readout">
-          <div className="weather-readout__label">Temperature</div>
-          <div className="weather-readout__value">{temperatureText}</div>
-          <p className="weather-readout__summary">{summary}</p>
-          <p className="weather-readout__meta">
-            Updated {formatUpdatedAt((attrs.updatedAt as string | null) ?? null)}
-          </p>
-        </div>
-
-        <form
-          className="control-bar"
-          onSubmit={(event) => {
-            event.preventDefault()
-            submitLocation()
-          }}
-        >
-          <label className="control-bar__field">
-            <span>Set location</span>
-            <input
-              value={location}
-              onChange={(event) => setLocation(event.target.value)}
-              placeholder="Type a city name"
-              spellCheck={false}
-            />
-          </label>
-
-          <div className="control-bar__actions">
-            <button type="submit">Set location</button>
-            <button type="button" className="secondary" onClick={refreshWeather}>
-              Refresh weather
-            </button>
-          </div>
-        </form>
+        <RootScope runtime={session.runtime} fallback={<ContentFallback />}>
+          <WeatherContent />
+        </RootScope>
       </section>
     </main>
+  )
+}
+
+const WeatherContentShape = defineShape({
+  attrs: ['location', 'status', 'temperatureText', 'summary', 'updatedAt'],
+})
+
+const StatusMetric = shapeOf(function StatusMetric() {
+  const attrs = useAttrs(['status'])
+  const statusLabel = String(attrs.status || 'booting')
+
+  return (
+    <article className="metric-card">
+      <span>Status</span>
+      <strong className={`status-pill status-pill--${statusLabel}`}>
+        {statusLabel}
+      </strong>
+    </article>
+  )
+}, defineShape({ attrs: ['status'] }))
+
+const WeatherContent = shapeOf(function WeatherContent() {
+  const attrs = useAttrs([
+    'location',
+    'temperatureText',
+    'summary',
+    'updatedAt',
+  ])
+  const { dispatch } = useActions()
+  const [location, setLocation] = useState('Moscow')
+
+  useEffect(() => {
+    if (typeof attrs.location === 'string' && attrs.location) {
+      setLocation(attrs.location)
+    }
+  }, [attrs.location])
+
+  const submitLocation = () => {
+    const nextLocation = location.trim()
+    if (!nextLocation) {
+      return
+    }
+
+    dispatch('setLocation', nextLocation)
+  }
+
+  const refreshWeather = () => {
+    dispatch('refreshWeather')
+  }
+
+  const temperatureText = String(attrs.temperatureText || '-- \u00b0C')
+  const summary = String(attrs.summary || '')
+  const updatedAt = (attrs.updatedAt as string | null) ?? null
+
+  return (
+    <>
+      <div className="weather-readout">
+        <div className="weather-readout__label">Temperature</div>
+        <div className="weather-readout__value">{temperatureText}</div>
+        <p className="weather-readout__summary">{summary}</p>
+        <p className="weather-readout__meta">
+          Updated {formatUpdatedAt(updatedAt)}
+        </p>
+      </div>
+
+      <form
+        className="control-bar"
+        onSubmit={(event) => {
+          event.preventDefault()
+          submitLocation()
+        }}
+      >
+        <label className="control-bar__field">
+          <span>Set location</span>
+          <input
+            value={location}
+            onChange={(event) => setLocation(event.target.value)}
+            placeholder="Type a city name"
+            spellCheck={false}
+          />
+        </label>
+
+        <div className="control-bar__actions">
+          <button type="submit">Set location</button>
+          <button type="button" className="secondary" onClick={refreshWeather}>
+            Refresh weather
+          </button>
+        </div>
+      </form>
+    </>
+  )
+}, WeatherContentShape)
+
+function StatusFallback() {
+  return (
+    <article className="metric-card">
+      <span>Status</span>
+      <strong className="status-pill status-pill--booting">booting</strong>
+    </article>
+  )
+}
+
+function ContentFallback() {
+  return (
+    <div className="weather-readout">
+      <div className="weather-readout__label">Temperature</div>
+      <div className="weather-readout__value">-- °C</div>
+      <p className="weather-readout__summary">Booting weather runtime</p>
+      <p className="weather-readout__meta">Updated not updated yet</p>
+    </div>
   )
 }
