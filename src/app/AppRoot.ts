@@ -1,6 +1,7 @@
 import { appRoot } from 'dkt/appRoot.js'
 import { merge as mergeDcl } from 'dkt/dcl/merge.js'
 import { SessionRoot } from './SessionRoot'
+import { SelectedLocation, WeatherLocation } from './rels'
 
 const WEATHER_PRESETS = [
   {
@@ -93,6 +94,110 @@ const buildWeatherState = (location: string, statusOverride?: string) => {
   }
 }
 
+const buildForecastSeries = (location: string, offset: number) => {
+  const report = pickPreset(location)
+  const hash = hashText(`${location}:${offset}`)
+  const temperatureC = report.temperatureC + ((hash % 5) - 2)
+  const labels = ['Now', 'Soon', 'Later', 'Tonight', 'Tomorrow', 'Next day']
+
+  return {
+    attrs: {
+      label: labels[offset % labels.length],
+      temperatureText: `${temperatureC} \u00b0C`,
+      summary: report.summary,
+    },
+  }
+}
+
+const buildWeatherLocationRecord = (
+  location: string,
+  options: { statusOverride?: string; forecastOffset?: number } = {},
+) => {
+  const report = pickPreset(location)
+  const forecastOffset = options.forecastOffset ?? 0
+
+  return {
+    attrs: {
+      name: report.location,
+    },
+    rels: {
+      currentWeather: {
+        attrs: buildWeatherState(location, options.statusOverride),
+      },
+      hourlyForecastSeries: [
+        buildForecastSeries(location, forecastOffset),
+        buildForecastSeries(location, forecastOffset + 1),
+      ],
+      dailyForecastSeries: [buildForecastSeries(location, forecastOffset + 2)],
+    },
+  }
+}
+
+const buildSelectedLocationRecord = (weatherLocation: any) => ({
+  rels: {
+    weatherLocation,
+  },
+})
+
+const WEATHER_LOCATION_CREATION_SHAPE = {
+  attrs: ['name'],
+  rels: {
+    currentWeather: {
+      attrs: ['location', 'status', 'temperatureText', 'summary', 'updatedAt'],
+    },
+    hourlyForecastSeries: {
+      attrs: ['label', 'temperatureText', 'summary'],
+    },
+    dailyForecastSeries: {
+      attrs: ['label', 'temperatureText', 'summary'],
+    },
+  },
+}
+
+const SELECTED_LOCATION_CREATION_SHAPE = {
+  rels: {
+    weatherLocation: WEATHER_LOCATION_CREATION_SHAPE,
+  },
+}
+
+const buildInitialWeatherLocations = () => [
+  buildWeatherLocationRecord('Moscow', {
+    statusOverride: 'ready',
+    forecastOffset: 0,
+  }),
+  buildWeatherLocationRecord('Berlin', {
+    statusOverride: 'steady',
+    forecastOffset: 2,
+  }),
+  buildWeatherLocationRecord('Portland', {
+    statusOverride: 'refreshing',
+    forecastOffset: 4,
+  }),
+  buildWeatherLocationRecord('Lisbon', {
+    statusOverride: 'ready',
+    forecastOffset: 6,
+  }),
+]
+
+const buildInitialSelectedLocations =  (
+  root: any,
+  weatherLocations: any[],
+) => {
+  if (!Array.isArray(weatherLocations)) {
+    throw new Error('weatherLocation should resolve to list')
+  }
+
+  const [mainWeather, berlinWeather, portlandWeather, lisbonWeather] =
+    weatherLocations
+
+  return [
+    buildSelectedLocationRecord(mainWeather),
+    buildSelectedLocationRecord(berlinWeather),
+    buildSelectedLocationRecord(portlandWeather),
+    buildSelectedLocationRecord(lisbonWeather),
+  ]
+}
+
 const app_props = mergeDcl({
   init: (target: { start_page?: unknown }) => {
     target.start_page = target
@@ -103,6 +208,17 @@ const app_props = mergeDcl({
     common_session_root: ['input', { linking: '<< $session_root' }],
     sessions: ['input', { linking: '<< $session_root', many: true }],
     free_sessions: ['input', { linking: '<< $session_root', many: true }],
+    weatherLocation: ['model', WeatherLocation, { many: true }],
+    location: ['model', SelectedLocation, { many: true }],
+    mainLocation: ['input', { linking: '<< location' }],
+    additionalLocations: ['input', { linking: '<< location', many: true }],
+    locations: [
+      'input',
+      {
+        linking: ['<< mainLocation', '<< additionalLocations'],
+        many: true,
+      },
+    ],
   },
   attrs: {
     location: ['input', 'Moscow'],
@@ -112,6 +228,40 @@ const app_props = mergeDcl({
     updatedAt: ['input', null],
   },
   actions: {
+    handleInit: [
+      {
+        to: {
+          weatherLocation: [
+            '<< weatherLocation',
+            {
+              method: 'set_many',
+              can_create: true,
+              creation_shape: WEATHER_LOCATION_CREATION_SHAPE,
+            },
+          ],
+        },
+        fn: () => buildInitialWeatherLocations(),
+      },
+      {
+        to: {
+          location: [
+            '<< location',
+            {
+              method: 'set_many',
+              can_create: true,
+              map_values_list_to_target: true,
+              creation_shape: SELECTED_LOCATION_CREATION_SHAPE,
+            },
+          ],
+        },
+        fn: [
+          ['<< @all:weatherLocation'],
+          (_payload: unknown, weatherLocations: any[]) => {
+            return buildInitialSelectedLocations(null, weatherLocations)
+          },
+        ],
+      },
+    ],
     setLocation: {
       to: {
         location: ['location'],
@@ -145,4 +295,4 @@ const app_props = mergeDcl({
   },
 })
 
-export const AppRoot =  appRoot(app_props, app_props.init)
+export const AppRoot = appRoot(app_props, app_props.init)

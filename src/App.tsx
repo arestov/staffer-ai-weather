@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react'
-import { One } from './react-sync/components/One'
+﻿import { One } from './react-sync/components/One'
+import { Many } from './react-sync/components/Many'
 import { RootScope } from './react-sync/scope/RootScope'
 import { defineShape, shapeOf } from './react-sync/shape/defineShape'
-import { useActions } from './react-sync/hooks/useActions'
 import { useAttrs } from './react-sync/hooks/useAttrs'
 import type { WeatherAppSession } from './page/createWeatherAppSession'
 import { useSyncRoot } from './page/react/useSyncRoot'
@@ -22,159 +21,161 @@ const formatUpdatedAt = (value: string | null) => {
 
 export default function App({ session }: { session: WeatherAppSession }) {
   const snapshot = useSyncRoot(session.runtime)
-  const rootNodeId = snapshot.rootNodeId || 'pending'
-  const sessionId = snapshot.sessionId || 'pending'
   const bootedLabel = snapshot.booted ? 'Booted' : 'Not booted'
 
   return (
     <main className="app-shell">
-      <section className="app-panel app-panel--hero">
+      <header className="app-header">
         <div className="eyebrow">Weather / DKT / SharedWorker</div>
-        <h1>Weather state rendered from a page-side sync graph</h1>
+        <h1>Live weather locations</h1>
         <p className="lede">
-          The UI reads the shared model graph from a lightweight page-side
-          receiver. The worker owns the weather state, the page only paints the
-          synced app graph through the current session root.
+          The worker bootstraps a model tree with one primary location and three
+          additional locations. The page renders the live graph directly from
+          `mainLocation` and `additionalLocations`.
         </p>
 
-        <div className="metric-grid">
+        <div className="metric-strip">
           <article className="metric-card">
             <span>Boot state</span>
             <strong>{bootedLabel}</strong>
           </article>
           <article className="metric-card">
             <span>Root node</span>
-            <strong>{rootNodeId}</strong>
+            <strong>{snapshot.rootNodeId || 'pending'}</strong>
           </article>
           <article className="metric-card">
             <span>Session</span>
-            <strong>{sessionId}</strong>
+            <strong>{snapshot.sessionId || 'pending'}</strong>
           </article>
-          <RootScope runtime={session.runtime} fallback={<StatusFallback />}>
-            <One rel="pioneer" fallback={<StatusFallback />}>
-              <StatusMetric />
-            </One>
-          </RootScope>
         </div>
-      </section>
+      </header>
 
-      <section className="app-panel app-panel--content">
-        <RootScope runtime={session.runtime} fallback={<ContentFallback />}>
-          <One rel="pioneer" fallback={<ContentFallback />}>
-            <WeatherContent />
+      <RootScope runtime={session.runtime} fallback={<GraphFallback />}>
+        <section className="main-stage">
+          <One rel="mainLocation" fallback={<LocationFallback featured />}>
+            <FeaturedLocationCard />
           </One>
-        </RootScope>
-      </section>
+        </section>
+
+        <section className="secondary-stage">
+          <div className="section-label">Additional locations</div>
+          <div className="location-grid">
+            <Many
+              rel="additionalLocations"
+              item={AdditionalLocationCard}
+              empty={<LocationFallback />}
+            />
+          </div>
+        </section>
+      </RootScope>
     </main>
   )
 }
 
-const WeatherContentShape = defineShape({
+const CurrentWeatherShape = defineShape({
   attrs: ['location', 'status', 'temperatureText', 'summary', 'updatedAt'],
 })
 
-const StatusMetric = shapeOf(function StatusMetric() {
-  const attrs = useAttrs(['status'])
-  const statusLabel = String(attrs.status || 'booting')
+const ForecastShape = defineShape({
+  attrs: ['label', 'temperatureText', 'summary'],
+})
 
-  return (
-    <article className="metric-card">
-      <span>Status</span>
-      <strong className={`status-pill status-pill--${statusLabel}`}>
-        {statusLabel}
-      </strong>
-    </article>
-  )
-}, defineShape({ attrs: ['status'] }))
-
-const WeatherContent = shapeOf(function WeatherContent() {
+const CurrentWeatherCard = shapeOf(function CurrentWeatherCard() {
   const attrs = useAttrs([
     'location',
+    'status',
     'temperatureText',
     'summary',
     'updatedAt',
   ])
-  const { dispatch } = useActions()
-  const [location, setLocation] = useState('Moscow')
 
-  useEffect(() => {
-    if (typeof attrs.location === 'string' && attrs.location) {
-      setLocation(attrs.location)
-    }
-  }, [attrs.location])
-
-  const submitLocation = () => {
-    const nextLocation = location.trim()
-    if (!nextLocation) {
-      return
-    }
-
-    dispatch('setLocation', nextLocation)
-  }
-
-  const refreshWeather = () => {
-    dispatch('refreshWeather')
-  }
-
+  const location = String(attrs.location || 'Unknown location')
+  const status = String(attrs.status || 'booting')
   const temperatureText = String(attrs.temperatureText || '-- \u00b0C')
   const summary = String(attrs.summary || '')
   const updatedAt = (attrs.updatedAt as string | null) ?? null
 
   return (
     <>
-      <div className="weather-readout">
-        <div className="weather-readout__label">Temperature</div>
-        <div className="weather-readout__value">{temperatureText}</div>
-        <p className="weather-readout__summary">{summary}</p>
-        <p className="weather-readout__meta">
-          Updated {formatUpdatedAt(updatedAt)}
-        </p>
-      </div>
-
-      <form
-        className="control-bar"
-        onSubmit={(event) => {
-          event.preventDefault()
-          submitLocation()
-        }}
-      >
-        <label className="control-bar__field">
-          <span>Set location</span>
-          <input
-            value={location}
-            onChange={(event) => setLocation(event.target.value)}
-            placeholder="Type a city name"
-            spellCheck={false}
-          />
-        </label>
-
-        <div className="control-bar__actions">
-          <button type="submit">Set location</button>
-          <button type="button" className="secondary" onClick={refreshWeather}>
-            Refresh weather
-          </button>
-        </div>
-      </form>
+      <div className="weather-readout__label">{location}</div>
+      <div className="weather-readout__value">{temperatureText}</div>
+      <p className="weather-readout__summary">{summary}</p>
+      <p className="weather-readout__meta">
+        <span className={`status-pill status-pill--${status}`}>{status}</span>
+        <span>Updated {formatUpdatedAt(updatedAt)}</span>
+      </p>
     </>
   )
-}, WeatherContentShape)
+}, CurrentWeatherShape)
 
-function StatusFallback() {
+const ForecastCard = shapeOf(function ForecastCard() {
+  const attrs = useAttrs(['label', 'temperatureText', 'summary'])
+
   return (
-    <article className="metric-card">
-      <span>Status</span>
-      <strong className="status-pill status-pill--booting">booting</strong>
+    <article className="forecast-chip">
+      <span className="forecast-chip__label">{String(attrs.label || '')}</span>
+      <strong>{String(attrs.temperatureText || '-- \u00b0C')}</strong>
+      <p>{String(attrs.summary || '')}</p>
+    </article>
+  )
+}, ForecastShape)
+
+const WeatherLocationInner = ({ featured = false }: { featured?: boolean }) => {
+  return (
+    <div className={featured ? 'location-card location-card--featured' : 'location-card'}>
+      <One rel="weatherLocation" fallback={<LocationFallback featured={featured} />}>
+        <div className="location-card__body">
+          <One rel="currentWeather" fallback={<LocationFallback featured={featured} />}>
+            <article className="weather-readout weather-readout--location">
+              <CurrentWeatherCard />
+            </article>
+          </One>
+
+          {featured ? (
+            <>
+              <div className="forecast-panels">
+                <div>
+                  <div className="mini-section-label">Hourly forecast</div>
+                  <div className="forecast-list">
+                    <Many rel="hourlyForecastSeries" item={ForecastCard} empty={<ForecastEmpty />} />
+                  </div>
+                </div>
+                <div>
+                  <div className="mini-section-label">Daily forecast</div>
+                  <div className="forecast-list">
+                    <Many rel="dailyForecastSeries" item={ForecastCard} empty={<ForecastEmpty />} />
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </div>
+      </One>
+    </div>
+  )
+}
+
+const FeaturedLocationCard = () => <WeatherLocationInner featured />
+const AdditionalLocationCard = () => <WeatherLocationInner />
+
+function GraphFallback() {
+  return <div className="graph-fallback">Booting weather graph...</div>
+}
+
+function LocationFallback({ featured = false }: { featured?: boolean }) {
+  return (
+    <article className={featured ? 'location-card location-card--featured' : 'location-card'}>
+      <div className="weather-readout weather-readout--location">
+        <div className="weather-readout__label">Loading location</div>
+        <div className="weather-readout__value">--</div>
+        <p className="weather-readout__summary">Waiting for the model tree</p>
+        <p className="weather-readout__meta">Initializing...</p>
+      </div>
     </article>
   )
 }
 
-function ContentFallback() {
-  return (
-    <div className="weather-readout">
-      <div className="weather-readout__label">Temperature</div>
-      <div className="weather-readout__value">-- {'\u00b0'}C</div>
-      <p className="weather-readout__summary">Booting weather runtime</p>
-      <p className="weather-readout__meta">Updated not updated yet</p>
-    </div>
-  )
+function ForecastEmpty() {
+  return <article className="forecast-chip forecast-chip--empty">No forecast data</article>
 }
+
