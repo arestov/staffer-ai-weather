@@ -1,4 +1,5 @@
 import { createPortTransport } from '../shared/createPortTransport'
+import type { ReactSyncTransportMessage } from '../shared/messageTypes'
 import { createWeatherModelRuntime } from './model-runtime'
 
 const runtime = createWeatherModelRuntime()
@@ -10,6 +11,6 @@ self.addEventListener('connect', (event: Event) => {
     return
   }
 
-  const transport = createPortTransport(port)
+  const transport = createPortTransport<ReactSyncTransportMessage>(port)
   runtime.connect(transport)
 })

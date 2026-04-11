@@ -1,4 +1,5 @@
 import { SYNCR_TYPES } from 'dkt-all/libs/provoda/SyncR_TYPES.js'
+import type { DomSyncTransportLike } from 'dkt/dom-sync/transport.js'
 import { ReactSyncReceiver } from '../react-sync/receiver/ReactSyncReceiver'
 import type { ReactScopeRuntime } from '../react-sync/runtime/ReactScopeRuntime'
 import type { ReactSyncScopeHandle } from '../react-sync/scope/ScopeHandle'
@@ -8,6 +9,7 @@ import {
   type ReactTransportShape,
 } from '../react-sync/shape/ShapeRegistry'
 import { APP_MSG, RUNTIME_LOG_SCOPE } from '../shared/messageTypes'
+import type { ReactSyncTransportMessage } from '../shared/messageTypes'
 import { createSyncStore, type SyncStore } from './createSyncStore'
 
 export interface WeatherRootSnapshot {
@@ -64,11 +66,7 @@ const createSnapshotWithVersion = (
 export const createPageSyncReceiverRuntime = ({
   transport,
 }: {
-  transport: {
-    send(message: unknown, transfer_list?: Transferable[]): void
-    listen(listener: (message: any) => void): () => void
-    destroy(): void
-  }
+  transport: DomSyncTransportLike<ReactSyncTransportMessage>
 }): WeatherPageSyncRuntime => {
   const store = createSyncStore(createEmptySnapshot())
   const rootAttrsCache = new Map<string, RootAttrsCacheEntry>()
@@ -86,7 +84,7 @@ export const createPageSyncReceiverRuntime = ({
     }
   }
 
-  const emit = (message: unknown) => {
+  const emit = (message: ReactSyncTransportMessage) => {
     pushDebugMessage('out', message)
     transport.send(message)
   }
@@ -224,8 +222,10 @@ export const createPageSyncReceiverRuntime = ({
     })
   }
 
-  const handleSyncMessage = (message: any) => {
-    switch (message?.sync_type) {
+  const handleSyncMessage = (
+    message: Extract<ReactSyncTransportMessage, { type: typeof APP_MSG.SYNC_HANDLE }>,
+  ) => {
+    switch (message.sync_type) {
       case SYNCR_TYPES.SET_DICT:
       case SYNCR_TYPES.SET_MODEL_SCHEMA:
       case SYNCR_TYPES.UPDATE:
@@ -237,8 +237,8 @@ export const createPageSyncReceiverRuntime = ({
     }
   }
 
-  const handleMessage = (message: any) => {
-    switch (message?.type) {
+  const handleMessage = (message: ReactSyncTransportMessage) => {
+    switch (message.type) {
       case APP_MSG.MODEL_BOOTED:
       case APP_MSG.SESSION_BOOTED: {
         const current = store.getSnapshot()

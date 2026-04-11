@@ -1,20 +1,29 @@
-const createListenerSet = () => {
-  const listeners = new Set<(message: unknown) => void>()
+import type {
+  DomSyncPortLike,
+  DomSyncTransportLike,
+  DomSyncTransportPayloadLike,
+} from 'dkt/dom-sync/transport.js'
+
+const createListenerSet = <Message>() => {
+  const listeners = new Set<(message: Message) => void>()
 
   return {
-    emit(message: unknown) {
+    emit(message: Message) {
       for (const listener of listeners) {
         listener(message)
       }
     },
-    listen(listener: (message: unknown) => void) {
+    listen(listener: (message: Message) => void) {
       listeners.add(listener)
       return () => listeners.delete(listener)
     },
   }
 }
 
-const addMessageListener = (endpoint: any, listener: (event: any) => void) => {
+const addMessageListener = <Message>(
+  endpoint: DomSyncPortLike<Message>,
+  listener: (event: DomSyncTransportPayloadLike<Message>) => void,
+) => {
   if (typeof endpoint?.addEventListener === 'function') {
     endpoint.addEventListener('message', listener)
     endpoint.start?.()
@@ -30,7 +39,10 @@ const addMessageListener = (endpoint: any, listener: (event: any) => void) => {
   throw new Error('port endpoint must support addEventListener() or on()')
 }
 
-const removeMessageListener = (endpoint: any, listener: (event: any) => void) => {
+const removeMessageListener = <Message>(
+  endpoint: DomSyncPortLike<Message>,
+  listener: (event: DomSyncTransportPayloadLike<Message>) => void,
+) => {
   if (typeof endpoint?.removeEventListener === 'function') {
     endpoint.removeEventListener('message', listener)
     return
@@ -46,25 +58,30 @@ const removeMessageListener = (endpoint: any, listener: (event: any) => void) =>
   }
 }
 
-const extractMessage = (payload: any) => payload?.data ?? payload
+const extractMessage = <Message>(payload: DomSyncTransportPayloadLike<Message>) =>
+  typeof payload === 'object' && payload !== null && 'data' in payload
+    ? payload.data
+    : (payload as Message)
 
-export const createPortTransport = (port: any) => {
+export const createPortTransport = <Message>(
+  port: DomSyncPortLike<Message>,
+): DomSyncTransportLike<Message> => {
   if (!port) {
     throw new Error('port is required')
   }
 
-  const listeners = createListenerSet()
-  const on_message = (payload: any) => {
+  const listeners = createListenerSet<Message>()
+  const on_message = (payload: DomSyncTransportPayloadLike<Message>) => {
     listeners.emit(extractMessage(payload))
   }
 
   addMessageListener(port, on_message)
 
   return {
-    send(message: unknown, transfer_list?: Transferable[]) {
+    send(message: Message, transfer_list?: Transferable[]) {
       port.postMessage(message, transfer_list || [])
     },
-    listen(listener: (message: unknown) => void) {
+    listen(listener: (message: Message) => void) {
       return listeners.listen(listener)
     },
     destroy() {

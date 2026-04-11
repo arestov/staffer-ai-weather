@@ -1,8 +1,13 @@
 import { prepare as prepareAppRuntime } from 'dkt/runtime/app/prepare.js'
+import type {
+  DomSyncTransportLike,
+  DomSyncTransportViewLike,
+} from 'dkt/dom-sync/transport.js'
 import { SYNCR_TYPES } from 'dkt-all/libs/provoda/SyncR_TYPES.js'
 import { hookSessionRoot } from 'dkt-all/libs/provoda/provoda/BrowseMap.js'
 import { getModelById } from 'dkt-all/libs/provoda/utils/getModelById.js'
 import { APP_MSG, RUNTIME_LOG_SCOPE } from '../shared/messageTypes'
+import type { ReactSyncTransportMessage } from '../shared/messageTypes'
 import { createWeatherAppRoot } from '../app/createWeatherAppRoot'
 import { createSessionManager } from './session-manager'
 
@@ -10,9 +15,9 @@ const SESSION_IMPORTANT_REL_PATHS = Object.freeze([
   Object.freeze(['pioneer']),
 ])
 
-const createWorkerStream = (transport: {
-  send(message: unknown, transfer_list?: Transferable[]): void
-}) => ({
+const createWorkerStream = (
+  transport: DomSyncTransportViewLike<ReactSyncTransportMessage>,
+) => ({
   id: `weather-stream-${Math.random().toString(36).slice(2)}`,
   send(list: unknown[]) {
     transport.send({
@@ -42,25 +47,21 @@ export const createWeatherModelRuntime = () => {
   let booting = false
   const sessionManager = createSessionManager()
   const connections = new Set<{
-    transport: {
-      send(message: unknown, transfer_list?: Transferable[]): void
-      listen(listener: (message: any) => void): () => void
-      destroy(): void
-    }
+    transport: DomSyncTransportLike<ReactSyncTransportMessage>
     stream: ReturnType<typeof createWorkerStream>
     destroyed: boolean
     sessionId: string | null
   }>()
 
   const emitForConnection = (
-    connection: { transport: { send(message: unknown): void } },
-    message: unknown,
+    connection: { transport: DomSyncTransportViewLike<ReactSyncTransportMessage> },
+    message: ReactSyncTransportMessage,
   ) => {
     connection.transport.send(message)
   }
 
   const appendLog = (
-    connection: { transport: { send(message: unknown): void } },
+    connection: { transport: DomSyncTransportViewLike<ReactSyncTransportMessage> },
     message: string,
   ) => {
     emitForConnection(connection, {
@@ -71,7 +72,7 @@ export const createWeatherModelRuntime = () => {
   }
 
   const emitError = (
-    connection: { transport: { send(message: unknown): void } },
+    connection: { transport: DomSyncTransportViewLike<ReactSyncTransportMessage> },
     error: unknown,
   ) => {
     emitForConnection(connection, {
@@ -126,7 +127,7 @@ export const createWeatherModelRuntime = () => {
 
   const handleDispatchAction = async (
     connection: {
-      transport: { send(message: unknown): void }
+      transport: DomSyncTransportViewLike<ReactSyncTransportMessage>
       stream: ReturnType<typeof createWorkerStream>
       sessionId: string | null
     },
@@ -194,7 +195,7 @@ export const createWeatherModelRuntime = () => {
 
   const bootstrapSession = async (
     connection: {
-      transport: { send(message: unknown): void }
+      transport: DomSyncTransportViewLike<ReactSyncTransportMessage>
       stream: ReturnType<typeof createWorkerStream>
       sessionId: string | null
     },
@@ -237,13 +238,13 @@ export const createWeatherModelRuntime = () => {
 
   const handleMessage = async (
     connection: {
-      transport: { send(message: unknown): void }
+      transport: DomSyncTransportViewLike<ReactSyncTransportMessage>
       stream: ReturnType<typeof createWorkerStream>
       sessionId: string | null
     },
-    message: any,
+    message: ReactSyncTransportMessage,
   ) => {
-    switch (message?.type) {
+    switch (message.type) {
       case APP_MSG.CONTROL_BOOTSTRAP_MODEL: {
         await bootstrapSession(connection, {})
         return
@@ -293,22 +294,24 @@ export const createWeatherModelRuntime = () => {
       }
       case APP_MSG.SYNC_UPDATE_STRUCTURE_USAGE: {
         const app = await bootstrapApp()
-        app.runtime.sync_sender.updateStructureUsage(connection.stream.id, message.data)
+        app.runtime.sync_sender.updateStructureUsage(
+          connection.stream.id,
+          message.data,
+        )
         return
       }
       case APP_MSG.SYNC_REQUIRE_SHAPE: {
         const app = await bootstrapApp()
-        app.runtime.sync_sender.requireShapeForModel(connection.stream.id, message.data)
+        app.runtime.sync_sender.requireShapeForModel(
+          connection.stream.id,
+          message.data,
+        )
         return
       }
     }
   }
 
-  const connect = (transport: {
-    send(message: unknown, transfer_list?: Transferable[]): void
-    listen(listener: (message: any) => void): () => void
-    destroy(): void
-  }) => {
+  const connect = (transport: DomSyncTransportLike<ReactSyncTransportMessage>) => {
     const connection = {
       transport,
       stream: createWorkerStream(transport),
