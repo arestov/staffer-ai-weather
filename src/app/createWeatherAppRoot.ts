@@ -93,7 +93,7 @@ const buildWeatherState = (location: string, statusOverride?: string) => {
   }
 }
 
-const app_props = {
+const app_props = mergeDcl({
   init: (target: { start_page?: unknown }) => {
     target.start_page = target
   },
@@ -143,9 +143,9 @@ const app_props = {
       ],
     },
   },
-}
+})
 
-const createWeatherStartPage = () => appRoot(mergeDcl(app_props), app_props.init)
+const createWeatherStartPage = () => appRoot(app_props, app_props.init)
 
 export const createWeatherAppRoot = () => {
   const AppRoot = createWeatherStartPage()

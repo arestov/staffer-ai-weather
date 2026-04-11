@@ -1,11 +1,13 @@
-const RootRouter = {
+import { merge as mergeDcl } from 'dkt/dcl/merge.js'
+
+const RootRouter = mergeDcl({
   model_name: 'weather_session_root',
   attrs: {
-    sessionKey: ['input', null] as const,
-    route: ['input', null] as const,
-    closedAt: ['input', null] as const,
-    isCommonRoot: ['input', false] as const,
+    sessionKey: ['input', null],
+    route: ['input', null],
+    closedAt: ['input', null],
+    isCommonRoot: ['input', false],
   },
-}
+})
 
 export default RootRouter
