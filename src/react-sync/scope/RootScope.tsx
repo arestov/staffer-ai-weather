@@ -6,11 +6,9 @@ import type { ReactScopeRuntime } from '../runtime/ReactScopeRuntime'
 export const RootScope = ({
   runtime,
   children,
-  fallback = null,
 }: {
   runtime: ReactScopeRuntime
   children: React.ReactNode
-  fallback?: React.ReactNode
 }) => {
   const rootScope = useSyncExternalStore(
     runtime.subscribeRootScope.bind(runtime),
@@ -20,11 +18,7 @@ export const RootScope = ({
 
   return (
     <ReactScopeRuntimeContext.Provider value={runtime}>
-      {rootScope ? (
-        <ScopeContext.Provider value={rootScope}>{children}</ScopeContext.Provider>
-      ) : (
-        fallback
-      )}
+      <ScopeContext.Provider value={rootScope}>{children}</ScopeContext.Provider>
     </ReactScopeRuntimeContext.Provider>
   )
 }

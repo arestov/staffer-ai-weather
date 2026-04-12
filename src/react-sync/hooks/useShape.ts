@@ -8,7 +8,7 @@ export const useShape = (shape: DefinedReactShape | null | undefined) => {
   const scope = useScope()
 
   useEffect(() => {
-    if (!shape) {
+    if (!shape || !scope) {
       return
     }
 

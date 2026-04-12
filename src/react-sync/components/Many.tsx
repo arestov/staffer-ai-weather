@@ -5,6 +5,8 @@ import { getRelShape } from '../shape/autoShapes'
 import { useScope } from '../hooks/useScope'
 import { useSyncExternalStore } from 'react'
 
+const EMPTY_ITEMS = Object.freeze([]) as readonly []
+
 export const Many = ({
   rel,
   item: Item,
@@ -21,12 +23,12 @@ export const Many = ({
   useShape(shape)
 
   const items = useSyncExternalStore(
-    (listener) => runtime.subscribeMany(scope, rel, listener),
-    () => runtime.readMany(scope, rel),
-    () => runtime.readMany(scope, rel),
+    (listener) => (scope ? runtime.subscribeMany(scope, rel, listener) : () => {}),
+    () => (scope ? runtime.readMany(scope, rel) : EMPTY_ITEMS),
+    () => (scope ? runtime.readMany(scope, rel) : EMPTY_ITEMS),
   )
 
-  if (!items.length) {
+  if (!scope || !items.length) {
     return <>{empty}</>
   }
 

@@ -50,7 +50,7 @@ export default function App({ session }: { session: WeatherAppSession }) {
         </header>
       </div>
 
-      <RootScope runtime={session.runtime} fallback={<GraphFallback />}>
+      <RootScope runtime={session.runtime}>
         <One rel="pioneer" fallback={<GraphFallback />}>
           <section className="main-stage">
             <One rel="mainLocation" fallback={<LocationFallback featured />}>

@@ -21,12 +21,12 @@ export const One = ({
   useShape(shape)
 
   const childScope = useSyncExternalStore(
-    (listener) => runtime.subscribeOne(scope, rel, listener),
-    () => runtime.readOne(scope, rel),
-    () => runtime.readOne(scope, rel),
+    (listener) => (scope ? runtime.subscribeOne(scope, rel, listener) : () => {}),
+    () => (scope ? runtime.readOne(scope, rel) : null),
+    () => (scope ? runtime.readOne(scope, rel) : null),
   )
 
-  if (!childScope) {
+  if (!scope || !childScope) {
     return <>{fallback}</>
   }
 
