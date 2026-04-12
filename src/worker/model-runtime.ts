@@ -6,6 +6,7 @@ import type {
 import { SYNCR_TYPES } from 'dkt-all/libs/provoda/SyncR_TYPES.js'
 import { hookSessionRoot } from 'dkt-all/libs/provoda/provoda/BrowseMap.js'
 import { getModelById } from 'dkt-all/libs/provoda/utils/getModelById.js'
+import { _getCurrentRel, _listRels } from 'dkt-all/libs/provoda/_internal/_listRels.js'
 import { APP_MSG, RUNTIME_LOG_SCOPE } from '../shared/messageTypes'
 import type { ReactSyncTransportMessage } from '../shared/messageTypes'
 import { AppRoot } from '../app/AppRoot'
@@ -14,6 +15,11 @@ import { createSessionManager } from './session-manager'
 const SESSION_IMPORTANT_REL_PATHS = Object.freeze([
   Object.freeze(['pioneer']),
 ])
+
+const runtimeEnv =
+  typeof process !== 'undefined' && process?.env ? process.env : undefined
+
+const shouldEmitRuntimeLogs = runtimeEnv?.WEATHER_REPL_RUNTIME_LOGS === '1'
 
 const createWorkerStream = (
   transport: DomSyncTransportViewLike<ReactSyncTransportMessage>,
@@ -64,6 +70,10 @@ export const createWeatherModelRuntime = () => {
     connection: { transport: DomSyncTransportViewLike<ReactSyncTransportMessage> },
     message: string,
   ) => {
+    if (!shouldEmitRuntimeLogs) {
+      return
+    }
+
     emitForConnection(connection, {
       type: APP_MSG.RUNTIME_LOG,
       scope: RUNTIME_LOG_SCOPE.SHARED_WORKER,
@@ -330,11 +340,13 @@ export const createWeatherModelRuntime = () => {
       )
     })
 
-    transport.send({
-      type: APP_MSG.RUNTIME_LOG,
-      scope: RUNTIME_LOG_SCOPE.SHARED_WORKER,
-      message: 'runtime listener attached',
-    })
+    if (shouldEmitRuntimeLogs) {
+      transport.send({
+        type: APP_MSG.RUNTIME_LOG,
+        scope: RUNTIME_LOG_SCOPE.SHARED_WORKER,
+        message: 'runtime listener attached',
+      })
+    }
 
     return {
       async destroy() {
@@ -357,8 +369,65 @@ export const createWeatherModelRuntime = () => {
     }
   }
 
+  const serializeModelRef = (value: unknown): unknown => {
+    if (value == null) {
+      return null
+    }
+
+    if (Array.isArray(value)) {
+      return value.map(serializeModelRef)
+    }
+
+    if (typeof value === 'object' && '_node_id' in value) {
+      return (value as { _node_id?: unknown })._node_id ?? null
+    }
+
+    return value
+  }
+
+  const debugDumpAppState = async () => {
+    if (!current_app?.inited?.app_model) {
+      return null
+    }
+
+    const serializeModel = (model: any) => {
+      const rawPublicAttrs = model.__getPublicAttrs?.()
+      const publicAttrs = Array.isArray(rawPublicAttrs) ? rawPublicAttrs : []
+      const attrs = Object.fromEntries(
+        publicAttrs.map((attrName: string) => [
+          attrName,
+          serializeModelRef(model.states?.[attrName]),
+        ]),
+      )
+      const relNames = Array.from(_listRels(model)).sort()
+      const rels = Object.fromEntries(
+        relNames.map((relName) => [
+          relName,
+          serializeModelRef(_getCurrentRel(model, relName)),
+        ]),
+      )
+
+      return {
+        nodeId: model._node_id ?? null,
+        modelName: model.model_name ?? null,
+        attrs,
+        rels,
+      }
+    }
+
+    const appModel = current_app.inited.app_model
+    const lined = await appModel.getLinedStructure({}, {})
+    const runtimeModels = Object.values(current_app.runtime.models || {})
+
+    return {
+      lined: lined.map(serializeModel),
+      runtimeModels: runtimeModels.map(serializeModel),
+    }
+  }
+
   return {
     connect,
     bootstrapApp,
+    debugDumpAppState,
   }
 }

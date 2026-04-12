@@ -51,22 +51,24 @@ export default function App({ session }: { session: WeatherAppSession }) {
       </header>
 
       <RootScope runtime={session.runtime} fallback={<GraphFallback />}>
-        <section className="main-stage">
-          <One rel="mainLocation" fallback={<LocationFallback featured />}>
-            <FeaturedLocationCard />
-          </One>
-        </section>
+        <One rel="pioneer" fallback={<GraphFallback />}>
+          <section className="main-stage">
+            <One rel="mainLocation" fallback={<LocationFallback featured />}>
+              <FeaturedLocationCard />
+            </One>
+          </section>
 
-        <section className="secondary-stage">
-          <div className="section-label">Additional locations</div>
-          <div className="location-grid">
-            <Many
-              rel="additionalLocations"
-              item={AdditionalLocationCard}
-              empty={<LocationFallback />}
-            />
-          </div>
-        </section>
+          <section className="secondary-stage">
+            <div className="section-label">Additional locations</div>
+            <div className="location-grid">
+              <Many
+                rel="additionalLocations"
+                item={AdditionalLocationCard}
+                empty={<LocationFallback />}
+              />
+            </div>
+          </section>
+        </One>
       </RootScope>
     </main>
   )
