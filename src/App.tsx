@@ -25,23 +25,30 @@ export default function App({ session }: { session: WeatherAppSession }) {
 
   return (
     <main className="app-shell">
-      <header className="app-header">
-
-        <div className="metric-strip">
-          <article className="metric-card">
-            <span>Boot state</span>
-            <strong>{bootedLabel}</strong>
-          </article>
-          <article className="metric-card">
-            <span>Root node</span>
-            <strong>{snapshot.rootNodeId || 'pending'}</strong>
-          </article>
-          <article className="metric-card">
-            <span>Session</span>
-            <strong>{snapshot.sessionId || 'pending'}</strong>
-          </article>
-        </div>
-      </header>
+      <div className="app-header-shell">
+        <button
+          className="app-header-trigger"
+          type="button"
+          aria-label="Show app header"
+          title="Show app header"
+        />
+        <header className="app-header">
+          <div className="metric-strip">
+            <article className="metric-card">
+              <span>Boot state</span>
+              <strong>{bootedLabel}</strong>
+            </article>
+            <article className="metric-card">
+              <span>Root node</span>
+              <strong>{snapshot.rootNodeId || 'pending'}</strong>
+            </article>
+            <article className="metric-card">
+              <span>Session</span>
+              <strong>{snapshot.sessionId || 'pending'}</strong>
+            </article>
+          </div>
+        </header>
+      </div>
 
       <RootScope runtime={session.runtime} fallback={<GraphFallback />}>
         <One rel="pioneer" fallback={<GraphFallback />}>
@@ -172,4 +179,3 @@ function LocationFallback({ featured = false }: { featured?: boolean }) {
 function ForecastEmpty() {
   return <article className="forecast-chip forecast-chip--empty">No forecast data</article>
 }
-

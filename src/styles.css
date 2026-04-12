@@ -103,9 +103,68 @@ input:focus {
   align-content: start;
 }
 
+.app-header-shell {
+  position: absolute;
+  top: clamp(0.95rem, 2vw, 1.3rem);
+  left: clamp(0.95rem, 2vw, 1.3rem);
+  z-index: 12;
+  width: fit-content;
+}
+
+.app-header-trigger {
+  width: 1em;
+  height: 1em;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.15) 55%, rgba(255, 255, 255, 0.03) 100%),
+    linear-gradient(135deg, rgba(121, 213, 255, 0.85), rgba(255, 255, 255, 0.25));
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 0 18px rgba(121, 213, 255, 0.25);
+  cursor: pointer;
+  display: block;
+}
+
+.app-header-trigger:focus-visible {
+  outline: 2px solid rgba(121, 213, 255, 0.9);
+  outline-offset: 4px;
+}
+
 .app-header {
+  position: absolute;
+  top: calc(100% + 0.75rem);
+  left: 0;
+  width: min(40rem, calc(100vw - 2.5rem));
   display: grid;
   gap: 0.95rem;
+  padding: 1rem;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 14, 28, 0.88);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-0.4rem) scale(0.985);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    visibility 0s linear 160ms;
+}
+
+.app-header-shell:hover .app-header,
+.app-header-shell:focus-within .app-header {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    visibility 0s;
 }
 
 .eyebrow,
