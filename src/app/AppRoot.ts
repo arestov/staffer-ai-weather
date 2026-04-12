@@ -86,8 +86,8 @@ const app_props = mergeDcl({
           ],
         },
         fn: [
-          ['<< @all:weatherLocation'],
-          (_payload: unknown, weatherLocations: any[]) => {
+          ['<< @all:weatherLocation'] as const,
+          (_payload: unknown, weatherLocations: unknown[]) => {
             const records = buildInitialSelectedLocations(weatherLocations)
             return {
               location: records,
@@ -115,8 +115,8 @@ const app_props = mergeDcl({
           ],
         },
         fn: [
-          ['<< @all:location'],
-          (_payload: unknown, locations: any[]) => {
+          ['<< @all:location'] as const,
+          (_payload: unknown, locations: unknown[]) => {
             const [mainLocation, ...additionalLocations] = locations
             return {
               mainLocation,

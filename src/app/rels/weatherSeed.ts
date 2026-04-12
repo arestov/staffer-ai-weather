@@ -95,7 +95,7 @@ export const buildWeatherLocationRecord = (location: string) => ({
   },
 })
 
-export const buildSelectedLocationRecord = (weatherLocation: any) => ({
+export const buildSelectedLocationRecord = (weatherLocation: unknown) => ({
   rels: {
     weatherLocation,
   },
@@ -108,7 +108,7 @@ export const buildInitialWeatherLocations = () => [
   buildWeatherLocationRecord('Lisbon'),
 ]
 
-export const buildInitialSelectedLocations = (weatherLocations: any[]) => {
+export const buildInitialSelectedLocations = (weatherLocations: unknown[]) => {
   if (!Array.isArray(weatherLocations)) {
     throw new Error('weatherLocation should resolve to list')
   }
