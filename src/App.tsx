@@ -26,13 +26,6 @@ export default function App({ session }: { session: WeatherAppSession }) {
   return (
     <main className="app-shell">
       <header className="app-header">
-        <div className="eyebrow">Weather / DKT / SharedWorker</div>
-        <h1>Live weather locations</h1>
-        <p className="lede">
-          The worker bootstraps a model tree with one primary location and three
-          additional locations. The page renders the live graph directly from
-          `mainLocation` and `additionalLocations`.
-        </p>
 
         <div className="metric-strip">
           <article className="metric-card">
@@ -59,7 +52,6 @@ export default function App({ session }: { session: WeatherAppSession }) {
           </section>
 
           <section className="secondary-stage">
-            <div className="section-label">Additional locations</div>
             <div className="location-grid">
               <Many
                 rel="additionalLocations"

@@ -106,7 +106,6 @@ input:focus {
 .app-header {
   display: grid;
   gap: 0.95rem;
-  max-width: 78rem;
 }
 
 .eyebrow,
@@ -169,7 +168,6 @@ h1 {
 .secondary-stage {
   display: grid;
   gap: 1rem;
-  max-width: 78rem;
 }
 
 .location-card {
