@@ -15,7 +15,6 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "baseUrl": ".",
     "paths": {
       "dkt/*": ["../dkt/js/libs/provoda/provoda/*"],
       "dkt-all/*": ["../dkt/js/*"]
