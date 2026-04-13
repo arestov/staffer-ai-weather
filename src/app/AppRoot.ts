@@ -36,6 +36,20 @@ const app_props = mergeDcl({
     target.start_page = target
   },
   model_name: 'weather_app_root',
+  effects: {
+    api: {
+      locationSearch: [
+        ['_node_id'] as const,
+        ['locationSearchSource'] as const,
+        (locationSearchSource: unknown) => locationSearchSource,
+      ],
+      weatherLoader: [
+        ['_node_id'] as const,
+        ['weatherLoaderSource'] as const,
+        (weatherLoaderSource: unknown) => weatherLoaderSource,
+      ],
+    },
+  },
   rels: {
     $session_root: ['model', SessionRoot],
     common_session_root: ['input', { linking: '<< $session_root' }],

@@ -11,7 +11,8 @@ import { APP_MSG, RUNTIME_LOG_SCOPE } from '../shared/messageTypes'
 import type { ReactSyncTransportMessage } from '../shared/messageTypes'
 import { AppRoot } from '../app/AppRoot'
 import { createSessionManager } from './session-manager'
-import { fetchWeatherFromOpenMeteo } from './weather-api'
+import { createLocationSearchApi } from './location-search-api'
+import { createWeatherLoaderApi, fetchWeatherFromOpenMeteo } from './weather-api'
 
 type RuntimeModelLike = {
   _node_id?: string | null
@@ -47,6 +48,8 @@ type WeatherRuntimeLike = {
         considerOwnerAsImportant(): void
         stopRequests(): void
       }
+      locationSearchSource: ReturnType<typeof createLocationSearchApi>
+      weatherLoaderSource: ReturnType<typeof createWeatherLoaderApi>
     }
   }) => Promise<{
     app_model: RuntimeModelLike
@@ -257,6 +260,8 @@ export const createWeatherModelRuntime = () => {
           considerOwnerAsImportant() {},
           stopRequests() {},
         },
+        locationSearchSource: createLocationSearchApi(),
+        weatherLoaderSource: createWeatherLoaderApi(),
       },
     })
 

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { createWeatherTestHarness, type WeatherTestHarness } from './harness/createWeatherTestHarness'
 
-const { fetchWeatherFromOpenMeteo } = vi.hoisted(() => ({
+const { fetchWeatherFromOpenMeteo, fetchLocationSearchResults } = vi.hoisted(() => ({
   fetchWeatherFromOpenMeteo: vi.fn(
     async (latitude: number, longitude: number) => ({
       current: {
@@ -31,10 +31,69 @@ const { fetchWeatherFromOpenMeteo } = vi.hoisted(() => ({
       fetchedAt: '2026-04-13T12:00:00.000Z',
     }),
   ),
+  fetchLocationSearchResults: vi.fn(async (query: string) => {
+    const normalized = query.trim().toLowerCase()
+
+    if (!normalized) {
+      return []
+    }
+
+    if (normalized.includes('tokyo')) {
+      return [
+        {
+          id: 'tokyo-1',
+          name: 'Tokyo',
+          subtitle: 'Tokyo, Japan',
+          latitude: 35.6762,
+          longitude: 139.6503,
+          timezone: 'Asia/Tokyo',
+        },
+      ]
+    }
+
+    if (normalized.includes('moscow')) {
+      return [
+        {
+          id: 'moscow-1',
+          name: 'Moscow',
+          subtitle: 'Moscow, Russia',
+          latitude: 55.7558,
+          longitude: 37.6173,
+          timezone: 'Europe/Moscow',
+        },
+      ]
+    }
+
+    return [
+      {
+        id: `${normalized}-fallback`,
+        name: query.trim(),
+        subtitle: 'Fallback match',
+        latitude: 48.8566,
+        longitude: 2.3522,
+        timezone: 'Europe/Paris',
+      },
+    ]
+  }),
 }))
 
 vi.mock('../src/worker/weather-api', () => ({
   fetchWeatherFromOpenMeteo,
+  createWeatherLoaderApi: () => ({
+    source_name: 'weatherLoader',
+    errors_fields: [],
+    loadByCoordinates: ({ latitude, longitude }: { latitude: number; longitude: number }) =>
+      fetchWeatherFromOpenMeteo(latitude, longitude),
+  }),
+}))
+
+vi.mock('../src/worker/location-search-api', () => ({
+  fetchLocationSearchResults,
+  createLocationSearchApi: () => ({
+    source_name: 'locationSearch',
+    errors_fields: [],
+    search: fetchLocationSearchResults,
+  }),
 }))
 
 type SerializedModel = {
@@ -99,6 +158,19 @@ const getRouterCurrentModelId = (appState: DebugAppState) => {
   return typeof router?.rels.current_mp_md === 'string' ? router.rels.current_mp_md : null
 }
 
+const getPopoverRouter = (appState: DebugAppState) => {
+  const router = getSerializedModel(
+    appState,
+    (model) => model.modelName === 'weather_selected_location_popover_router',
+  )
+
+  if (!router) {
+    throw new Error('weather_selected_location_popover_router not found in debug app state')
+  }
+
+  return router
+}
+
 const getSelectedLocationIds = (appState: DebugAppState) => {
   const appRoot = getAppRoot(appState)
   const mainLocationId =
@@ -121,6 +193,35 @@ const getSelectedLocationIds = (appState: DebugAppState) => {
 
 const clickElement = (element: Element) => {
   element.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+}
+
+const countWeatherLocationModels = (appState: DebugAppState) => {
+  return appState?.runtimeModels.filter(
+    (model) => model.modelName === 'weather_location',
+  ).length ?? 0
+}
+
+const getWeatherLocationForSelectedLocation = (
+  appState: DebugAppState,
+  selectedLocationId: string,
+) => {
+  const selectedLocation = getSerializedModel(
+    appState,
+    (model) => model.nodeId === selectedLocationId,
+  )
+  const weatherLocationId =
+    typeof selectedLocation?.rels.weatherLocation === 'string'
+      ? selectedLocation.rels.weatherLocation
+      : null
+
+  if (!weatherLocationId) {
+    return null
+  }
+
+  return getSerializedModel(
+    appState,
+    (model) => model.nodeId === weatherLocationId,
+  )
 }
 
 const queryPopover = (selectedLocationId: string) =>
@@ -373,5 +474,134 @@ describe('SelectedLocation popover router', () => {
     expect(secondLayer).toBe(firstLayer)
     expect(queryPopover(mainLocationId)).toBeNull()
     expect(queryPopover(additionalLocationId)?.textContent).toContain('Edit location')
+  })
+
+  test('router search replaces selected location in place', async () => {
+    harness = await createWeatherTestHarness()
+    vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined)
+
+    await harness.whenReady()
+    const readyState = await waitForWeatherLoaded(harness)
+    await waitForLocationCardsRendered(harness)
+    const { mainLocationId } = getSelectedLocationIds(readyState)
+    const initialWeatherLocationCount = countWeatherLocationModels(readyState)
+    const trigger = harness.rootElement.querySelector(
+      `[data-selected-location-id="${mainLocationId}"] [data-selected-location-trigger]`,
+    )
+
+    expect(trigger).not.toBeNull()
+
+    clickElement(trigger as Element)
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => getRouterCurrentModelId(appState) === mainLocationId,
+      'featured location did not become current popover router model before search edit',
+    )
+
+    const popover = await waitFor(
+      () => queryPopover(mainLocationId),
+      (element) => Boolean(element),
+      'selected location popover did not appear before search edit',
+    )
+
+    await waitFor(
+      () => queryPopover(mainLocationId)?.textContent ?? '',
+      (text) => text.includes('Moscow'),
+      'selected location popover did not hydrate the current location before edit',
+    )
+
+    const editButton = popover?.querySelector('[data-location-edit-trigger]')
+    expect(editButton).not.toBeNull()
+
+    clickElement(editButton as Element)
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const router = getPopoverRouter(appState)
+        return router.attrs.isEditingLocation === true
+      },
+      'router did not enter edit mode',
+    )
+
+    const routerModel = getPopoverRouter(await getAppState(harness))
+
+    harness.pageRuntime.dispatchAction(
+      'submitLocationSearch',
+      { query: 'Tokyo' },
+      { _nodeId: routerModel.nodeId ?? '' } as never,
+    )
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const router = getPopoverRouter(appState)
+        const results = Array.isArray(router.attrs.searchResults)
+          ? router.attrs.searchResults
+          : []
+
+        return (
+          router.attrs.searchStatus === 'ready' &&
+          results.some(
+            (result) =>
+              typeof result === 'object' &&
+              result != null &&
+              'name' in result &&
+              (result as { name?: unknown }).name === 'Tokyo',
+          )
+        )
+      },
+      'router did not update search results for Tokyo',
+    )
+
+    const weatherLocationCountBeforeSelection = countWeatherLocationModels(
+      await getAppState(harness),
+    )
+    expect(weatherLocationCountBeforeSelection).toBe(initialWeatherLocationCount)
+
+    const tokyoResult = await waitFor(
+      () => queryPopover(mainLocationId)?.querySelector('[data-location-search-result="tokyo-1"]'),
+      (element) => Boolean(element),
+      'Tokyo search result did not appear in the popover',
+    )
+
+    clickElement(tokyoResult as Element)
+
+    const replacedState = await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const router = getPopoverRouter(appState)
+        const weatherLocation = getWeatherLocationForSelectedLocation(appState, mainLocationId)
+
+        return Boolean(
+          router.attrs.isEditingLocation === false &&
+            router.attrs.searchStatus === 'idle' &&
+            Array.isArray(router.attrs.searchResults) &&
+            router.attrs.searchResults.length === 0 &&
+            weatherLocation?.attrs.name === 'Tokyo' &&
+            weatherLocation?.attrs.loadStatus === 'ready',
+        )
+      },
+      'selected location was not replaced with Tokyo and reloaded',
+    )
+
+    const replacedWeatherLocation = getWeatherLocationForSelectedLocation(
+      replacedState,
+      mainLocationId,
+    )
+
+    expect(replacedWeatherLocation?.attrs.name).toBe('Tokyo')
+    expect(replacedWeatherLocation?.attrs.timezone).toBe('Asia/Tokyo')
+    expect(replacedWeatherLocation?.attrs.loadStatus).toBe('ready')
+    expect(countWeatherLocationModels(replacedState)).toBe(initialWeatherLocationCount)
+    expect(fetchWeatherFromOpenMeteo).toHaveBeenCalledWith(35.6762, 139.6503)
+    expect(queryPopover(mainLocationId)?.textContent).toContain('Tokyo')
+
+    await waitFor(
+      () => queryPopover(mainLocationId)?.querySelector('[data-location-search-panel]'),
+      (element) => element == null,
+      'search panel did not close after selecting a replacement location',
+    )
   })
 })

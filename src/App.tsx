@@ -1,15 +1,18 @@
-﻿import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+﻿import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { One } from './react-sync/components/One'
 import { Many } from './react-sync/components/Many'
 import { ScopeContext } from './react-sync/context/ScopeContext'
 import { RootScope } from './react-sync/scope/RootScope'
 import { defineShape, shapeOf } from './react-sync/shape/defineShape'
+import { useActions } from './react-sync/hooks/useActions'
 import { useAttrs } from './react-sync/hooks/useAttrs'
 import { useScope } from './react-sync/hooks/useScope'
+import type { ReactSyncScopeHandle } from './react-sync/scope/ScopeHandle'
 import type { WeatherAppSession } from './page/createWeatherAppSession'
 import { useNamedSessionRouter } from './page/react/useNamedSessionRouter'
 import { useSyncRoot } from './page/react/useSyncRoot'
+import type { LocationSearchResult } from './app/rels/location-models'
 
 const formatUpdatedAt = (value: string | null) => {
   if (!value) {
@@ -84,6 +87,28 @@ const scrollSelectedLocationIntoView = (selectedLocationId: string) => {
   window.scrollBy({
     top: rect.top - SELECTED_LOCATION_POPOVER_SCROLL_OFFSET,
     behavior: 'smooth',
+  })
+}
+
+const toLocationSearchResults = (value: unknown): LocationSearchResult[] => {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.filter((item): item is LocationSearchResult => {
+    if (!item || typeof item !== 'object') {
+      return false
+    }
+
+    const candidate = item as Partial<LocationSearchResult>
+
+    return (
+      typeof candidate.id === 'string' &&
+      typeof candidate.name === 'string' &&
+      typeof candidate.subtitle === 'string' &&
+      typeof candidate.latitude === 'number' &&
+      typeof candidate.longitude === 'number'
+    )
   })
 }
 
@@ -409,7 +434,7 @@ const FeaturedLocationCard = ({ forecastLimit }: { forecastLimit?: number }) => 
 const AdditionalLocationCard = () => <WeatherLocationInner />
 
 function SelectedLocationPopoverLayer() {
-  const { currentNodeId, currentScope, clearCurrent } = useNamedSessionRouter(
+  const { currentNodeId, currentScope, routerScope, clearCurrent } = useNamedSessionRouter(
     SELECTED_LOCATION_POPOVER_ROUTER_NAME,
   )
   const popoverRef = useRef<HTMLElement | null>(null)
@@ -476,11 +501,12 @@ function SelectedLocationPopoverLayer() {
       data-popover-for={currentNodeId ?? ''}
       style={popoverStyle}
     >
-      {currentScope ? (
-        <ScopeContext.Provider value={currentScope}>
+      {currentScope && routerScope ? (
+        <ScopeContext.Provider value={routerScope}>
           <SelectedLocationPopover
             popoverId={SELECTED_LOCATION_POPOVER_ID}
             selectedLocationId={currentNodeId ?? ''}
+            selectedLocationScope={currentScope}
             onClose={clearCurrent}
           />
         </ScopeContext.Provider>
@@ -493,12 +519,29 @@ function SelectedLocationPopoverLayer() {
 function SelectedLocationPopover({
   popoverId,
   selectedLocationId,
+  selectedLocationScope,
   onClose,
 }: {
   popoverId: string
   selectedLocationId: string
+  selectedLocationScope: ReactSyncScopeHandle
   onClose: () => void
 }) {
+  const { dispatch } = useActions()
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const routerAttrs = useAttrs([
+    'isEditingLocation',
+    'searchQuery',
+    'searchStatus',
+    'searchError',
+    'searchResults',
+  ])
+  const isEditingLocation = Boolean(routerAttrs.isEditingLocation)
+  const searchQuery = typeof routerAttrs.searchQuery === 'string' ? routerAttrs.searchQuery : ''
+  const searchStatus = typeof routerAttrs.searchStatus === 'string' ? routerAttrs.searchStatus : 'idle'
+  const searchError = typeof routerAttrs.searchError === 'string' ? routerAttrs.searchError : null
+  const searchResults = toLocationSearchResults(routerAttrs.searchResults)
+
   useLayoutEffect(() => {
     if (typeof window === 'undefined') {
       return
@@ -535,6 +578,13 @@ function SelectedLocationPopover({
     }
   }, [selectedLocationId])
 
+  const handleSubmitSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    dispatch('submitLocationSearch', {
+      query: searchInputRef.current?.value ?? searchQuery,
+    })
+  }
+
   return (
     <div
       id={popoverId}
@@ -559,50 +609,258 @@ function SelectedLocationPopover({
         </button>
       </div>
 
-      <One
-        rel="weatherLocation"
-        fallback={
-          <div className="selected-location-popover__body">
-            <WeatherReadoutFallback />
-            <ForecastPanelsFallback forecastLimit={POPOVER_FORECAST_LIMIT} />
-          </div>
-        }
-      >
-        <div className="selected-location-popover__body">
-          <One rel="currentWeather" fallback={<WeatherReadoutFallback />}>
-            <article className="weather-readout weather-readout--popover">
-              <CurrentWeatherCard />
-            </article>
-          </One>
+      <ScopeContext.Provider value={selectedLocationScope}>
+        <SelectedLocationPopoverWeatherSection
+          isEditingLocation={isEditingLocation}
+          onStartEdit={(seedQuery) => dispatch('startLocationEditing', { seedQuery })}
+        />
+      </ScopeContext.Provider>
 
-          <div className="selected-location-popover__forecasts">
+      {isEditingLocation ? (
+        <section className="selected-location-search" data-location-search-panel>
+          <div className="selected-location-search__header">
             <div>
-              <div className="mini-section-label">Hourly forecast</div>
-              <div className="forecast-list forecast-list--popover">
-                <Many
-                  rel="hourlyForecastSeries"
-                  item={ForecastCard}
-                  empty={<ForecastEmpty count={POPOVER_FORECAST_LIMIT} />}
-                  limit={POPOVER_FORECAST_LIMIT}
-                />
-              </div>
+              <div className="mini-section-label">Find replacement</div>
+              <p className="selected-location-search__hint">
+                Search results live on the popover router and apply to this selected slot in place.
+              </p>
             </div>
+          </div>
 
-            <div>
-              <div className="mini-section-label">Daily forecast</div>
-              <div className="forecast-list forecast-list--popover">
-                <Many
-                  rel="dailyForecastSeries"
-                  item={ForecastCard}
-                  empty={<ForecastEmpty count={POPOVER_FORECAST_LIMIT} />}
-                  limit={POPOVER_FORECAST_LIMIT}
-                />
-              </div>
+          <form className="selected-location-search__form" onSubmit={handleSubmitSearch} data-location-search-form>
+            <label className="selected-location-search__field">
+              <span className="selected-location-search__label">City or region</span>
+              <input
+                key={`${selectedLocationId}:${searchQuery}:${isEditingLocation ? 'editing' : 'idle'}`}
+                ref={searchInputRef}
+                type="text"
+                defaultValue={searchQuery}
+                placeholder="Search for a location"
+                data-location-search-input
+              />
+            </label>
+
+            <div className="selected-location-search__controls">
+              <button type="submit" data-location-search-submit>
+                Search
+              </button>
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => dispatch('cancelLocationEditing')}
+                data-location-search-cancel
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+
+          {searchStatus === 'loading' ? (
+            <p className="selected-location-search__status" aria-live="polite" data-location-search-status>
+              Searching for matches...
+            </p>
+          ) : null}
+
+          {searchStatus === 'error' && searchError ? (
+            <p className="selected-location-search__status selected-location-search__status--error" data-location-search-status>
+              {searchError}
+            </p>
+          ) : null}
+
+          {searchStatus === 'ready' && !searchResults.length ? (
+            <p className="selected-location-search__status" data-location-search-empty>
+              No matches found. Try a broader city or region name.
+            </p>
+          ) : null}
+
+          {searchResults.length ? (
+            <div className="selected-location-search__results" data-location-search-results>
+              {searchResults.map((result) => (
+                <button
+                  key={result.id}
+                  className="selected-location-search__result"
+                  type="button"
+                  onClick={() => dispatch('selectLocationSearchResult', result)}
+                  data-location-search-result={result.id}
+                >
+                  <strong>{result.name}</strong>
+                  <span>{result.subtitle || `${result.latitude.toFixed(2)}, ${result.longitude.toFixed(2)}`}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+    </div>
+  )
+}
+
+function SelectedLocationPopoverWeatherSection({
+  isEditingLocation,
+  onStartEdit,
+}: {
+  isEditingLocation: boolean
+  onStartEdit: (seedQuery: string) => void
+}) {
+  return (
+    <One
+      rel="weatherLocation"
+      fallback={
+        <div className="selected-location-popover__body">
+          <WeatherReadoutFallback />
+          <ForecastPanelsFallback forecastLimit={POPOVER_FORECAST_LIMIT} />
+        </div>
+      }
+    >
+      <SelectedLocationPopoverWeatherSectionInner
+        isEditingLocation={isEditingLocation}
+        onStartEdit={onStartEdit}
+      />
+    </One>
+  )
+}
+
+function SelectedLocationPopoverWeatherSectionInner({
+  isEditingLocation,
+  onStartEdit,
+}: {
+  isEditingLocation: boolean
+  onStartEdit: (seedQuery: string) => void
+}) {
+  const weatherLocationAttrs = useAttrs(['name'])
+  const currentName = typeof weatherLocationAttrs.name === 'string'
+    ? weatherLocationAttrs.name
+    : ''
+
+  return (
+    <>
+      <div className="selected-location-popover__slot-header">
+        <div>
+          <div className="mini-section-label">Current slot</div>
+          <p className="selected-location-popover__slot-name">{currentName || 'Selected location'}</p>
+        </div>
+      </div>
+
+      <div className="selected-location-popover__body">
+        <One
+          rel="currentWeather"
+          fallback={
+            <SelectedLocationPopoverCurrentWeatherFallback
+              fallbackName={currentName}
+              isEditingLocation={isEditingLocation}
+              onStartEdit={onStartEdit}
+            />
+          }
+        >
+          <SelectedLocationPopoverCurrentWeatherPanel
+            fallbackName={currentName}
+            isEditingLocation={isEditingLocation}
+            onStartEdit={onStartEdit}
+          />
+        </One>
+
+        <div className="selected-location-popover__forecasts">
+          <div>
+            <div className="mini-section-label">Hourly forecast</div>
+            <div className="forecast-list forecast-list--popover">
+              <Many
+                rel="hourlyForecastSeries"
+                item={ForecastCard}
+                empty={<ForecastEmpty count={POPOVER_FORECAST_LIMIT} />}
+                limit={POPOVER_FORECAST_LIMIT}
+              />
+            </div>
+          </div>
+
+          <div>
+            <div className="mini-section-label">Daily forecast</div>
+            <div className="forecast-list forecast-list--popover">
+              <Many
+                rel="dailyForecastSeries"
+                item={ForecastCard}
+                empty={<ForecastEmpty count={POPOVER_FORECAST_LIMIT} />}
+                limit={POPOVER_FORECAST_LIMIT}
+              />
             </div>
           </div>
         </div>
-      </One>
-    </div>
+      </div>
+    </>
+  )
+}
+
+function SelectedLocationPopoverCurrentWeatherPanel({
+  fallbackName,
+  isEditingLocation,
+  onStartEdit,
+}: {
+  fallbackName: string
+  isEditingLocation: boolean
+  onStartEdit: (seedQuery: string) => void
+}) {
+  const currentWeatherAttrs = useAttrs(['location'])
+  const seedQuery = typeof currentWeatherAttrs.location === 'string' && currentWeatherAttrs.location
+    ? currentWeatherAttrs.location
+    : fallbackName
+
+  return (
+    <>
+      <div className="selected-location-popover__toolbar">
+        <div className="mini-section-label">Current weather</div>
+
+        {!isEditingLocation ? (
+          <button
+            type="button"
+            onClick={() => onStartEdit(seedQuery)}
+            data-location-edit-trigger
+          >
+            Search Another Location
+          </button>
+        ) : (
+          <p className="selected-location-popover__slot-note">
+            Pick a replacement below to update this location card.
+          </p>
+        )}
+      </div>
+
+      <article className="weather-readout weather-readout--popover">
+        <CurrentWeatherCard />
+      </article>
+    </>
+  )
+}
+
+function SelectedLocationPopoverCurrentWeatherFallback({
+  fallbackName,
+  isEditingLocation,
+  onStartEdit,
+}: {
+  fallbackName: string
+  isEditingLocation: boolean
+  onStartEdit: (seedQuery: string) => void
+}) {
+  return (
+    <>
+      <div className="selected-location-popover__toolbar">
+        <div className="mini-section-label">Current weather</div>
+
+        {!isEditingLocation ? (
+          <button
+            type="button"
+            onClick={() => onStartEdit(fallbackName)}
+            data-location-edit-trigger
+          >
+            Search Another Location
+          </button>
+        ) : (
+          <p className="selected-location-popover__slot-note">
+            Pick a replacement below to update this location card.
+          </p>
+        )}
+      </div>
+
+      <WeatherReadoutFallback />
+    </>
   )
 }
 

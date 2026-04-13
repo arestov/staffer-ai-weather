@@ -3,6 +3,7 @@ import {
   CURRENT_WEATHER_CREATION_SHAPE,
   FORECAST_SERIES_CREATION_SHAPE,
 } from './weatherSeed'
+import { fetchWeatherFromOpenMeteo } from '../../worker/weather-api'
 import {
   formatDailyLabel,
   formatHourlyLabel,
@@ -43,6 +44,99 @@ export type ApplyWeatherPayload = {
     sunset: string
   }>
   fetchedAt: string
+}
+
+export type LocationSearchResult = {
+  id: string
+  name: string
+  subtitle: string
+  latitude: number
+  longitude: number
+  timezone: string | null
+}
+
+type WeatherLoadRequest = {
+  requestId: number
+  latitude: number
+  longitude: number
+}
+
+type ApplyWeatherFromRequestPayload = {
+  requestId: number
+  weather: ApplyWeatherPayload
+}
+
+type FailWeatherFromRequestPayload = {
+  requestId: number
+  message: string
+}
+
+const isLocationSearchResult = (value: unknown): value is LocationSearchResult => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Partial<LocationSearchResult>
+
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.name === 'string' &&
+    typeof candidate.subtitle === 'string' &&
+    typeof candidate.latitude === 'number' &&
+    typeof candidate.longitude === 'number'
+  )
+}
+
+const isWeatherLoadRequest = (value: unknown): value is WeatherLoadRequest => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Partial<WeatherLoadRequest>
+
+  return (
+    typeof candidate.requestId === 'number' &&
+    typeof candidate.latitude === 'number' &&
+    typeof candidate.longitude === 'number'
+  )
+}
+
+const isApplyWeatherFromRequestPayload = (
+  value: unknown,
+): value is ApplyWeatherFromRequestPayload => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Partial<ApplyWeatherFromRequestPayload>
+
+  return (
+    typeof candidate.requestId === 'number' &&
+    Boolean(candidate.weather && typeof candidate.weather === 'object')
+  )
+}
+
+const isFailWeatherFromRequestPayload = (
+  value: unknown,
+): value is FailWeatherFromRequestPayload => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Partial<FailWeatherFromRequestPayload>
+
+  return (
+    typeof candidate.requestId === 'number' &&
+    typeof candidate.message === 'string'
+  )
+}
+
+const getNextWeatherLoadRequestId = (value: unknown) => {
+  return (isWeatherLoadRequest(value) ? value.requestId : 0) + 1
+}
+
+const toErrorMessage = (error: unknown) => {
+  return error instanceof Error ? error.message : String(error)
 }
 
 export const CurrentWeather = model({
@@ -103,6 +197,7 @@ export const WeatherLocation = model({
     loadStatus: ['input', 'idle'],
     lastError: ['input', null],
     weatherFetchedAt: ['input', null],
+    weatherLoadRequest: ['input', null],
   },
   rels: {
     currentWeather: ['model', CurrentWeather],
@@ -215,6 +310,141 @@ export const WeatherLocation = model({
         lastError: payload.message,
       }),
     },
+    replaceLocation: {
+      to: {
+        name: ['name'],
+        latitude: ['latitude'],
+        longitude: ['longitude'],
+        timezone: ['timezone'],
+        loadStatus: ['loadStatus'],
+        lastError: ['lastError'],
+        weatherFetchedAt: ['weatherFetchedAt'],
+        weatherLoadRequest: ['weatherLoadRequest'],
+        currentWeather: ['<< currentWeather', { method: 'set_one' }],
+        hourlyForecastSeries: ['<< hourlyForecastSeries', { method: 'set_many' }],
+        dailyForecastSeries: ['<< dailyForecastSeries', { method: 'set_many' }],
+      },
+      fn: [
+        ['weatherLoadRequest'] as const,
+        (payload: unknown, weatherLoadRequest: unknown) => {
+          if (!isLocationSearchResult(payload)) {
+            return {}
+          }
+
+          const requestId = getNextWeatherLoadRequestId(weatherLoadRequest)
+
+          return {
+            name: payload.name,
+            latitude: payload.latitude,
+            longitude: payload.longitude,
+            timezone: payload.timezone,
+            loadStatus: 'loading',
+            lastError: null,
+            weatherFetchedAt: null,
+            weatherLoadRequest: {
+              requestId,
+              latitude: payload.latitude,
+              longitude: payload.longitude,
+            },
+            currentWeather: null,
+            hourlyForecastSeries: [],
+            dailyForecastSeries: [],
+          }
+        },
+      ],
+    },
+    applyWeatherFromRequest: {
+      to: {
+        weatherLoadRequest: ['weatherLoadRequest'],
+        applyWeather: ['<<<<', { action: 'applyWeather', inline_subwalker: true }],
+      },
+      fn: [
+        ['$noop', 'weatherLoadRequest'] as const,
+        (payload: unknown, noop: unknown, weatherLoadRequest: unknown) => {
+          if (
+            !isApplyWeatherFromRequestPayload(payload) ||
+            !isWeatherLoadRequest(weatherLoadRequest) ||
+            payload.requestId !== weatherLoadRequest.requestId
+          ) {
+            return noop
+          }
+
+          return {
+            weatherLoadRequest: null,
+            applyWeather: payload.weather,
+          }
+        },
+      ],
+    },
+    failWeatherFromRequest: {
+      to: {
+        weatherLoadRequest: ['weatherLoadRequest'],
+        failWeather: ['<<<<', { action: 'failWeather', inline_subwalker: true }],
+      },
+      fn: [
+        ['$noop', 'weatherLoadRequest'] as const,
+        (payload: unknown, noop: unknown, weatherLoadRequest: unknown) => {
+          if (
+            !isFailWeatherFromRequestPayload(payload) ||
+            !isWeatherLoadRequest(weatherLoadRequest) ||
+            payload.requestId !== weatherLoadRequest.requestId
+          ) {
+            return noop
+          }
+
+          return {
+            weatherLoadRequest: null,
+            failWeather: {
+              message: payload.message,
+            },
+          }
+        },
+      ],
+    },
+  },
+  effects: {
+    out: {
+      loadWeatherForReplacement: {
+        api: ['self'],
+        trigger: ['weatherLoadRequest'],
+        require: ['weatherLoadRequest'],
+        create_when: {
+          api_inits: true,
+        },
+        is_async: true,
+        fn: [
+          ['weatherLoadRequest'] as const,
+          async (
+            self: {
+              dispatch: (actionName: string, payload?: unknown) => Promise<void> | void
+            },
+            _task: unknown,
+            weatherLoadRequest: unknown,
+          ) => {
+            if (!isWeatherLoadRequest(weatherLoadRequest)) {
+              return
+            }
+
+            try {
+              const weather = await fetchWeatherFromOpenMeteo(
+                weatherLoadRequest.latitude,
+                weatherLoadRequest.longitude,
+              )
+
+              await self.dispatch('applyWeatherFromRequest', {
+                requestId: weatherLoadRequest.requestId,
+                weather,
+              })
+            } catch (error) {
+              await self.dispatch('failWeatherFromRequest', {
+                requestId: weatherLoadRequest.requestId,
+                message: toErrorMessage(error),
+              })
+            }
+          },
+        ],
+      },
+    },
   },
 })
 
@@ -224,6 +454,16 @@ export const SelectedLocation = model({
     weatherLocation: ['input', { linking: '<< weatherLocation << #' }],
     nav_parent_at_perspectivator_weather_selected_location_popover_router:
       makeParentRel(),
+  },
+  actions: {
+    replaceWeatherLocation: {
+      to: {
+        weatherLocation: ['<< weatherLocation', { action: 'replaceLocation', inline_subwalker: true }],
+      },
+      fn: (payload: unknown) => ({
+        weatherLocation: payload,
+      }),
+    },
   },
 })
 

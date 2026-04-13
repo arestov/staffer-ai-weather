@@ -1,5 +1,14 @@
 import type { ApplyWeatherPayload } from '../app/rels/location-models'
 
+export interface WeatherLoaderApi {
+  source_name: 'weatherLoader'
+  errors_fields: string[]
+  loadByCoordinates(input: {
+    latitude: number
+    longitude: number
+  }): Promise<ApplyWeatherPayload>
+}
+
 type OpenMeteoCurrentRaw = {
   temperature_2m: number
   apparent_temperature: number
@@ -89,3 +98,11 @@ export const fetchWeatherFromOpenMeteo = async (
   const raw = await response.json() as OpenMeteoRawResponse
   return normalizeWeatherResponse(raw)
 }
+
+export const createWeatherLoaderApi = (): WeatherLoaderApi => ({
+  source_name: 'weatherLoader',
+  errors_fields: [],
+  loadByCoordinates({ latitude, longitude }) {
+    return fetchWeatherFromOpenMeteo(latitude, longitude)
+  },
+})
