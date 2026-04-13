@@ -21,6 +21,8 @@ type SearchFailurePayload = {
   message: string
 }
 
+const MIN_LOCATION_SEARCH_QUERY_LENGTH = 3
+
 const normalizeSearchInput = (value: unknown) => {
   if (typeof value === 'string') {
     return value
@@ -118,12 +120,16 @@ const buildSearchResetState = (
   activeSearchRequestId: requestId,
 })
 
-const buildSearchingState = (query: string, requestId: number) => ({
+const buildSearchingState = (
+  query: string,
+  requestId: number,
+  searchResults: LocationSearchResult[] = [],
+) => ({
   isEditingLocation: true,
   searchQuery: query,
   searchStatus: 'loading' as const,
   searchError: null,
-  searchResults: [],
+  searchResults,
   searchRequest: {
     requestId,
     query,
@@ -250,10 +256,27 @@ export const SelectedLocationPopoverRouter = model({
     updateLocationSearchQuery: {
       to: {
         searchQuery: ['searchQuery'],
+        searchStatus: ['searchStatus'],
+        searchError: ['searchError'],
+        searchRequest: ['searchRequest'],
+        activeSearchRequestId: ['activeSearchRequestId'],
       },
-      fn: (payload: unknown) => ({
-        searchQuery: normalizeSearchInput(payload),
-      }),
+      fn: [
+        ['activeSearchRequestId'] as const,
+        (payload: unknown, activeSearchRequestId: unknown) => {
+          const currentRequestId = typeof activeSearchRequestId === 'number'
+            ? activeSearchRequestId
+            : 0
+
+          return {
+            searchQuery: normalizeSearchInput(payload).trim(),
+            searchStatus: 'idle',
+            searchError: null,
+            searchRequest: null,
+            activeSearchRequestId: currentRequestId + 1,
+          }
+        },
+      ],
     },
     submitLocationSearch: {
       to: {
@@ -266,20 +289,27 @@ export const SelectedLocationPopoverRouter = model({
         activeSearchRequestId: ['activeSearchRequestId'],
       },
       fn: [
-        ['searchQuery', 'activeSearchRequestId'] as const,
-        (payload: unknown, searchQuery: unknown, activeSearchRequestId: unknown) => {
+        ['searchQuery', 'searchResults', 'activeSearchRequestId'] as const,
+        (
+          payload: unknown,
+          searchQuery: unknown,
+          searchResults: unknown,
+          activeSearchRequestId: unknown,
+        ) => {
           const currentRequestId = typeof activeSearchRequestId === 'number'
             ? activeSearchRequestId
             : 0
           const query = normalizeSearchRequestQuery(payload) || normalizeSearchRequestQuery(searchQuery)
 
-          if (!query) {
-            return buildSearchResetState(currentRequestId + 1, {
-              isEditingLocation: true,
-            })
+          if (query.length < MIN_LOCATION_SEARCH_QUERY_LENGTH) {
+            return {}
           }
 
-          return buildSearchingState(query, currentRequestId + 1)
+          return buildSearchingState(
+            query,
+            currentRequestId + 1,
+            Array.isArray(searchResults) ? searchResults.filter((item) => Boolean(item)) : [],
+          )
         },
       ],
     },

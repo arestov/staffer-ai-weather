@@ -195,6 +195,14 @@ const clickElement = (element: Element) => {
   element.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
 }
 
+const setInputValue = (element: HTMLInputElement, value: string) => {
+  const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+
+  valueSetter?.call(element, value)
+  element.dispatchEvent(new window.Event('input', { bubbles: true }))
+  element.dispatchEvent(new window.Event('change', { bubbles: true }))
+}
+
 const countWeatherLocationModels = (appState: DebugAppState) => {
   return appState?.runtimeModels.filter(
     (model) => model.modelName === 'weather_location',
@@ -602,6 +610,139 @@ describe('SelectedLocation popover router', () => {
       () => queryPopover(mainLocationId)?.querySelector('[data-location-search-panel]'),
       (element) => element == null,
       'search panel did not close after selecting a replacement location',
+    )
+  })
+
+  test('location search debounces typing and keeps prior results until the new response arrives', async () => {
+    harness = await createWeatherTestHarness()
+    vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined)
+
+    await harness.whenReady()
+    const readyState = await waitForWeatherLoaded(harness)
+    await waitForLocationCardsRendered(harness)
+    const { mainLocationId } = getSelectedLocationIds(readyState)
+    const trigger = harness.rootElement.querySelector(
+      `[data-selected-location-id="${mainLocationId}"] [data-selected-location-trigger]`,
+    )
+
+    expect(trigger).not.toBeNull()
+
+    clickElement(trigger as Element)
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => getRouterCurrentModelId(appState) === mainLocationId,
+      'featured location did not become current popover router model before debounced search',
+    )
+
+    const popover = await waitFor(
+      () => queryPopover(mainLocationId),
+      (element) => Boolean(element),
+      'selected location popover did not appear before debounced search',
+    )
+
+    const editButton = popover?.querySelector('[data-location-edit-trigger]')
+    expect(editButton).not.toBeNull()
+
+    clickElement(editButton as Element)
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const router = getPopoverRouter(appState)
+        return router.attrs.isEditingLocation === true
+      },
+      'router did not enter edit mode for debounced search',
+    )
+
+    const input = await waitFor(
+      () => queryPopover(mainLocationId)?.querySelector('[data-location-search-input]'),
+      (element) => element instanceof HTMLInputElement,
+      'search input did not appear for debounced search',
+    )
+
+    setInputValue(input as HTMLInputElement, 'Tokyo')
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const router = getPopoverRouter(appState)
+        const results = Array.isArray(router.attrs.searchResults)
+          ? router.attrs.searchResults
+          : []
+
+        return (
+          results.some(
+            (result) =>
+              typeof result === 'object' &&
+              result != null &&
+              'name' in result &&
+              (result as { name?: unknown }).name === 'Tokyo',
+          )
+        )
+      },
+      'initial debounced search did not return Tokyo',
+    )
+
+    fetchLocationSearchResults.mockImplementationOnce(async (query: string) => {
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      return [
+        {
+          id: `${query.trim().toLowerCase()}-delayed`,
+          name: query.trim(),
+          subtitle: 'Delayed match',
+          latitude: 45.5152,
+          longitude: -122.6784,
+          timezone: 'America/Los_Angeles',
+        },
+      ]
+    })
+
+    setInputValue(input as HTMLInputElement, 'Portland')
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const router = getPopoverRouter(appState)
+        const results = Array.isArray(router.attrs.searchResults)
+          ? router.attrs.searchResults
+          : []
+
+        return (
+          router.attrs.searchStatus === 'loading' &&
+          results.some(
+            (result) =>
+              typeof result === 'object' &&
+              result != null &&
+              'name' in result &&
+              (result as { name?: unknown }).name === 'Tokyo',
+          )
+        )
+      },
+      'previous results were cleared before the delayed Portland response arrived',
+    )
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const router = getPopoverRouter(appState)
+        const results = Array.isArray(router.attrs.searchResults)
+          ? router.attrs.searchResults
+          : []
+
+        return (
+          router.attrs.searchStatus === 'ready' &&
+          results.some(
+            (result) =>
+              typeof result === 'object' &&
+              result != null &&
+              'name' in result &&
+              (result as { name?: unknown }).name === 'Portland',
+          )
+        )
+      },
+      'debounced search did not update to Portland',
     )
   })
 })

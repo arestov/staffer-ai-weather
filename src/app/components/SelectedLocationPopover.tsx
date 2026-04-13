@@ -296,7 +296,7 @@ function SelectedLocationPopover({
   onClose: () => void
 }) {
   const { dispatch } = useActions()
-  const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const routerAttrs = useAttrs([
     'isEditingLocation',
     'searchQuery',
@@ -309,6 +309,31 @@ function SelectedLocationPopover({
   const searchStatus = typeof routerAttrs.searchStatus === 'string' ? routerAttrs.searchStatus : 'idle'
   const searchError = typeof routerAttrs.searchError === 'string' ? routerAttrs.searchError : null
   const searchResults = toLocationSearchResults(routerAttrs.searchResults)
+
+  const clearSearchDebounce = () => {
+    if (searchDebounceRef.current != null) {
+      clearTimeout(searchDebounceRef.current)
+      searchDebounceRef.current = null
+    }
+  }
+
+  const handleQueryChange = (query: string) => {
+    clearSearchDebounce()
+    dispatch('updateLocationSearchQuery', query)
+
+    const normalizedQuery = query.trim()
+
+    if (normalizedQuery.length < 3) {
+      return
+    }
+
+    searchDebounceRef.current = setTimeout(() => {
+      searchDebounceRef.current = null
+      dispatch('submitLocationSearch', {
+        query: normalizedQuery,
+      })
+    }, 300)
+  }
 
   useLayoutEffect(() => {
     if (typeof window === 'undefined') {
@@ -348,8 +373,9 @@ function SelectedLocationPopover({
 
   const handleSubmitSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    clearSearchDebounce()
     dispatch('submitLocationSearch', {
-      query: searchInputRef.current?.value ?? searchQuery,
+      query: searchQuery,
     })
   }
 
@@ -385,16 +411,21 @@ function SelectedLocationPopover({
       </ScopeContext.Provider>
 
       <SelectedLocationSearchPanel
-        selectedLocationId={selectedLocationId}
         isEditingLocation={isEditingLocation}
         searchQuery={searchQuery}
         searchStatus={searchStatus}
         searchError={searchError}
         searchResults={searchResults}
-        searchInputRef={searchInputRef}
         onSubmitSearch={handleSubmitSearch}
-        onCancel={() => dispatch('cancelLocationEditing')}
-        onSelectResult={(result) => dispatch('selectLocationSearchResult', result)}
+        onQueryChange={handleQueryChange}
+        onCancel={() => {
+          clearSearchDebounce()
+          dispatch('cancelLocationEditing')
+        }}
+        onSelectResult={(result) => {
+          clearSearchDebounce()
+          dispatch('selectLocationSearchResult', result)
+        }}
       />
     </div>
   )

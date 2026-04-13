@@ -1,28 +1,26 @@
-import type { FormEvent, RefObject } from 'react'
+import type { FormEvent } from 'react'
 import type { LocationSearchResult } from '../rels/location-models'
 
 type SelectedLocationSearchPanelProps = {
-  selectedLocationId: string
   isEditingLocation: boolean
   searchQuery: string
   searchStatus: string
   searchError: string | null
   searchResults: LocationSearchResult[]
-  searchInputRef: RefObject<HTMLInputElement | null>
   onSubmitSearch: (event: FormEvent<HTMLFormElement>) => void
+  onQueryChange: (query: string) => void
   onCancel: () => void
   onSelectResult: (result: LocationSearchResult) => void
 }
 
 export function SelectedLocationSearchPanel({
-  selectedLocationId,
   isEditingLocation,
   searchQuery,
   searchStatus,
   searchError,
   searchResults,
-  searchInputRef,
   onSubmitSearch,
+  onQueryChange,
   onCancel,
   onSelectResult,
 }: SelectedLocationSearchPanelProps) {
@@ -45,10 +43,9 @@ export function SelectedLocationSearchPanel({
         <label className="selected-location-search__field">
           <span className="selected-location-search__label">City or region</span>
           <input
-            key={`${selectedLocationId}:${searchQuery}:${isEditingLocation ? 'editing' : 'idle'}`}
-            ref={searchInputRef}
             type="text"
-            defaultValue={searchQuery}
+            value={searchQuery}
+            onChange={(event) => onQueryChange(event.currentTarget.value)}
             placeholder="Search for a location"
             data-location-search-input
           />

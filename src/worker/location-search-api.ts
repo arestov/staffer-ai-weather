@@ -21,6 +21,7 @@ export interface LocationSearchApi {
 }
 
 const OPEN_METEO_GEOCODING_BASE = 'https://geocoding-api.open-meteo.com/v1/search'
+const MIN_LOCATION_SEARCH_QUERY_LENGTH = 3
 
 const formatLocationSubtitle = (raw: OpenMeteoSearchResultRaw) => {
   return [raw.admin1, raw.country].filter(Boolean).join(', ')
@@ -46,7 +47,7 @@ export const fetchLocationSearchResults = async (
 ): Promise<LocationSearchResult[]> => {
   const normalizedQuery = query.trim()
 
-  if (!normalizedQuery) {
+  if (normalizedQuery.length < MIN_LOCATION_SEARCH_QUERY_LENGTH) {
     return []
   }
 
