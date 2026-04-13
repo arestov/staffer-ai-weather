@@ -741,50 +741,52 @@ function SelectedLocationPopoverWeatherSectionInner({
         </div>
       </div>
 
-      <div className="selected-location-popover__body">
-        <One
-          rel="currentWeather"
-          fallback={
-            <SelectedLocationPopoverCurrentWeatherFallback
+      {!isEditingLocation ? (
+        <div className="selected-location-popover__body">
+          <One
+            rel="currentWeather"
+            fallback={
+              <SelectedLocationPopoverCurrentWeatherFallback
+                fallbackName={currentName}
+                isEditingLocation={isEditingLocation}
+                onStartEdit={onStartEdit}
+              />
+            }
+          >
+            <SelectedLocationPopoverCurrentWeatherPanel
               fallbackName={currentName}
               isEditingLocation={isEditingLocation}
               onStartEdit={onStartEdit}
             />
-          }
-        >
-          <SelectedLocationPopoverCurrentWeatherPanel
-            fallbackName={currentName}
-            isEditingLocation={isEditingLocation}
-            onStartEdit={onStartEdit}
-          />
-        </One>
+          </One>
 
-        <div className="selected-location-popover__forecasts">
-          <div>
-            <div className="mini-section-label">Hourly forecast</div>
-            <div className="forecast-list forecast-list--popover">
-              <Many
-                rel="hourlyForecastSeries"
-                item={ForecastCard}
-                empty={<ForecastEmpty count={POPOVER_FORECAST_LIMIT} />}
-                limit={POPOVER_FORECAST_LIMIT}
-              />
+          <div className="selected-location-popover__forecasts">
+            <div>
+              <div className="mini-section-label">Hourly forecast</div>
+              <div className="forecast-list forecast-list--popover">
+                <Many
+                  rel="hourlyForecastSeries"
+                  item={ForecastCard}
+                  empty={<ForecastEmpty count={POPOVER_FORECAST_LIMIT} />}
+                  limit={POPOVER_FORECAST_LIMIT}
+                />
+              </div>
             </div>
-          </div>
 
-          <div>
-            <div className="mini-section-label">Daily forecast</div>
-            <div className="forecast-list forecast-list--popover">
-              <Many
-                rel="dailyForecastSeries"
-                item={ForecastCard}
-                empty={<ForecastEmpty count={POPOVER_FORECAST_LIMIT} />}
-                limit={POPOVER_FORECAST_LIMIT}
-              />
+            <div>
+              <div className="mini-section-label">Daily forecast</div>
+              <div className="forecast-list forecast-list--popover">
+                <Many
+                  rel="dailyForecastSeries"
+                  item={ForecastCard}
+                  empty={<ForecastEmpty count={POPOVER_FORECAST_LIMIT} />}
+                  limit={POPOVER_FORECAST_LIMIT}
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      ) : null}
     </>
   )
 }
