@@ -52,17 +52,11 @@ export const useNamedSessionRouter = (routerName: string) => {
     currentScope,
     currentNodeId: currentScope?._nodeId ?? null,
     clearCurrent() {
-      if (!rootScope) {
+      if (!routerScope) {
         return
       }
 
-      runtime.dispatch(
-        'clearRouterCurrent',
-        {
-          router_name: routerName,
-        },
-        rootScope,
-      )
+      runtime.dispatch('eraseModel', undefined, routerScope)
     },
     openResource(contextModelId: string) {
       if (!rootScope || !contextModelId) {
@@ -70,7 +64,7 @@ export const useNamedSessionRouter = (routerName: string) => {
       }
 
       runtime.dispatch(
-        'focusRouterResource',
+        'navigateRouterToResource',
         {
           context_md_id: contextModelId,
           router_name: routerName,

@@ -33,12 +33,12 @@ Router requirements:
 Open flow:
 
 - click a `SelectedLocation` card;
-- dispatch `navigateRouterToResource` on `SessionRoot` with `router-selectedLocationPopover`;
+- dispatch built-in `navigateRouterToResource` on `SessionRoot` with `router-selectedLocationPopover`;
 - router focuses the clicked `SelectedLocation` model.
 
 Close flow:
 
-- close button dispatches a root action that resolves the named router and calls `eraseModel`.
+- close button dispatches built-in router action `eraseModel` on the named router scope.
 
 ### 2. Popover rendering strategy
 
@@ -57,7 +57,10 @@ Current design:
 
 ### 3. React integration
 
-Add a small root-targeted action hook/helper so card components can dispatch router actions to `SessionRoot`, not to the current `SelectedLocation` scope.
+Add a small helper so card components can:
+
+- dispatch built-in `SessionRoot` router actions to the root scope;
+- dispatch built-in router actions directly to the named router scope.
 
 Add a root subscription helper for:
 
