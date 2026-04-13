@@ -290,6 +290,67 @@ const waitForLocationCardsRendered = async (harness: WeatherTestHarness) => {
   )
 }
 
+const waitForMainWeatherLoadError = async (
+  harness: WeatherTestHarness,
+  mainLocationId: string,
+  errorMessage: string,
+) => {
+  return waitFor(
+    async () => getAppState(harness),
+    (appState) => {
+      const weatherLocation = getWeatherLocationForSelectedLocation(appState, mainLocationId)
+
+      return (
+        weatherLocation?.attrs.loadStatus === 'error' &&
+        weatherLocation?.attrs.lastError === errorMessage
+      )
+    },
+    'main weather location did not surface the startup error',
+  )
+}
+
+const createWeatherPayload = (temperatureC: number, fetchedAt: string) => ({
+  current: {
+    temperatureC,
+    apparentTemperatureC: temperatureC - 1,
+    weatherCode: 1,
+    isDay: true,
+    windSpeed10m: 4,
+  },
+  hourly: [
+    {
+      time: '2026-04-13T00:00:00Z',
+      temperatureC,
+      precipitationProbability: 0,
+      weatherCode: 1,
+      windSpeed10m: 4,
+    },
+  ],
+  daily: [
+    {
+      date: '2026-04-13',
+      weatherCode: 1,
+      temperatureMaxC: temperatureC + 4,
+      temperatureMinC: temperatureC - 2,
+      precipitationProbabilityMax: 20,
+      windSpeedMax: 6,
+      sunrise: '2026-04-13T05:30:00Z',
+      sunset: '2026-04-13T18:45:00Z',
+    },
+  ],
+  fetchedAt,
+})
+
+const createDeferred = <T,>() => {
+  let resolve!: (value: T | PromiseLike<T>) => void
+
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve
+  })
+
+  return { promise, resolve }
+}
+
 describe('SelectedLocation popover router', () => {
   let harness: WeatherTestHarness | null = null
 
@@ -835,5 +896,366 @@ describe('SelectedLocation popover router', () => {
       },
       'debounced search did not update to Portland',
     )
+  })
+
+  test('startup weather error shows a retry button and recovers on refresh', async () => {
+    harness = await createWeatherTestHarness()
+    const startupError = new Error('weather offline')
+
+    fetchWeatherFromOpenMeteo.mockImplementationOnce(async () => {
+      throw startupError
+    })
+
+    await harness.whenReady()
+    const readyState = await getAppState(harness)
+    const { mainLocationId } = getSelectedLocationIds(readyState)
+
+    await waitForMainWeatherLoadError(harness, mainLocationId, startupError.message)
+
+    const retryButton = await waitFor(
+      () => document.body.querySelector('[data-weather-retry]'),
+      (element) => Boolean(element),
+      'weather retry button did not appear for the startup error',
+    )
+
+    clickElement(retryButton as Element)
+
+    const recoveredState = await waitForWeatherLoaded(harness)
+    const recoveredWeather = getWeatherLocationForSelectedLocation(recoveredState, mainLocationId)
+
+    expect(recoveredWeather?.attrs.loadStatus).toBe('ready')
+    expect(recoveredWeather?.attrs.lastError).toBeNull()
+  })
+
+  test('search error shows a retry button and retries the current query', async () => {
+    harness = await createWeatherTestHarness()
+    vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined)
+
+    await harness.whenReady()
+    const readyState = await waitForWeatherLoaded(harness)
+    await waitForLocationCardsRendered(harness)
+    const { mainLocationId } = getSelectedLocationIds(readyState)
+
+    const trigger = harness.rootElement.querySelector(
+      `[data-selected-location-id="${mainLocationId}"] [data-selected-location-trigger]`,
+    )
+
+    expect(trigger).not.toBeNull()
+
+    clickElement(trigger as Element)
+
+    const editTrigger = await waitFor(
+      () => document.body.querySelector('[data-location-edit-trigger]'),
+      (element) => Boolean(element),
+      'location edit trigger did not appear for the search retry test',
+    )
+
+    clickElement(editTrigger as Element)
+
+    fetchLocationSearchResults.mockRejectedValueOnce(new Error('geocoding offline'))
+
+    const searchInput = await waitFor(
+      () => document.body.querySelector('[data-location-search-input]') as HTMLInputElement | null,
+      (element) => element instanceof HTMLInputElement,
+      'search input did not appear for the search retry test',
+    )
+
+    setInputValue(searchInput as HTMLInputElement, 'Tokyo')
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const router = getPopoverRouter(appState)
+
+        return router.attrs.searchStatus === 'error' && router.attrs.searchError === 'geocoding offline'
+      },
+      'search error did not surface in the router state',
+    )
+
+    const retryButton = await waitFor(
+      () => document.body.querySelector('[data-location-search-retry]'),
+      (element) => Boolean(element),
+      'search retry button did not appear',
+    )
+
+    clickElement(retryButton as Element)
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const router = getPopoverRouter(appState)
+        const results = Array.isArray(router.attrs.searchResults)
+          ? router.attrs.searchResults
+          : []
+
+        return (
+          router.attrs.searchStatus === 'ready' &&
+          results.some(
+            (result) =>
+              typeof result === 'object' &&
+              result != null &&
+              'name' in result &&
+              (result as { name?: unknown }).name === 'Tokyo',
+          )
+        )
+      },
+      'search retry did not recover Tokyo results',
+    )
+
+    await waitFor(
+      () => document.body.querySelector('[data-location-search-result="tokyo-1"]'),
+      (element) => Boolean(element),
+      'search retry did not render Tokyo in the DOM',
+    )
+  })
+
+  test('stale weather response from an earlier replacement does not overwrite the latest one', async () => {
+    harness = await createWeatherTestHarness()
+
+    await harness.whenReady()
+    const readyState = await waitForWeatherLoaded(harness)
+    await waitForLocationCardsRendered(harness)
+    const { mainLocationId } = getSelectedLocationIds(readyState)
+    const firstWeatherResponse = createDeferred<ReturnType<typeof createWeatherPayload>>()
+    fetchWeatherFromOpenMeteo.mockImplementationOnce(() => firstWeatherResponse.promise)
+    const trigger = harness.rootElement.querySelector(
+      `[data-selected-location-id="${mainLocationId}"] [data-selected-location-trigger]`,
+    )
+
+    expect(trigger).not.toBeNull()
+
+    clickElement(trigger as Element)
+
+    const editTrigger = await waitFor(
+      () => document.body.querySelector('[data-location-edit-trigger]'),
+      (element) => Boolean(element),
+      'location edit trigger did not appear for the stale weather test',
+    )
+
+    clickElement(editTrigger as Element)
+
+    const routerModel = getPopoverRouter(await getAppState(harness))
+
+    harness.pageRuntime.dispatchAction(
+      'submitLocationSearch',
+      { query: 'Tokyo' },
+      { _nodeId: routerModel.nodeId ?? '' } as never,
+    )
+
+    const tokyoResult = await waitFor(
+      () => document.body.querySelector('[data-location-search-result="tokyo-1"]'),
+      (element) => Boolean(element),
+      'Tokyo search result did not appear for the stale weather test',
+    )
+
+    clickElement(tokyoResult as Element)
+
+    const firstRequestState = await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const weatherLocation = getWeatherLocationForSelectedLocation(appState, mainLocationId)
+
+        return (
+          weatherLocation?.attrs.name === 'Tokyo' &&
+          weatherLocation?.attrs.loadStatus === 'loading'
+        )
+      },
+      'first weather request did not start',
+    )
+
+    expect(firstRequestState).toBeTruthy()
+
+    const secondEditTrigger = await waitFor(
+      () => document.body.querySelector('[data-location-edit-trigger]'),
+      (element) => Boolean(element),
+      'location edit trigger did not return after the first replacement',
+    )
+
+    clickElement(secondEditTrigger as Element)
+
+    fetchWeatherFromOpenMeteo.mockImplementationOnce(async () =>
+      createWeatherPayload(49, '2026-04-13T12:00:00.000Z'),
+    )
+
+    harness.pageRuntime.dispatchAction(
+      'submitLocationSearch',
+      { query: 'Portland' },
+      { _nodeId: routerModel.nodeId ?? '' } as never,
+    )
+
+    const portlandResult = await waitFor(
+      () => document.body.querySelector('[data-location-search-result="portland-fallback"]'),
+      (element) => Boolean(element),
+      'Portland search result did not appear for the stale weather test',
+    )
+
+    clickElement(portlandResult as Element)
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const weatherLocation = getWeatherLocationForSelectedLocation(appState, mainLocationId)
+
+        return (
+          weatherLocation?.attrs.name === 'Portland' &&
+          weatherLocation?.attrs.loadStatus === 'ready' &&
+          weatherLocation?.attrs.weatherFetchedAt === '2026-04-13T12:00:00.000Z'
+        )
+      },
+      'Portland replacement did not become the latest weather state',
+    )
+
+    firstWeatherResponse.resolve(createWeatherPayload(10, '2026-04-13T12:10:00.000Z'))
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const weatherLocation = getWeatherLocationForSelectedLocation(appState, mainLocationId)
+
+        return (
+          weatherLocation?.attrs.name === 'Portland' &&
+          weatherLocation?.attrs.loadStatus === 'ready' &&
+          weatherLocation?.attrs.weatherFetchedAt === '2026-04-13T12:00:00.000Z'
+        )
+      },
+      'stale weather response overwrote the latest replacement',
+    )
+  })
+
+  test('stale search response is ignored after the query changes and editing is canceled', async () => {
+    harness = await createWeatherTestHarness()
+    fetchLocationSearchResults.mockImplementation(() => new Promise(() => undefined))
+
+    await harness.whenReady()
+    await waitForWeatherLoaded(harness)
+    await waitForLocationCardsRendered(harness)
+
+    const routerModel = getPopoverRouter(await getAppState(harness))
+
+    harness.pageRuntime.dispatchAction(
+      'startLocationEditing',
+      { seedQuery: 'Tokyo' },
+      { _nodeId: routerModel.nodeId ?? '' } as never,
+    )
+
+    harness.pageRuntime.dispatchAction(
+      'submitLocationSearch',
+      { query: 'Tokyo' },
+      { _nodeId: routerModel.nodeId ?? '' } as never,
+    )
+
+    const firstSearchState = await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const router = getPopoverRouter(appState)
+
+        return router.attrs.searchStatus === 'loading' && router.attrs.searchQuery === 'Tokyo'
+      },
+      'first search request did not start',
+    )
+
+    const firstRequestId = getPopoverRouter(firstSearchState).attrs.activeSearchRequestId
+
+    harness.pageRuntime.dispatchAction(
+      'updateLocationSearchQuery',
+      'Portland',
+      { _nodeId: routerModel.nodeId ?? '' } as never,
+    )
+    harness.pageRuntime.dispatchAction(
+      'submitLocationSearch',
+      { query: 'Portland' },
+      { _nodeId: routerModel.nodeId ?? '' } as never,
+    )
+
+    const secondSearchState = await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const router = getPopoverRouter(appState)
+
+        return router.attrs.searchStatus === 'loading' && router.attrs.searchQuery === 'Portland'
+      },
+      'second search request did not start',
+    )
+
+    const secondRequestId = getPopoverRouter(secondSearchState).attrs.activeSearchRequestId
+
+    harness.pageRuntime.dispatchAction(
+      'applyLocationSearchResponse',
+      {
+        requestId: secondRequestId,
+        results: [
+          {
+            id: 'portland-1',
+            name: 'Portland',
+            subtitle: 'Portland, Oregon',
+            latitude: 45.5152,
+            longitude: -122.6784,
+            timezone: 'America/Los_Angeles',
+          },
+        ],
+      },
+      { _nodeId: routerModel.nodeId ?? '' } as never,
+    )
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const router = getPopoverRouter(appState)
+        const results = Array.isArray(router.attrs.searchResults) ? router.attrs.searchResults : []
+
+        return (
+          router.attrs.searchStatus === 'ready' &&
+          results.some(
+            (result) =>
+              typeof result === 'object' &&
+              result != null &&
+              'name' in result &&
+              (result as { name?: unknown }).name === 'Portland',
+          )
+        )
+      },
+      'replacement search did not resolve Portland before cancel',
+    )
+
+    harness.pageRuntime.dispatchAction(
+      'cancelLocationEditing',
+      undefined,
+      { _nodeId: routerModel.nodeId ?? '' } as never,
+    )
+
+    harness.pageRuntime.dispatchAction(
+      'applyLocationSearchResponse',
+      {
+        requestId: firstRequestId,
+        results: [
+          {
+            id: 'tokyo-stale',
+            name: 'Tokyo',
+            subtitle: 'Tokyo, Japan',
+            latitude: 35.6762,
+            longitude: 139.6503,
+            timezone: 'Asia/Tokyo',
+          },
+        ],
+      },
+      { _nodeId: routerModel.nodeId ?? '' } as never,
+    )
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const router = getPopoverRouter(appState)
+
+        return (
+          router.attrs.isEditingLocation === false &&
+          router.attrs.searchStatus === 'idle' &&
+          Array.isArray(router.attrs.searchResults) &&
+          router.attrs.searchResults.length === 0
+        )
+      },
+      'stale search response updated the popover after canceling edit',
+    )
+
+    expect(document.body.querySelector('[data-location-search-panel]')).toBeNull()
   })
 })

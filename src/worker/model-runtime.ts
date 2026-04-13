@@ -73,7 +73,10 @@ const LIVE_UPDATE_INTERVAL_MS = 10 * 60 * 1000  // 10 minutes
 const LIVE_UPDATE_RETRY_MS = 30 * 1000           // 30 seconds on error
 const LIVE_UPDATE_MAX_RETRIES = 3
 
-const fetchWeatherForAllLocations = async (app: WeatherAppRuntime) => {
+const fetchWeatherForAllLocations = async (
+  app: WeatherAppRuntime,
+  weatherStateReporter?: (status: string, error: string | null) => void,
+) => {
   const appModel = app.inited.app_model
   const locationRel = _getCurrentRel(appModel, 'weatherLocation') as RuntimeModelLike[] | null
 
@@ -94,6 +97,8 @@ const fetchWeatherForAllLocations = async (app: WeatherAppRuntime) => {
   if (!entries.length) {
     return
   }
+
+  weatherStateReporter?.('loading', null)
 
   await Promise.allSettled(
     entries.map(({ location }) => location.dispatch('startLoading')),
@@ -117,6 +122,17 @@ const fetchWeatherForAllLocations = async (app: WeatherAppRuntime) => {
       })
     }),
   )
+
+  const failedCount = results.filter((result) => result.status === 'rejected').length
+
+  const nextLoadState = {
+    status: failedCount ? 'error' : 'ready',
+    error: failedCount
+      ? `${failedCount} weather request${failedCount === 1 ? '' : 's'} failed`
+      : null,
+  }
+
+  weatherStateReporter?.(nextLoadState.status, nextLoadState.error)
 }
 
 const runtimeEnv =
@@ -397,7 +413,13 @@ export const createWeatherModelRuntime = () => {
 
     if (!weatherFetchStarted) {
       weatherFetchStarted = true
-      fetchWeatherForAllLocations(app)
+      fetchWeatherForAllLocations(app, (status, error) => {
+        emitForConnection(connection, {
+          type: APP_MSG.WEATHER_LOAD_STATE,
+          status,
+          error,
+        })
+      })
         .finally(() => {
           startLiveUpdate(app)
         })
@@ -459,7 +481,13 @@ export const createWeatherModelRuntime = () => {
       }
       case APP_MSG.CONTROL_REFRESH_WEATHER: {
         const app = await bootstrapApp()
-        fetchWeatherForAllLocations(app).catch((error) => {
+        fetchWeatherForAllLocations(app, (status, error) => {
+          emitForConnection(connection, {
+            type: APP_MSG.WEATHER_LOAD_STATE,
+            status,
+            error,
+          })
+        }).catch((error) => {
           appendLog(connection, `refresh weather failed: ${error}`)
         })
         return

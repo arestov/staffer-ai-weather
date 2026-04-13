@@ -9,6 +9,7 @@ type SelectedLocationSearchPanelProps = {
   searchResults: LocationSearchResult[]
   savedResults: LocationSearchResult[]
   onSubmitSearch: (event: FormEvent<HTMLFormElement>) => void
+  onRetrySearch?: () => void
   onQueryChange: (query: string) => void
   onCancel: () => void
   onSelectResult: (result: LocationSearchResult) => void
@@ -24,6 +25,7 @@ export function SelectedLocationSearchPanel({
   searchResults,
   savedResults,
   onSubmitSearch,
+  onRetrySearch,
   onQueryChange,
   onCancel,
   onSelectResult,
@@ -81,9 +83,14 @@ export function SelectedLocationSearchPanel({
           ) : null}
 
           {searchStatus === 'error' && searchError ? (
-            <p className="selected-location-search__status selected-location-search__status--error" data-location-search-status>
-              {searchError}
-            </p>
+            <div className="selected-location-search__status selected-location-search__status--error" data-location-search-status>
+              <p>{searchError}</p>
+              {onRetrySearch ? (
+                <button type="button" className="secondary" onClick={onRetrySearch} data-location-search-retry>
+                  Retry search
+                </button>
+              ) : null}
+            </div>
           ) : null}
 
           {searchStatus === 'ready' && !searchResults.length ? (

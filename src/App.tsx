@@ -20,10 +20,13 @@ export default function App({
         bootedLabel={bootedLabel}
         rootNodeId={snapshot.rootNodeId}
         sessionId={snapshot.sessionId}
+        weatherLoadStatus={snapshot.weatherLoadStatus}
+        weatherLoadError={snapshot.weatherLoadError}
+        onRefreshWeather={session.refreshWeather}
       />
 
       <RootScope runtime={session.runtime}>
-        <WeatherGraph forecastLimit={forecastLimit} />
+        <WeatherGraph forecastLimit={forecastLimit} onRefreshWeather={session.refreshWeather} />
       </RootScope>
     </main>
   )

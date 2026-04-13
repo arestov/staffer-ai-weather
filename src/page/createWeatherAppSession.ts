@@ -8,6 +8,7 @@ export interface WeatherAppSession {
   store: ReturnType<typeof createPageSyncReceiverRuntime>['store']
   bootstrap(): void
   dispatchAction(actionName: string, payload?: unknown): void
+  refreshWeather(): void
   destroy(): void
 }
 
@@ -35,6 +36,7 @@ export const createWeatherAppSession = (): WeatherAppSession => {
     store: runtime.store,
     bootstrap: runtime.bootstrap,
     dispatchAction: runtime.dispatchAction,
+    refreshWeather: runtime.refreshWeather,
     destroy() {
       runtime.destroy()
     },

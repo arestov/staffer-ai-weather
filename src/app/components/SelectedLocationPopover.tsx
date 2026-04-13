@@ -15,6 +15,7 @@ import {
   POPOVER_FORECAST_LIMIT,
   PopoverForecastColumns,
   PopoverWeatherSectionFallback,
+  WeatherReadoutError,
   WeatherReadoutFallback,
 } from './WeatherCards'
 
@@ -201,7 +202,11 @@ const toLocationSearchResults = (value: unknown): LocationSearchResult[] => {
   })
 }
 
-export function SelectedLocationPopoverLayer() {
+export function SelectedLocationPopoverLayer({
+  onRefreshWeather,
+}: {
+  onRefreshWeather: () => void
+}) {
   const { currentNodeId, currentScope, routerScope, clearCurrent } = useNamedSessionRouter(
     SELECTED_LOCATION_POPOVER_ROUTER_NAME,
   )
@@ -275,6 +280,7 @@ export function SelectedLocationPopoverLayer() {
             popoverId={SELECTED_LOCATION_POPOVER_ID}
             selectedLocationId={currentNodeId ?? ''}
             selectedLocationScope={currentScope}
+            onRefreshWeather={onRefreshWeather}
             onClose={clearCurrent}
           />
         </ScopeContext.Provider>
@@ -288,11 +294,13 @@ function SelectedLocationPopover({
   popoverId,
   selectedLocationId,
   selectedLocationScope,
+  onRefreshWeather,
   onClose,
 }: {
   popoverId: string
   selectedLocationId: string
   selectedLocationScope: ReactSyncScopeHandle
+  onRefreshWeather: () => void
   onClose: () => void
 }) {
   const { dispatch } = useActions()
@@ -381,6 +389,13 @@ function SelectedLocationPopover({
     })
   }
 
+  const handleRetrySearch = () => {
+    clearSearchDebounce()
+    dispatch('submitLocationSearch', {
+      query: searchQuery,
+    })
+  }
+
   const handleSelectLocation = (result: LocationSearchResult) => {
     clearSearchDebounce()
     dispatch('saveLocationSearchResult', result)
@@ -420,6 +435,7 @@ function SelectedLocationPopover({
         <SelectedLocationPopoverWeatherSection
           isEditingLocation={isEditingLocation}
           onStartEdit={(seedQuery) => dispatch('startLocationEditing', { seedQuery })}
+          onRefreshWeather={onRefreshWeather}
         />
       </ScopeContext.Provider>
 
@@ -431,6 +447,7 @@ function SelectedLocationPopover({
         searchResults={searchResults}
         savedResults={savedSearchLocations}
         onSubmitSearch={handleSubmitSearch}
+        onRetrySearch={handleRetrySearch}
         onQueryChange={handleQueryChange}
         onCancel={() => {
           clearSearchDebounce()
@@ -447,15 +464,18 @@ function SelectedLocationPopover({
 function SelectedLocationPopoverWeatherSection({
   isEditingLocation,
   onStartEdit,
+  onRefreshWeather,
 }: {
   isEditingLocation: boolean
   onStartEdit: (seedQuery: string) => void
+  onRefreshWeather: () => void
 }) {
   return (
     <One rel="weatherLocation" fallback={<PopoverWeatherSectionFallback />}>
       <SelectedLocationPopoverWeatherSectionInner
         isEditingLocation={isEditingLocation}
         onStartEdit={onStartEdit}
+        onRefreshWeather={onRefreshWeather}
       />
     </One>
   )
@@ -464,14 +484,19 @@ function SelectedLocationPopoverWeatherSection({
 function SelectedLocationPopoverWeatherSectionInner({
   isEditingLocation,
   onStartEdit,
+  onRefreshWeather,
 }: {
   isEditingLocation: boolean
   onStartEdit: (seedQuery: string) => void
+  onRefreshWeather: () => void
 }) {
-  const weatherLocationAttrs = useAttrs(['name'])
+  const weatherLocationAttrs = useAttrs(['name', 'loadStatus', 'lastError'])
   const currentName = typeof weatherLocationAttrs.name === 'string'
     ? weatherLocationAttrs.name
     : ''
+  const loadStatus = typeof weatherLocationAttrs.loadStatus === 'string' ? weatherLocationAttrs.loadStatus : 'idle'
+  const lastError = typeof weatherLocationAttrs.lastError === 'string' ? weatherLocationAttrs.lastError : null
+  const weatherLoadError = loadStatus === 'error' && lastError ? lastError : null
 
   return (
     <>
@@ -491,6 +516,8 @@ function SelectedLocationPopoverWeatherSectionInner({
                 fallbackName={currentName}
                 isEditingLocation={isEditingLocation}
                 onStartEdit={onStartEdit}
+                weatherLoadError={weatherLoadError}
+                onRefreshWeather={onRefreshWeather}
               />
             }
           >
@@ -498,6 +525,7 @@ function SelectedLocationPopoverWeatherSectionInner({
               fallbackName={currentName}
               isEditingLocation={isEditingLocation}
               onStartEdit={onStartEdit}
+              onRefreshWeather={onRefreshWeather}
             />
           </One>
 
@@ -512,10 +540,12 @@ function SelectedLocationPopoverCurrentWeatherPanel({
   fallbackName,
   isEditingLocation,
   onStartEdit,
+  onRefreshWeather,
 }: {
   fallbackName: string
   isEditingLocation: boolean
   onStartEdit: (seedQuery: string) => void
+  onRefreshWeather: () => void
 }) {
   const currentWeatherAttrs = useAttrs(['location'])
   const seedQuery = typeof currentWeatherAttrs.location === 'string' && currentWeatherAttrs.location
@@ -543,7 +573,7 @@ function SelectedLocationPopoverCurrentWeatherPanel({
       </div>
 
       <article className="weather-readout weather-readout--popover">
-        <CurrentWeatherCard />
+        <CurrentWeatherCard onRetry={onRefreshWeather} />
       </article>
     </>
   )
@@ -553,10 +583,14 @@ function SelectedLocationPopoverCurrentWeatherFallback({
   fallbackName,
   isEditingLocation,
   onStartEdit,
+  weatherLoadError,
+  onRefreshWeather,
 }: {
   fallbackName: string
   isEditingLocation: boolean
   onStartEdit: (seedQuery: string) => void
+  weatherLoadError: string | null
+  onRefreshWeather: () => void
 }) {
   return (
     <>
@@ -578,7 +612,11 @@ function SelectedLocationPopoverCurrentWeatherFallback({
         )}
       </div>
 
-      <WeatherReadoutFallback />
+        {weatherLoadError ? (
+          <WeatherReadoutError message={`Weather load failed: ${weatherLoadError}`} onRetry={onRefreshWeather} />
+        ) : (
+          <WeatherReadoutFallback />
+        )}
     </>
   )
 }

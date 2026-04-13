@@ -34,9 +34,11 @@ const ForecastShape = defineShape({
 export const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
   loadStatus,
   loadNote,
+  onRetry,
 }: {
   loadStatus?: string
   loadNote?: string | null
+  onRetry?: () => void
 }) {
   const attrs = useAttrs(['location', 'status', 'temperatureText', 'summary', 'updatedAt'])
 
@@ -55,10 +57,39 @@ export const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
       <p className="weather-readout__meta">
         <span className={`status-pill status-pill--${status}`}>{status}</span>
         {statusNote ? <span>{statusNote}</span> : null}
+        {loadStatus === 'error' && onRetry ? (
+          <button type="button" className="secondary" onClick={onRetry} data-weather-retry>
+            Retry weather
+          </button>
+        ) : null}
       </p>
     </>
   )
 }, CurrentWeatherShape)
+
+export function WeatherReadoutError({
+  message,
+  onRetry,
+}: {
+  message: string
+  onRetry?: () => void
+}) {
+  return (
+    <div className="weather-readout weather-readout--location weather-readout--error" aria-live="polite">
+      <div className="weather-readout__label">Weather unavailable</div>
+      <div className="weather-readout__value weather-readout__value--placeholder">-- °C</div>
+      <p className="weather-readout__summary">{message}</p>
+      <p className="weather-readout__meta">
+        <span className="status-pill status-pill--error">error</span>
+        {onRetry ? (
+          <button type="button" className="secondary" onClick={onRetry} data-weather-retry>
+            Retry weather
+          </button>
+        ) : null}
+      </p>
+    </div>
+  )
+}
 
 export const ForecastCard = shapeOf(function ForecastCard() {
   const attrs = useAttrs(['label', 'temperatureText', 'summary'])

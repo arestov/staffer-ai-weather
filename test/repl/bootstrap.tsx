@@ -160,6 +160,7 @@ export interface WeatherReplHarness {
     bootstrap(): void
     destroy(): void
     dispatchAction(actionName: string, payload?: unknown): void
+    refreshWeather(): void
     runtime: ReturnType<typeof createPageSyncReceiverRuntime>
     sessionId: string | null
     store: ReturnType<typeof createPageSyncReceiverRuntime>['store']
@@ -196,6 +197,7 @@ export const createWeatherReplHarness = async ({
     bootstrap: pageRuntime.bootstrap,
     destroy,
     dispatchAction: pageRuntime.dispatchAction,
+    refreshWeather: pageRuntime.refreshWeather,
     runtime: pageRuntime,
     store: pageRuntime.store,
   }

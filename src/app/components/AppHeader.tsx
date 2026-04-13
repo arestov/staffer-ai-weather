@@ -2,9 +2,19 @@ type AppHeaderProps = {
   bootedLabel: string
   rootNodeId: string | null
   sessionId: string | null
+  weatherLoadStatus: string
+  weatherLoadError: string | null
+  onRefreshWeather: () => void
 }
 
-export function AppHeader({ bootedLabel, rootNodeId, sessionId }: AppHeaderProps) {
+export function AppHeader({
+  bootedLabel,
+  rootNodeId,
+  sessionId,
+  weatherLoadStatus,
+  weatherLoadError,
+  onRefreshWeather,
+}: AppHeaderProps) {
   return (
     <div className="app-header-shell">
       <button
@@ -28,6 +38,15 @@ export function AppHeader({ bootedLabel, rootNodeId, sessionId }: AppHeaderProps
             <strong>{sessionId || 'pending'}</strong>
           </article>
         </div>
+
+        {weatherLoadStatus === 'error' && weatherLoadError ? (
+          <div className="app-header-error" data-weather-load-error-banner>
+            <p>Weather load failed: {weatherLoadError}</p>
+            <button type="button" className="secondary" onClick={onRefreshWeather} data-weather-retry>
+              Retry weather
+            </button>
+          </div>
+        ) : null}
       </header>
     </div>
   )

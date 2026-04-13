@@ -18,6 +18,8 @@ export interface WeatherRootSnapshot {
   version: number
   rootNodeId: string | null
   sessionId: string | null
+  weatherLoadStatus: string
+  weatherLoadError: string | null
 }
 
 export interface WeatherPageSyncRuntime extends ReactScopeRuntime {
@@ -31,6 +33,7 @@ export interface WeatherPageSyncRuntime extends ReactScopeRuntime {
     payload?: unknown,
     scope?: ReactSyncScopeHandle | null,
   ): void
+  refreshWeather(): void
   destroy(): void
   getSnapshot(): WeatherRootSnapshot
   getRootAttrs(attrNames: readonly string[]): Record<string, unknown>
@@ -52,6 +55,8 @@ const createEmptySnapshot = (): WeatherRootSnapshot => ({
   version: 0,
   rootNodeId: null,
   sessionId: null,
+  weatherLoadStatus: 'ready',
+  weatherLoadError: null,
 })
 
 const createSnapshotWithVersion = (
@@ -205,6 +210,12 @@ export const createPageSyncReceiverRuntime = ({
     })
   }
 
+  const refreshWeather = () => {
+    emit({
+      type: APP_MSG.CONTROL_REFRESH_WEATHER,
+    })
+  }
+
   const dispatchAction = (
     actionName: string,
     payload?: unknown,
@@ -256,6 +267,16 @@ export const createPageSyncReceiverRuntime = ({
         emitLog(`${message.scope}: ${message.message}`)
         return
       }
+      case APP_MSG.WEATHER_LOAD_STATE: {
+        const current = store.getSnapshot()
+        store.setSnapshot(
+          createSnapshotWithVersion(current, {
+            weatherLoadStatus: message.status,
+            weatherLoadError: message.error,
+          }),
+        )
+        return
+      }
       case APP_MSG.RUNTIME_ERROR: {
         emitError(message.message)
         return
@@ -279,6 +300,7 @@ export const createPageSyncReceiverRuntime = ({
     debugDumpGraph: () => syncReceiver.debugDumpGraph(),
     debugMessages: () => debugMessageLog.slice(),
     dispatchAction,
+    refreshWeather,
     getSnapshot: () => store.getSnapshot(),
     getRootScope: () => syncReceiver.getRootScope(),
     subscribeRootScope: (listener) => syncReceiver.subscribeRoot(listener),

@@ -75,7 +75,7 @@ export const formatDailyLabel = (dateString: string | null | undefined): string 
   }
 
   const date = new Date(`${dateString}T12:00:00Z`)
-  if (isNaN(date.getTime())) {
+  if (Number.isNaN(date.getTime())) {
     return '---'
   }
 

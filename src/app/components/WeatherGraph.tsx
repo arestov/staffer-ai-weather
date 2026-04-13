@@ -18,6 +18,7 @@ import {
   ForecastPanelsFallback,
   LocationCardsFallback,
   LocationFallback,
+  WeatherReadoutError,
   WeatherReadoutFallback,
 } from './WeatherCards'
 
@@ -25,15 +26,17 @@ export { DEFAULT_FORECAST_LIMIT }
 
 export function WeatherGraph({
   forecastLimit = DEFAULT_FORECAST_LIMIT,
+  onRefreshWeather,
 }: {
   forecastLimit?: number
+  onRefreshWeather: () => void
 }) {
   return (
     <>
       <One rel="pioneer" fallback={<GraphFallback />}>
         <section className="main-stage">
           <One rel="mainLocation" fallback={<LocationFallback featured forecastLimit={forecastLimit} />}>
-            <FeaturedLocationCard forecastLimit={forecastLimit} />
+            <FeaturedLocationCard forecastLimit={forecastLimit} onRefreshWeather={onRefreshWeather} />
           </One>
         </section>
 
@@ -48,7 +51,7 @@ export function WeatherGraph({
         </section>
       </One>
 
-      <SelectedLocationPopoverLayer />
+      <SelectedLocationPopoverLayer onRefreshWeather={onRefreshWeather} />
     </>
   )
 }
@@ -56,9 +59,11 @@ export function WeatherGraph({
 const WeatherLocationInner = ({
   featured = false,
   forecastLimit,
+  onRefreshWeather,
 }: {
   featured?: boolean
   forecastLimit?: number
+  onRefreshWeather?: () => void
 }) => {
   const scope = useScope()
   const { currentNodeId: popoverNodeId, openResource } =
@@ -74,6 +79,7 @@ const WeatherLocationInner = ({
   const weatherStatus = loadStatus === 'idle' ? undefined : loadStatus
   const selectedLocationId = scope?._nodeId ?? ''
   const isPopoverOpen = Boolean(selectedLocationId && popoverNodeId === selectedLocationId)
+  const weatherLoadError = loadStatus === 'error' && lastError ? lastError : null
   const weatherNote =
     loadStatus === 'loading'
       ? 'Loading weather data'
@@ -114,9 +120,15 @@ const WeatherLocationInner = ({
         <div className={featured ? 'location-card location-card--featured' : 'location-card'}>
           <One rel="weatherLocation" fallback={weatherLocationBodyFallback}>
             <div className="location-card__body">
-              <One rel="currentWeather" fallback={<WeatherReadoutFallback />}>
+              <One
+                rel="currentWeather"
+                fallback={<WeatherReadoutFallback />}
+              >
                 <article className="weather-readout weather-readout--location">
-                  <CurrentWeatherCard loadStatus={weatherStatus} loadNote={weatherNote} />
+                  <CurrentWeatherCard
+                    loadStatus={weatherStatus}
+                    loadNote={weatherNote}
+                  />
                 </article>
               </One>
 
@@ -152,13 +164,26 @@ const WeatherLocationInner = ({
           </One>
         </div>
       </button>
+
+      {weatherLoadError ? (
+        <div className="location-card__error">
+          <WeatherReadoutError
+            message={`Weather load failed: ${weatherLoadError}`}
+            onRetry={onRefreshWeather}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }
 
-const FeaturedLocationCard = ({ forecastLimit }: { forecastLimit?: number }) => (
-  <WeatherLocationInner featured forecastLimit={forecastLimit} />
-)
+const FeaturedLocationCard = ({
+  forecastLimit,
+  onRefreshWeather,
+}: {
+  forecastLimit?: number
+  onRefreshWeather: () => void
+}) => <WeatherLocationInner featured forecastLimit={forecastLimit} onRefreshWeather={onRefreshWeather} />
 
 const AdditionalLocationCard = () => <WeatherLocationInner />
 

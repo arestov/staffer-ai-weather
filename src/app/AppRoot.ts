@@ -92,9 +92,21 @@ const app_props = mergeDcl({
     temperatureText: ['input', '-- \u00b0C'],
     summary: ['input', 'Waiting for backend weather data'],
     updatedAt: ['input', null],
+    weatherLoadStatus: ['input', 'ready'],
+    weatherLoadError: ['input', null],
     savedSearchLocations: ['input', []],
   },
   actions: {
+    setWeatherLoadState: {
+      to: {
+        weatherLoadStatus: ['weatherLoadStatus'],
+        weatherLoadError: ['weatherLoadError'],
+      },
+      fn: (payload: { status: string; error: string | null }) => ({
+        weatherLoadStatus: payload.status,
+        weatherLoadError: payload.error,
+      }),
+    },
     handleInit: [
       {
         to: {
