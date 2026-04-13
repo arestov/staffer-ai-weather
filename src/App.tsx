@@ -152,11 +152,18 @@ const WeatherLocationInner = ({
         ? `Last update failed: ${lastError}`
         : `Updated ${formatUpdatedAt(weatherFetchedAt)}`
 
+  const weatherLocationBodyFallback = (
+    <div className="location-card__body">
+      <WeatherReadoutFallback />
+      {featured ? <ForecastPanelsFallback forecastLimit={forecastLimit} /> : null}
+    </div>
+  )
+
   return (
     <div className={featured ? 'location-card location-card--featured' : 'location-card'}>
-      <One rel="weatherLocation" fallback={<LocationFallback featured={featured} forecastLimit={forecastLimit} />}>
+      <One rel="weatherLocation" fallback={weatherLocationBodyFallback}>
         <div className="location-card__body">
-          <One rel="currentWeather" fallback={<LocationFallback featured={featured} forecastLimit={forecastLimit} />}>
+          <One rel="currentWeather" fallback={<WeatherReadoutFallback />}>
             <article className="weather-readout weather-readout--location">
               <CurrentWeatherCard loadStatus={weatherStatus} loadNote={weatherNote} />
             </article>
@@ -217,6 +224,45 @@ function GraphFallback() {
   )
 }
 
+function WeatherReadoutFallback() {
+  return (
+    <div className="weather-readout weather-readout--location weather-readout--placeholder">
+      <div className="weather-readout__label" aria-hidden="true">
+        <span className="skeleton skeleton-line skeleton-line--label" />
+      </div>
+      <div className="weather-readout__value weather-readout__value--placeholder" aria-hidden="true">
+        <span className="skeleton skeleton-block skeleton-block--value" />
+      </div>
+      <p className="weather-readout__summary" aria-hidden="true">
+        <span className="skeleton skeleton-line skeleton-line--summary" />
+      </p>
+      <p className="weather-readout__meta" aria-hidden="true">
+        <span className="skeleton skeleton-pill" />
+        <span className="skeleton skeleton-line skeleton-line--meta" />
+      </p>
+    </div>
+  )
+}
+
+function ForecastPanelsFallback({ forecastLimit = DEFAULT_FORECAST_LIMIT }: { forecastLimit?: number }) {
+  return (
+    <div className="forecast-panels">
+      <div>
+        <div className="mini-section-label">Hourly forecast</div>
+        <div className="forecast-list">
+          <ForecastEmpty count={forecastLimit} />
+        </div>
+      </div>
+      <div>
+        <div className="mini-section-label">Daily forecast</div>
+        <div className="forecast-list">
+          <ForecastEmpty count={forecastLimit} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function LocationFallback({
   featured = false,
   forecastLimit = DEFAULT_FORECAST_LIMIT,
@@ -235,38 +281,8 @@ function LocationFallback({
       aria-label="Loading weather card"
     >
       <div className="location-card__body">
-        <div className="weather-readout weather-readout--location weather-readout--placeholder">
-          <div className="weather-readout__label" aria-hidden="true">
-            <span className="skeleton skeleton-line skeleton-line--label" />
-          </div>
-          <div className="weather-readout__value weather-readout__value--placeholder" aria-hidden="true">
-            <span className="skeleton skeleton-block skeleton-block--value" />
-          </div>
-          <p className="weather-readout__summary" aria-hidden="true">
-            <span className="skeleton skeleton-line skeleton-line--summary" />
-          </p>
-          <p className="weather-readout__meta" aria-hidden="true">
-            <span className="skeleton skeleton-pill" />
-            <span className="skeleton skeleton-line skeleton-line--meta" />
-          </p>
-        </div>
-
-        {featured ? (
-          <div className="forecast-panels">
-            <div>
-              <div className="mini-section-label">Hourly forecast</div>
-              <div className="forecast-list">
-                <ForecastEmpty count={forecastLimit} />
-              </div>
-            </div>
-            <div>
-              <div className="mini-section-label">Daily forecast</div>
-              <div className="forecast-list">
-                <ForecastEmpty count={forecastLimit} />
-              </div>
-            </div>
-          </div>
-        ) : null}
+        <WeatherReadoutFallback />
+        {featured ? <ForecastPanelsFallback forecastLimit={forecastLimit} /> : null}
       </div>
     </article>
   )
