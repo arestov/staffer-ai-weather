@@ -1,4 +1,4 @@
-﻿import { useLayoutEffect, useState } from 'react'
+﻿import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { One } from './react-sync/components/One'
 import { Many } from './react-sync/components/Many'
@@ -37,6 +37,31 @@ type FloatingPopoverLayout = {
   top: number
   left: number
   width: number
+}
+
+const supportsCssNativePopoverPositioning = () => {
+  if (
+    typeof window === 'undefined' ||
+    typeof HTMLElement === 'undefined' ||
+    typeof CSS === 'undefined' ||
+    typeof CSS.supports !== 'function'
+  ) {
+    return false
+  }
+
+  if (
+    typeof HTMLElement.prototype.showPopover !== 'function' ||
+    typeof HTMLElement.prototype.hidePopover !== 'function'
+  ) {
+    return false
+  }
+
+  return (
+    CSS.supports('anchor-name: --selected-location-trigger') &&
+    CSS.supports('position-anchor: --selected-location-trigger') &&
+    CSS.supports('top: anchor(bottom)') &&
+    CSS.supports('width: anchor-size(--weather-shell width)')
+  )
 }
 
 export default function App({
@@ -103,11 +128,17 @@ export default function App({
 
 const useFloatingSelectedLocationPopoverLayout = (
   selectedLocationId: string | null,
+  enabled: boolean,
 ) => {
   const [layout, setLayout] = useState<FloatingPopoverLayout | null>(null)
 
   useLayoutEffect(() => {
-    if (!selectedLocationId || typeof window === 'undefined' || typeof document === 'undefined') {
+    if (
+      !enabled ||
+      !selectedLocationId ||
+      typeof window === 'undefined' ||
+      typeof document === 'undefined'
+    ) {
       setLayout(null)
       return
     }
@@ -188,7 +219,7 @@ const useFloatingSelectedLocationPopoverLayout = (
 
       resizeObserver?.disconnect()
     }
-  }, [selectedLocationId])
+  }, [enabled, selectedLocationId])
 
   return layout
 }
@@ -296,6 +327,7 @@ const WeatherLocationInner = ({
         onClick={openPopover}
         aria-expanded={isPopoverOpen}
         aria-controls={isPopoverOpen ? SELECTED_LOCATION_POPOVER_ID : undefined}
+        data-popover-anchor={isPopoverOpen ? 'active' : undefined}
         data-selected-location-trigger
       >
         <div className={featured ? 'location-card location-card--featured' : 'location-card'}>
@@ -352,13 +384,45 @@ function SelectedLocationPopoverLayer() {
   const { currentNodeId, currentScope, clearCurrent } = useNamedSessionRouter(
     SELECTED_LOCATION_POPOVER_ROUTER_NAME,
   )
-  const layout = useFloatingSelectedLocationPopoverLayout(currentNodeId)
+  const popoverRef = useRef<HTMLElement | null>(null)
+  const nativePositioning = supportsCssNativePopoverPositioning()
+  const layout = useFloatingSelectedLocationPopoverLayout(
+    currentNodeId,
+    !nativePositioning,
+  )
 
-  if (!currentNodeId || !currentScope || typeof document === 'undefined') {
+  useEffect(() => {
+    const node = popoverRef.current
+
+    if (!nativePositioning || !node) {
+      return
+    }
+
+    const isOpen = () => {
+      try {
+        return node.matches(':popover-open')
+      } catch {
+        return false
+      }
+    }
+
+    if (currentNodeId && currentScope) {
+      if (!isOpen()) {
+        node.showPopover()
+      }
+      return
+    }
+
+    if (isOpen()) {
+      node.hidePopover()
+    }
+  }, [currentNodeId, currentScope, nativePositioning])
+
+  if (typeof document === 'undefined') {
     return null
   }
 
-  const floatingStyle = layout
+  const floatingStyle = !nativePositioning && currentNodeId && currentScope && layout
     ? {
         top: `${layout.top}px`,
         left: `${layout.left}px`,
@@ -367,21 +431,26 @@ function SelectedLocationPopoverLayer() {
     : undefined
 
   return createPortal(
-    <div
-      className="selected-location-popover-layer"
+    <section
+      ref={popoverRef}
+      id={SELECTED_LOCATION_POPOVER_ID}
+      popover={nativePositioning ? 'manual' : undefined}
+      hidden={!nativePositioning && (!currentNodeId || !currentScope)}
+      className="selected-location-popover selected-location-popover--floating"
       data-selected-location-popover-layer
+      data-popover-for={currentNodeId ?? ''}
       style={floatingStyle}
     >
-      <div className="selected-location-popover-layer__surface">
+      {currentScope ? (
         <ScopeContext.Provider value={currentScope}>
           <SelectedLocationPopover
             popoverId={SELECTED_LOCATION_POPOVER_ID}
-            selectedLocationId={currentNodeId}
+            selectedLocationId={currentNodeId ?? ''}
             onClose={clearCurrent}
           />
         </ScopeContext.Provider>
-      </div>
-    </div>,
+      ) : null}
+    </section>,
     document.body,
   )
 }
@@ -396,9 +465,9 @@ function SelectedLocationPopover({
   onClose: () => void
 }) {
   return (
-    <section
+    <div
       id={popoverId}
-      className="selected-location-popover"
+      className="selected-location-popover__surface"
       data-selected-location-popover
       data-popover-for={selectedLocationId}
     >
@@ -462,7 +531,7 @@ function SelectedLocationPopover({
           </div>
         </div>
       </One>
-    </section>
+    </div>
   )
 }
 

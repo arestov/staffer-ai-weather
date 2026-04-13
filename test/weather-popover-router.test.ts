@@ -124,7 +124,9 @@ const clickElement = (element: Element) => {
 }
 
 const queryPopover = (selectedLocationId: string) =>
-  document.body.querySelector(`[data-popover-for="${selectedLocationId}"]`)
+  document.body.querySelector(
+    `[data-selected-location-popover][data-popover-for="${selectedLocationId}"]`,
+  )
 
 const queryPopoverLayer = () =>
   document.body.querySelector('[data-selected-location-popover-layer]')

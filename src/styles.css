@@ -96,6 +96,7 @@ input:focus {
 .app-shell {
   position: relative;
   z-index: 1;
+  anchor-name: --weather-shell;
   min-height: 100vh;
   display: grid;
   gap: 1.35rem;
@@ -267,6 +268,10 @@ h1 {
 .selected-location-card-button:focus-visible {
   outline: 2px solid rgba(121, 213, 255, 0.9);
   outline-offset: 4px;
+}
+
+.selected-location-card-button[data-popover-anchor='active'] {
+  anchor-name: --selected-location-trigger;
 }
 
 .location-card {
@@ -444,18 +449,23 @@ h1 {
   min-height: 18rem;
 }
 
-.selected-location-popover-layer {
+.selected-location-popover--floating {
   position: absolute;
   z-index: 24;
-  pointer-events: none;
+  margin: 0;
+  inset: auto;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  overflow: visible;
 }
 
-.selected-location-popover-layer__surface {
-  width: 100%;
-  pointer-events: auto;
+.selected-location-popover--floating::backdrop {
+  background: transparent;
 }
 
-.selected-location-popover {
+.selected-location-popover__surface {
   position: relative;
   width: 100%;
   padding: 1rem;
@@ -466,6 +476,17 @@ h1 {
     radial-gradient(circle at top right, rgba(121, 213, 255, 0.14), transparent 28%);
   backdrop-filter: blur(22px);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+@supports (anchor-name: --selected-location-trigger) and (position-anchor: --selected-location-trigger) and (top: anchor(bottom)) {
+  .selected-location-popover--floating {
+    position: absolute;
+    position-anchor: --selected-location-trigger;
+    top: calc(anchor(bottom) + 16px);
+    left: anchor(--weather-shell left);
+    width: anchor-size(--weather-shell width);
+    max-width: none;
+  }
 }
 
 .selected-location-popover__header {
