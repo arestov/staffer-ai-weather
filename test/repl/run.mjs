@@ -176,6 +176,13 @@ const summarizeAppState = (models) => {
     'updatedAt',
     'name',
     'label',
+    'loadStatus',
+    'lastError',
+    'weatherFetchedAt',
+    'latitude',
+    'longitude',
+    'temperatureC',
+    'weatherCode',
   ])
 
   const summarizeList = (list) => {
