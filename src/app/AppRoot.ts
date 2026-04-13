@@ -7,7 +7,6 @@ import {
   WEATHER_LOCATION_BASE_CREATION_SHAPE,
   buildInitialSelectedLocations,
   buildInitialWeatherLocations,
-  buildWeatherState,
 } from './rels/weatherSeed'
 
 const normalizeLocation = (value: unknown, fallback: string) => {
@@ -48,10 +47,10 @@ const app_props = mergeDcl({
     ],
   },
   attrs: {
-    location: ['input', 'Moscow'],
+    location: ['input', 'pending'],
     status: ['input', 'booting'],
     temperatureText: ['input', '-- \u00b0C'],
-    summary: ['input', 'Waiting for the first weather update'],
+    summary: ['input', 'Waiting for backend weather data'],
     updatedAt: ['input', null],
   },
   actions: {
@@ -138,7 +137,14 @@ const app_props = mergeDcl({
         ['location'],
         (payload: unknown, currentLocation: string) => {
           const nextLocation = normalizeLocation(payload, currentLocation)
-          return buildWeatherState(nextLocation, 'ready')
+
+          return {
+            location: nextLocation,
+            status: 'loading',
+            temperatureText: '-- \u00b0C',
+            summary: 'Waiting for backend weather data',
+            updatedAt: null,
+          }
         },
       ],
     },
@@ -152,8 +158,15 @@ const app_props = mergeDcl({
       },
       fn: [
         ['location'],
-        (_payload: unknown, currentLocation: string) =>
-          buildWeatherState(currentLocation, 'refreshing'),
+        (_payload: unknown, currentLocation: string) => {
+          return {
+            location: currentLocation,
+            status: 'loading',
+            temperatureText: '-- \u00b0C',
+            summary: 'Waiting for backend weather data',
+            updatedAt: null,
+          }
+        },
       ],
     },
   },

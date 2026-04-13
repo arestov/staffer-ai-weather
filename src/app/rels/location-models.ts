@@ -1,7 +1,5 @@
 import { model } from 'dkt/model.js'
 import {
-  buildForecastSeries,
-  buildWeatherState,
   CURRENT_WEATHER_CREATION_SHAPE,
   FORECAST_SERIES_CREATION_SHAPE,
 } from './weatherSeed'
@@ -105,51 +103,6 @@ export const WeatherLocation = model({
     dailyForecastSeries: ['model', DailyForecastSeries, { many: true }],
   },
   actions: {
-    handleInit: {
-      to: {
-        currentWeather: [
-          '<< currentWeather',
-          {
-            method: 'set_one',
-            can_create: true,
-            creation_shape: CURRENT_WEATHER_CREATION_SHAPE,
-          },
-        ],
-        hourlyForecastSeries: [
-          '<< hourlyForecastSeries',
-          {
-            method: 'set_many',
-            can_create: true,
-            creation_shape: FORECAST_SERIES_CREATION_SHAPE,
-          },
-        ],
-        dailyForecastSeries: [
-          '<< dailyForecastSeries',
-          {
-            method: 'set_many',
-            can_create: true,
-            creation_shape: FORECAST_SERIES_CREATION_SHAPE,
-          },
-        ],
-      },
-      fn: [
-        ['name'] as const,
-        (_payload: unknown, locationName: unknown) => {
-          const name = typeof locationName === 'string' ? locationName : ''
-
-          return {
-            currentWeather: {
-              attrs: buildWeatherState(name, 'ready'),
-            },
-            hourlyForecastSeries: [
-              buildForecastSeries(name, 0),
-              buildForecastSeries(name, 1),
-            ],
-            dailyForecastSeries: [buildForecastSeries(name, 2)],
-          }
-        },
-      ],
-    },
     startLoading: {
       to: {
         loadStatus: ['loadStatus'],

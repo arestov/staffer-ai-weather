@@ -20,6 +20,9 @@ const formatUpdatedAt = (value: string | null) => {
 }
 
 const DEFAULT_FORECAST_LIMIT = 3
+const DEFAULT_ADDITIONAL_LOCATION_COUNT = 3
+const LOCATION_PLACEHOLDER_KEYS = ['north', 'center', 'south'] as const
+const FORECAST_PLACEHOLDER_KEYS = ['now', 'soon', 'later'] as const
 
 export default function App({
   session,
@@ -61,7 +64,7 @@ export default function App({
       <RootScope runtime={session.runtime}>
         <One rel="pioneer" fallback={<GraphFallback />}>
           <section className="main-stage">
-            <One rel="mainLocation" fallback={<LocationFallback featured />}>
+            <One rel="mainLocation" fallback={<LocationFallback featured forecastLimit={forecastLimit} />}>
               <FeaturedLocationCard forecastLimit={forecastLimit} />
             </One>
           </section>
@@ -71,7 +74,7 @@ export default function App({
               <Many
                 rel="additionalLocations"
                 item={AdditionalLocationCard}
-                empty={<LocationFallback />}
+                empty={<LocationCardsFallback count={DEFAULT_ADDITIONAL_LOCATION_COUNT} />}
               />
             </div>
           </section>
@@ -151,9 +154,9 @@ const WeatherLocationInner = ({
 
   return (
     <div className={featured ? 'location-card location-card--featured' : 'location-card'}>
-      <One rel="weatherLocation" fallback={<LocationFallback featured={featured} />}>
+      <One rel="weatherLocation" fallback={<LocationFallback featured={featured} forecastLimit={forecastLimit} />}>
         <div className="location-card__body">
-          <One rel="currentWeather" fallback={<LocationFallback featured={featured} />}>
+          <One rel="currentWeather" fallback={<LocationFallback featured={featured} forecastLimit={forecastLimit} />}>
             <article className="weather-readout weather-readout--location">
               <CurrentWeatherCard loadStatus={weatherStatus} loadNote={weatherNote} />
             </article>
@@ -168,7 +171,7 @@ const WeatherLocationInner = ({
                     <Many
                       rel="hourlyForecastSeries"
                       item={ForecastCard}
-                      empty={<ForecastEmpty />}
+                      empty={<ForecastEmpty count={forecastLimit ?? DEFAULT_FORECAST_LIMIT} />}
                       limit={forecastLimit}
                     />
                   </div>
@@ -179,7 +182,7 @@ const WeatherLocationInner = ({
                     <Many
                       rel="dailyForecastSeries"
                       item={ForecastCard}
-                      empty={<ForecastEmpty />}
+                      empty={<ForecastEmpty count={forecastLimit ?? DEFAULT_FORECAST_LIMIT} />}
                       limit={forecastLimit}
                     />
                   </div>
@@ -199,22 +202,104 @@ const FeaturedLocationCard = ({ forecastLimit }: { forecastLimit?: number }) => 
 const AdditionalLocationCard = () => <WeatherLocationInner />
 
 function GraphFallback() {
-  return <div className="graph-fallback">Booting weather graph...</div>
+  return (
+    <div className="graph-fallback" aria-busy="true" aria-live="polite">
+      <section className="main-stage">
+        <LocationFallback featured forecastLimit={DEFAULT_FORECAST_LIMIT} />
+      </section>
+
+      <section className="secondary-stage">
+        <div className="location-grid">
+          <LocationCardsFallback count={DEFAULT_ADDITIONAL_LOCATION_COUNT} />
+        </div>
+      </section>
+    </div>
+  )
 }
 
-function LocationFallback({ featured = false }: { featured?: boolean }) {
+function LocationFallback({
+  featured = false,
+  forecastLimit = DEFAULT_FORECAST_LIMIT,
+}: {
+  featured?: boolean
+  forecastLimit?: number
+}) {
   return (
-    <article className={featured ? 'location-card location-card--featured' : 'location-card'}>
-      <div className="weather-readout weather-readout--location">
-        <div className="weather-readout__label">Loading location</div>
-        <div className="weather-readout__value">--</div>
-        <p className="weather-readout__summary">Waiting for the model tree</p>
-        <p className="weather-readout__meta">Initializing...</p>
+    <article
+      className={
+        featured
+          ? 'location-card location-card--featured location-card--placeholder'
+          : 'location-card location-card--placeholder'
+      }
+      aria-busy="true"
+      aria-label="Loading weather card"
+    >
+      <div className="location-card__body">
+        <div className="weather-readout weather-readout--location weather-readout--placeholder">
+          <div className="weather-readout__label" aria-hidden="true">
+            <span className="skeleton skeleton-line skeleton-line--label" />
+          </div>
+          <div className="weather-readout__value weather-readout__value--placeholder" aria-hidden="true">
+            <span className="skeleton skeleton-block skeleton-block--value" />
+          </div>
+          <p className="weather-readout__summary" aria-hidden="true">
+            <span className="skeleton skeleton-line skeleton-line--summary" />
+          </p>
+          <p className="weather-readout__meta" aria-hidden="true">
+            <span className="skeleton skeleton-pill" />
+            <span className="skeleton skeleton-line skeleton-line--meta" />
+          </p>
+        </div>
+
+        {featured ? (
+          <div className="forecast-panels">
+            <div>
+              <div className="mini-section-label">Hourly forecast</div>
+              <div className="forecast-list">
+                <ForecastEmpty count={forecastLimit} />
+              </div>
+            </div>
+            <div>
+              <div className="mini-section-label">Daily forecast</div>
+              <div className="forecast-list">
+                <ForecastEmpty count={forecastLimit} />
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </article>
   )
 }
 
-function ForecastEmpty() {
-  return <article className="forecast-chip forecast-chip--empty">No forecast data</article>
+function LocationCardsFallback({ count }: { count: number }) {
+  const keys = LOCATION_PLACEHOLDER_KEYS.slice(0, Math.max(0, count))
+
+  return (
+    <>
+      {keys.map((key) => (
+        <LocationFallback key={key} />
+      ))}
+    </>
+  )
+}
+
+function ForecastEmpty({ count }: { count: number }) {
+  const keys = FORECAST_PLACEHOLDER_KEYS.slice(0, Math.max(0, count))
+
+  return (
+    <>
+      {keys.map((key) => (
+        <article
+          key={key}
+          className="forecast-chip forecast-chip--empty forecast-chip--placeholder"
+          aria-hidden="true"
+        >
+          <span className="skeleton skeleton-line skeleton-line--label" />
+          <span className="skeleton skeleton-block skeleton-block--forecast-value" />
+          <span className="skeleton skeleton-line skeleton-line--summary" />
+        </article>
+      ))}
+    </>
+  )
 }
