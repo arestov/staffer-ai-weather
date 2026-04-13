@@ -230,6 +230,46 @@ h1 {
   gap: 1rem;
 }
 
+.selected-location-shell {
+  width: min(100%, 52rem);
+  display: grid;
+  gap: 0.9rem;
+}
+
+.selected-location-shell--featured {
+  width: min(100%, 60rem);
+}
+
+.selected-location-card-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 32px;
+  background: transparent;
+  text-align: left;
+}
+
+.selected-location-card-button:hover,
+.selected-location-card-button:focus-visible,
+.selected-location-card-button[aria-expanded='true'] {
+  transform: none;
+  border-color: transparent;
+  background: transparent;
+}
+
+.selected-location-card-button:hover .location-card,
+.selected-location-card-button:focus-visible .location-card,
+.selected-location-card-button[aria-expanded='true'] .location-card {
+  border-color: rgba(121, 213, 255, 0.34);
+  box-shadow: 0 32px 90px rgba(0, 0, 0, 0.42);
+}
+
+.selected-location-card-button:focus-visible {
+  outline: 2px solid rgba(121, 213, 255, 0.9);
+  outline-offset: 4px;
+}
+
 .location-card {
   width: min(100%, 52rem);
   border: 1px solid var(--panel-border);
@@ -405,6 +445,66 @@ h1 {
   min-height: 18rem;
 }
 
+.selected-location-popover {
+  position: relative;
+  width: 100%;
+  padding: 1rem;
+  border-radius: 28px;
+  border: 1px solid rgba(121, 213, 255, 0.18);
+  background:
+    linear-gradient(180deg, rgba(7, 16, 30, 0.96), rgba(7, 16, 30, 0.9)),
+    radial-gradient(circle at top right, rgba(121, 213, 255, 0.14), transparent 28%);
+  backdrop-filter: blur(22px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+.selected-location-popover__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.selected-location-popover__title {
+  margin: 0.25rem 0 0;
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+
+.selected-location-popover__close {
+  padding: 0.65rem 0.95rem;
+}
+
+.selected-location-popover__body {
+  display: grid;
+  gap: 1rem;
+}
+
+.selected-location-popover__forecasts {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.weather-readout--popover {
+  min-height: auto;
+  padding: 1rem;
+}
+
+.weather-readout--popover .weather-readout__value {
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+}
+
+.weather-readout--popover .weather-readout__summary {
+  min-height: 0;
+  max-width: none;
+}
+
+.forecast-list--popover {
+  min-height: 0;
+}
+
 .graph-fallback {
   display: grid;
   gap: 1rem;
@@ -481,7 +581,8 @@ h1 {
 @media (max-width: 960px) {
   .metric-strip,
   .forecast-panels,
-  .location-grid {
+  .location-grid,
+  .selected-location-popover__forecasts {
     grid-template-columns: 1fr;
   }
 

@@ -24,6 +24,13 @@ const normalizeLocation = (value: unknown, fallback: string) => {
   return fallback
 }
 
+const makeRootParentRel = () => [
+  'comp',
+  ['<<<<'],
+  (self: unknown) => self,
+  { linking: '<<<<' },
+] as const
+
 const app_props = mergeDcl({
   init: (target: { start_page?: unknown }) => {
     target.start_page = target
@@ -36,6 +43,8 @@ const app_props = mergeDcl({
     free_sessions: ['input', { linking: '<< $session_root', many: true }],
     weatherLocation: ['model', WeatherLocation, { many: true }],
     location: ['model', SelectedLocation, { many: true }],
+    nav_parent_at_perspectivator_weather_selected_location_popover_router:
+      makeRootParentRel(),
     mainLocation: ['input', { linking: '<< location' }],
     additionalLocations: ['input', { linking: '<< location', many: true }],
     locations: [

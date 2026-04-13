@@ -3,7 +3,9 @@ import { Many } from './react-sync/components/Many'
 import { RootScope } from './react-sync/scope/RootScope'
 import { defineShape, shapeOf } from './react-sync/shape/defineShape'
 import { useAttrs } from './react-sync/hooks/useAttrs'
+import { useScope } from './react-sync/hooks/useScope'
 import type { WeatherAppSession } from './page/createWeatherAppSession'
+import { useNamedSessionRouter } from './page/react/useNamedSessionRouter'
 import { useSyncRoot } from './page/react/useSyncRoot'
 
 const formatUpdatedAt = (value: string | null) => {
@@ -21,8 +23,10 @@ const formatUpdatedAt = (value: string | null) => {
 
 const DEFAULT_FORECAST_LIMIT = 3
 const DEFAULT_ADDITIONAL_LOCATION_COUNT = 3
+const POPOVER_FORECAST_LIMIT = 2
 const LOCATION_PLACEHOLDER_KEYS = ['north', 'center', 'south'] as const
 const FORECAST_PLACEHOLDER_KEYS = ['now', 'soon', 'later'] as const
+const SELECTED_LOCATION_POPOVER_ROUTER_NAME = 'router-selectedLocationPopover'
 
 export default function App({
   session,
@@ -140,10 +144,21 @@ const WeatherLocationInner = ({
   featured?: boolean
   forecastLimit?: number
 }) => {
-  const weatherLocationAttrs = useAttrs(['loadStatus', 'lastError', 'weatherFetchedAt'])
+  const scope = useScope()
+  const { currentNodeId: popoverNodeId, openResource, clearCurrent } =
+    useNamedSessionRouter(SELECTED_LOCATION_POPOVER_ROUTER_NAME)
+  const weatherLocationAttrs = useAttrs([
+    'name',
+    'loadStatus',
+    'lastError',
+    'weatherFetchedAt',
+  ])
   const loadStatus = String(weatherLocationAttrs.loadStatus || 'idle')
   const lastError = typeof weatherLocationAttrs.lastError === 'string' ? weatherLocationAttrs.lastError : null
   const weatherStatus = loadStatus === 'idle' ? undefined : loadStatus
+  const selectedLocationId = scope?._nodeId ?? ''
+  const isPopoverOpen = Boolean(selectedLocationId && popoverNodeId === selectedLocationId)
+  const popoverId = selectedLocationId ? `selected-location-popover-${selectedLocationId}` : undefined
   const weatherNote =
     loadStatus === 'loading'
       ? 'Loading weather data'
@@ -158,46 +173,80 @@ const WeatherLocationInner = ({
     </div>
   )
 
-  return (
-    <div className={featured ? 'location-card location-card--featured' : 'location-card'}>
-      <One rel="weatherLocation" fallback={weatherLocationBodyFallback}>
-        <div className="location-card__body">
-          <One rel="currentWeather" fallback={<WeatherReadoutFallback />}>
-            <article className="weather-readout weather-readout--location">
-              <CurrentWeatherCard loadStatus={weatherStatus} loadNote={weatherNote} />
-            </article>
-          </One>
+  const openPopover = () => {
+    if (!selectedLocationId) {
+      return
+    }
 
-          {featured ? (
-            <>
-              <div className="forecast-panels">
-                <div>
-                  <div className="mini-section-label">Hourly forecast</div>
-                  <div className="forecast-list">
-                    <Many
-                      rel="hourlyForecastSeries"
-                      item={ForecastCard}
-                      empty={<ForecastEmpty count={forecastLimit ?? DEFAULT_FORECAST_LIMIT} />}
-                      limit={forecastLimit}
-                    />
+    openResource(selectedLocationId)
+  }
+
+  const closePopover = () => {
+    clearCurrent()
+  }
+
+  return (
+    <div
+      className={featured ? 'selected-location-shell selected-location-shell--featured' : 'selected-location-shell'}
+      data-selected-location-id={selectedLocationId}
+    >
+      <button
+        className="selected-location-card-button"
+        type="button"
+        onClick={openPopover}
+        aria-expanded={isPopoverOpen}
+        aria-controls={isPopoverOpen ? popoverId : undefined}
+        data-selected-location-trigger
+      >
+        <div className={featured ? 'location-card location-card--featured' : 'location-card'}>
+          <One rel="weatherLocation" fallback={weatherLocationBodyFallback}>
+            <div className="location-card__body">
+              <One rel="currentWeather" fallback={<WeatherReadoutFallback />}>
+                <article className="weather-readout weather-readout--location">
+                  <CurrentWeatherCard loadStatus={weatherStatus} loadNote={weatherNote} />
+                </article>
+              </One>
+
+              {featured ? (
+                <>
+                  <div className="forecast-panels">
+                    <div>
+                      <div className="mini-section-label">Hourly forecast</div>
+                      <div className="forecast-list">
+                        <Many
+                          rel="hourlyForecastSeries"
+                          item={ForecastCard}
+                          empty={<ForecastEmpty count={forecastLimit ?? DEFAULT_FORECAST_LIMIT} />}
+                          limit={forecastLimit}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mini-section-label">Daily forecast</div>
+                      <div className="forecast-list">
+                        <Many
+                          rel="dailyForecastSeries"
+                          item={ForecastCard}
+                          empty={<ForecastEmpty count={forecastLimit ?? DEFAULT_FORECAST_LIMIT} />}
+                          limit={forecastLimit}
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="mini-section-label">Daily forecast</div>
-                  <div className="forecast-list">
-                    <Many
-                      rel="dailyForecastSeries"
-                      item={ForecastCard}
-                      empty={<ForecastEmpty count={forecastLimit ?? DEFAULT_FORECAST_LIMIT} />}
-                      limit={forecastLimit}
-                    />
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : null}
+                </>
+              ) : null}
+            </div>
+          </One>
         </div>
-      </One>
+      </button>
+
+      {isPopoverOpen && popoverId ? (
+        <SelectedLocationPopover
+          popoverId={popoverId}
+          selectedLocationId={selectedLocationId}
+          onClose={closePopover}
+        />
+      ) : null}
     </div>
   )
 }
@@ -206,6 +255,86 @@ const FeaturedLocationCard = ({ forecastLimit }: { forecastLimit?: number }) => 
   <WeatherLocationInner featured forecastLimit={forecastLimit} />
 )
 const AdditionalLocationCard = () => <WeatherLocationInner />
+
+function SelectedLocationPopover({
+  popoverId,
+  selectedLocationId,
+  onClose,
+}: {
+  popoverId: string
+  selectedLocationId: string
+  onClose: () => void
+}) {
+  return (
+    <section
+      id={popoverId}
+      className="selected-location-popover"
+      data-selected-location-popover
+      data-popover-for={selectedLocationId}
+    >
+      <div className="selected-location-popover__header">
+        <div>
+          <div className="mini-section-label">Selected location</div>
+          <h2 className="selected-location-popover__title">Edit location</h2>
+        </div>
+
+        <button
+          className="secondary selected-location-popover__close"
+          type="button"
+          onClick={onClose}
+          aria-label="Close location popover"
+          data-popover-close
+        >
+          Close
+        </button>
+      </div>
+
+      <One
+        rel="weatherLocation"
+        fallback={
+          <div className="selected-location-popover__body">
+            <WeatherReadoutFallback />
+            <ForecastPanelsFallback forecastLimit={POPOVER_FORECAST_LIMIT} />
+          </div>
+        }
+      >
+        <div className="selected-location-popover__body">
+          <One rel="currentWeather" fallback={<WeatherReadoutFallback />}>
+            <article className="weather-readout weather-readout--popover">
+              <CurrentWeatherCard />
+            </article>
+          </One>
+
+          <div className="selected-location-popover__forecasts">
+            <div>
+              <div className="mini-section-label">Hourly forecast</div>
+              <div className="forecast-list forecast-list--popover">
+                <Many
+                  rel="hourlyForecastSeries"
+                  item={ForecastCard}
+                  empty={<ForecastEmpty count={POPOVER_FORECAST_LIMIT} />}
+                  limit={POPOVER_FORECAST_LIMIT}
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="mini-section-label">Daily forecast</div>
+              <div className="forecast-list forecast-list--popover">
+                <Many
+                  rel="dailyForecastSeries"
+                  item={ForecastCard}
+                  empty={<ForecastEmpty count={POPOVER_FORECAST_LIMIT} />}
+                  limit={POPOVER_FORECAST_LIMIT}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </One>
+    </section>
+  )
+}
 
 function GraphFallback() {
   return (

@@ -10,6 +10,13 @@ import {
   weatherCodeToSummary,
 } from './weatherFormat'
 
+const makeParentRel = () => [
+  'comp',
+  ['<<<< ^'],
+  (parent: unknown) => parent,
+  { linking: '<<<< ^' },
+] as const
+
 export type ApplyWeatherPayload = {
   current: {
     temperatureC: number
@@ -215,6 +222,8 @@ export const SelectedLocation = model({
   model_name: 'weather_selected_location',
   rels: {
     weatherLocation: ['input', { linking: '<< weatherLocation << #' }],
+    nav_parent_at_perspectivator_weather_selected_location_popover_router:
+      makeParentRel(),
   },
 })
 
