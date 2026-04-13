@@ -341,16 +341,21 @@ h1 {
 }
 
 .forecast-panels > div {
+  display: grid;
+  gap: 0.65rem;
   min-height: 14rem;
 }
 
 .forecast-list {
-  display: grid;
+  display: flex;
   gap: 0.75rem;
   min-height: 10.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
 }
 
 .forecast-chip {
+  flex: 0 0 clamp(8.5rem, 32vw, 4.5rem);
   padding: 0.9rem 1rem;
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.08);
