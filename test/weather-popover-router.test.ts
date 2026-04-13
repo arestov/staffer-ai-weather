@@ -123,6 +123,12 @@ const clickElement = (element: Element) => {
   element.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
 }
 
+const queryPopover = (selectedLocationId: string) =>
+  document.body.querySelector(`[data-popover-for="${selectedLocationId}"]`)
+
+const queryPopoverLayer = () =>
+  document.body.querySelector('[data-selected-location-popover-layer]')
+
 const waitForWeatherLoaded = async (harness: WeatherTestHarness) => {
   return waitFor(
     async () => getAppState(harness),
@@ -202,10 +208,7 @@ describe('SelectedLocation popover router', () => {
     )
 
     const popover = await waitFor(
-      () =>
-        harness?.rootElement.querySelector(
-          `[data-popover-for="${mainLocationId}"]`,
-        ) ?? null,
+      () => queryPopover(mainLocationId),
       (element) => Boolean(element),
       'featured location popover did not appear in the DOM',
     )
@@ -224,7 +227,7 @@ describe('SelectedLocation popover router', () => {
     )
 
     await waitFor(
-      () => harness?.rootElement.querySelector(`[data-popover-for="${mainLocationId}"]`) ?? null,
+      () => queryPopover(mainLocationId),
       (element) => element == null,
       'featured location popover did not disappear from the DOM',
     )
@@ -256,10 +259,7 @@ describe('SelectedLocation popover router', () => {
     )
 
     const popover = await waitFor(
-      () =>
-        harness?.rootElement.querySelector(
-          `[data-popover-for="${additionalLocationId}"]`,
-        ) ?? null,
+      () => queryPopover(additionalLocationId),
       (element) => Boolean(element),
       'additional location popover did not appear in the DOM',
     )
@@ -278,12 +278,70 @@ describe('SelectedLocation popover router', () => {
     )
 
     await waitFor(
-      () =>
-        harness?.rootElement.querySelector(
-          `[data-popover-for="${additionalLocationId}"]`,
-        ) ?? null,
+      () => queryPopover(additionalLocationId),
       (element) => element == null,
       'additional location popover did not disappear from the DOM',
     )
+  })
+
+  test('switching selected location reuses one floating layer', async () => {
+    harness = await createWeatherTestHarness()
+
+    await harness.whenReady()
+    const readyState = await waitForWeatherLoaded(harness)
+    await waitForLocationCardsRendered(harness)
+    const { mainLocationId, additionalLocationIds } = getSelectedLocationIds(readyState)
+    const additionalLocationId = additionalLocationIds[0]
+
+    const featuredTrigger = harness.rootElement.querySelector(
+      `[data-selected-location-id="${mainLocationId}"] [data-selected-location-trigger]`,
+    )
+    const additionalTrigger = harness.rootElement.querySelector(
+      `[data-selected-location-id="${additionalLocationId}"] [data-selected-location-trigger]`,
+    )
+
+    expect(featuredTrigger).not.toBeNull()
+    expect(additionalTrigger).not.toBeNull()
+
+    clickElement(featuredTrigger as Element)
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => getRouterCurrentModelId(appState) === mainLocationId,
+      'featured location did not become current router model before switch',
+    )
+
+    const firstLayer = await waitFor(
+      () => queryPopoverLayer(),
+      (element) => Boolean(element),
+      'floating popover layer did not appear for featured location',
+    )
+
+    clickElement(additionalTrigger as Element)
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => getRouterCurrentModelId(appState) === additionalLocationId,
+      'additional location did not become current router model after switch',
+    )
+
+    const secondLayer = await waitFor(
+      () => queryPopoverLayer(),
+      (element) => Boolean(element),
+      'floating popover layer disappeared after switch',
+    )
+
+    await waitFor(
+      () => ({
+        current: queryPopover(additionalLocationId),
+        previous: queryPopover(mainLocationId),
+      }),
+      (state) => Boolean(state.current) && state.previous == null,
+      'floating popover content did not switch to the additional location',
+    )
+
+    expect(secondLayer).toBe(firstLayer)
+    expect(queryPopover(mainLocationId)).toBeNull()
+    expect(queryPopover(additionalLocationId)?.textContent).toContain('Edit location')
   })
 })

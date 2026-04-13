@@ -232,8 +232,7 @@ h1 {
 
 .selected-location-shell {
   width: min(100%, 52rem);
-  display: grid;
-  gap: 0.9rem;
+  display: block;
 }
 
 .selected-location-shell--featured {
@@ -443,6 +442,17 @@ h1 {
 
 .location-grid > * {
   min-height: 18rem;
+}
+
+.selected-location-popover-layer {
+  position: absolute;
+  z-index: 24;
+  pointer-events: none;
+}
+
+.selected-location-popover-layer__surface {
+  width: 100%;
+  pointer-events: auto;
 }
 
 .selected-location-popover {

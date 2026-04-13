@@ -1,5 +1,8 @@
-﻿import { One } from './react-sync/components/One'
+﻿import { useLayoutEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { One } from './react-sync/components/One'
 import { Many } from './react-sync/components/Many'
+import { ScopeContext } from './react-sync/context/ScopeContext'
 import { RootScope } from './react-sync/scope/RootScope'
 import { defineShape, shapeOf } from './react-sync/shape/defineShape'
 import { useAttrs } from './react-sync/hooks/useAttrs'
@@ -27,6 +30,14 @@ const POPOVER_FORECAST_LIMIT = 2
 const LOCATION_PLACEHOLDER_KEYS = ['north', 'center', 'south'] as const
 const FORECAST_PLACEHOLDER_KEYS = ['now', 'soon', 'later'] as const
 const SELECTED_LOCATION_POPOVER_ROUTER_NAME = 'router-selectedLocationPopover'
+const SELECTED_LOCATION_POPOVER_ID = 'selected-location-popover-layer'
+const SELECTED_LOCATION_POPOVER_GAP = 16
+
+type FloatingPopoverLayout = {
+  top: number
+  left: number
+  width: number
+}
 
 export default function App({
   session,
@@ -83,9 +94,103 @@ export default function App({
             </div>
           </section>
         </One>
+
+        <SelectedLocationPopoverLayer />
       </RootScope>
     </main>
   )
+}
+
+const useFloatingSelectedLocationPopoverLayout = (
+  selectedLocationId: string | null,
+) => {
+  const [layout, setLayout] = useState<FloatingPopoverLayout | null>(null)
+
+  useLayoutEffect(() => {
+    if (!selectedLocationId || typeof window === 'undefined' || typeof document === 'undefined') {
+      setLayout(null)
+      return
+    }
+
+    let frameId = 0
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+    let resizeObserver: ResizeObserver | null = null
+
+    const updateLayout = () => {
+      frameId = 0
+      timeoutId = null
+
+      const anchorElement = document.querySelector(
+        `[data-selected-location-id="${selectedLocationId}"]`,
+      ) as HTMLElement | null
+      const shellElement = document.querySelector('.app-shell') as HTMLElement | null
+
+      if (!anchorElement || !shellElement) {
+        setLayout(null)
+        return
+      }
+
+      const anchorRect = anchorElement.getBoundingClientRect()
+      const shellRect = shellElement.getBoundingClientRect()
+
+      setLayout({
+        top: window.scrollY + anchorRect.bottom + SELECTED_LOCATION_POPOVER_GAP,
+        left: window.scrollX + shellRect.left,
+        width: shellRect.width,
+      })
+    }
+
+    const scheduleUpdate = () => {
+      if (frameId || timeoutId != null) {
+        return
+      }
+
+      if (typeof window.requestAnimationFrame === 'function') {
+        frameId = window.requestAnimationFrame(updateLayout)
+        return
+      }
+
+      timeoutId = setTimeout(updateLayout, 0)
+    }
+
+    scheduleUpdate()
+    window.addEventListener('resize', scheduleUpdate)
+    window.addEventListener('scroll', scheduleUpdate, true)
+
+    if (typeof ResizeObserver === 'function') {
+      resizeObserver = new ResizeObserver(scheduleUpdate)
+
+      const anchorElement = document.querySelector(
+        `[data-selected-location-id="${selectedLocationId}"]`,
+      ) as HTMLElement | null
+      const shellElement = document.querySelector('.app-shell') as HTMLElement | null
+
+      if (anchorElement) {
+        resizeObserver.observe(anchorElement)
+      }
+
+      if (shellElement) {
+        resizeObserver.observe(shellElement)
+      }
+    }
+
+    return () => {
+      window.removeEventListener('resize', scheduleUpdate)
+      window.removeEventListener('scroll', scheduleUpdate, true)
+
+      if (frameId && typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(frameId)
+      }
+
+      if (timeoutId != null) {
+        clearTimeout(timeoutId)
+      }
+
+      resizeObserver?.disconnect()
+    }
+  }, [selectedLocationId])
+
+  return layout
 }
 
 const CurrentWeatherShape = defineShape({
@@ -145,7 +250,7 @@ const WeatherLocationInner = ({
   forecastLimit?: number
 }) => {
   const scope = useScope()
-  const { currentNodeId: popoverNodeId, openResource, clearCurrent } =
+  const { currentNodeId: popoverNodeId, openResource } =
     useNamedSessionRouter(SELECTED_LOCATION_POPOVER_ROUTER_NAME)
   const weatherLocationAttrs = useAttrs([
     'name',
@@ -158,7 +263,6 @@ const WeatherLocationInner = ({
   const weatherStatus = loadStatus === 'idle' ? undefined : loadStatus
   const selectedLocationId = scope?._nodeId ?? ''
   const isPopoverOpen = Boolean(selectedLocationId && popoverNodeId === selectedLocationId)
-  const popoverId = selectedLocationId ? `selected-location-popover-${selectedLocationId}` : undefined
   const weatherNote =
     loadStatus === 'loading'
       ? 'Loading weather data'
@@ -181,10 +285,6 @@ const WeatherLocationInner = ({
     openResource(selectedLocationId)
   }
 
-  const closePopover = () => {
-    clearCurrent()
-  }
-
   return (
     <div
       className={featured ? 'selected-location-shell selected-location-shell--featured' : 'selected-location-shell'}
@@ -195,7 +295,7 @@ const WeatherLocationInner = ({
         type="button"
         onClick={openPopover}
         aria-expanded={isPopoverOpen}
-        aria-controls={isPopoverOpen ? popoverId : undefined}
+        aria-controls={isPopoverOpen ? SELECTED_LOCATION_POPOVER_ID : undefined}
         data-selected-location-trigger
       >
         <div className={featured ? 'location-card location-card--featured' : 'location-card'}>
@@ -239,14 +339,6 @@ const WeatherLocationInner = ({
           </One>
         </div>
       </button>
-
-      {isPopoverOpen && popoverId ? (
-        <SelectedLocationPopover
-          popoverId={popoverId}
-          selectedLocationId={selectedLocationId}
-          onClose={closePopover}
-        />
-      ) : null}
     </div>
   )
 }
@@ -255,6 +347,44 @@ const FeaturedLocationCard = ({ forecastLimit }: { forecastLimit?: number }) => 
   <WeatherLocationInner featured forecastLimit={forecastLimit} />
 )
 const AdditionalLocationCard = () => <WeatherLocationInner />
+
+function SelectedLocationPopoverLayer() {
+  const { currentNodeId, currentScope, clearCurrent } = useNamedSessionRouter(
+    SELECTED_LOCATION_POPOVER_ROUTER_NAME,
+  )
+  const layout = useFloatingSelectedLocationPopoverLayout(currentNodeId)
+
+  if (!currentNodeId || !currentScope || typeof document === 'undefined') {
+    return null
+  }
+
+  const floatingStyle = layout
+    ? {
+        top: `${layout.top}px`,
+        left: `${layout.left}px`,
+        width: `${layout.width}px`,
+      }
+    : undefined
+
+  return createPortal(
+    <div
+      className="selected-location-popover-layer"
+      data-selected-location-popover-layer
+      style={floatingStyle}
+    >
+      <div className="selected-location-popover-layer__surface">
+        <ScopeContext.Provider value={currentScope}>
+          <SelectedLocationPopover
+            popoverId={SELECTED_LOCATION_POPOVER_ID}
+            selectedLocationId={currentNodeId}
+            onClose={clearCurrent}
+          />
+        </ScopeContext.Provider>
+      </div>
+    </div>,
+    document.body,
+  )
+}
 
 function SelectedLocationPopover({
   popoverId,

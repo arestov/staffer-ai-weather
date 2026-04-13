@@ -42,16 +42,18 @@ Close flow:
 
 ### 2. Popover rendering strategy
 
-Render the popover inline under the clicked card instead of using floating viewport positioning.
+Render the popover as one floating layer through a portal, not inline in each card.
 
-Why this is the right first step:
+Current design:
 
-- the requested layout is local: full width of the component, below the component;
-- no popup-size-based geometry calculation is needed;
-- no `anchor-name` propagation is required;
-- this keeps tests deterministic in jsdom and avoids transport-specific complexity.
+- one shared popover wrapper exists for the whole app;
+- switching between `SelectedLocation` models reuses the same wrapper without closing;
+- the layer is removed from normal layout flow;
+- vertical position is anchored below the clicked card;
+- horizontal size spans the full `.app-shell` width, not the local card width;
+- absolute page coordinates keep the layer aligned with the anchor while the page scrolls.
 
-The router still owns open/close state. The DOM only decides where to render the active router model.
+`anchor-name` is not required for the current implementation. A direct DOM measurement approach is simpler here, works with the existing React/jsdom harness, and is enough for a full-width floating layer.
 
 ### 3. React integration
 
@@ -65,7 +67,8 @@ Add a root subscription helper for:
 Card behavior:
 
 - card wrapper becomes clickable;
-- if current router model id equals the current card scope id, render popover below the card;
+- card compares its own `SelectedLocation` id with router current model id;
+- shared floating layer renders the active router model only once;
 - compact popover body reuses existing weather readout and compact forecast summary;
 - close button sits at top-right inside the popover.
 
@@ -85,6 +88,7 @@ Planned tests:
 1. smoke: app boots and weather loads;
 2. featured location: click featured `SelectedLocation`, popover opens, close works;
 3. additional location: click one additional `SelectedLocation`, popover opens, close works.
+4. switching between two selected locations reuses the same floating layer.
 
 Assertions should cover both DOM state and runtime state when practical:
 
@@ -97,7 +101,7 @@ Assertions should cover both DOM state and runtime state when practical:
 1. Add named simple router model and wire it into `SessionRoot`.
 2. Add root action to close the popover router.
 3. Add root-scoped React helpers.
-4. Update `App.tsx` to open/close and render inline popover.
+4. Update `App.tsx` to open/close and render one floating popover layer.
 5. Add compact popover styles.
 6. Add vitest config, harness, mocked weather API tests.
 7. Run build and tests.
