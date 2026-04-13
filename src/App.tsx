@@ -1,4 +1,4 @@
-﻿import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+﻿import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { One } from './react-sync/components/One'
 import { Many } from './react-sync/components/Many'
@@ -38,6 +38,7 @@ type FloatingPopoverLayout = {
   top: number
   left: number
   width: number
+  arrowLeft: number
 }
 
 const supportsCssNativePopoverPositioning = () => {
@@ -187,11 +188,13 @@ const useFloatingSelectedLocationPopoverLayout = (
 
       const anchorRect = anchorElement.getBoundingClientRect()
       const shellRect = shellElement.getBoundingClientRect()
+      const arrowLeft = anchorRect.left - shellRect.left + anchorRect.width * 0.35
 
       setLayout({
         top: window.scrollY + anchorRect.bottom + SELECTED_LOCATION_POPOVER_GAP,
         left: window.scrollX + shellRect.left,
         width: shellRect.width,
+        arrowLeft: Math.max(24, Math.min(shellRect.width - 24, arrowLeft)),
       })
     }
 
@@ -413,7 +416,7 @@ function SelectedLocationPopoverLayer() {
   const nativePositioning = supportsCssNativePopoverPositioning()
   const layout = useFloatingSelectedLocationPopoverLayout(
     currentNodeId,
-    !nativePositioning,
+    true,
   )
 
   useEffect(() => {
@@ -455,6 +458,13 @@ function SelectedLocationPopoverLayer() {
       }
     : undefined
 
+  const popoverStyle = layout
+    ? ({
+        ...floatingStyle,
+        '--selected-location-popover-arrow-left': `${layout.arrowLeft}px`,
+      } as CSSProperties)
+    : floatingStyle
+
   return createPortal(
     <section
       ref={popoverRef}
@@ -464,7 +474,7 @@ function SelectedLocationPopoverLayer() {
       className="selected-location-popover selected-location-popover--floating"
       data-selected-location-popover-layer
       data-popover-for={currentNodeId ?? ''}
-      style={floatingStyle}
+      style={popoverStyle}
     >
       {currentScope ? (
         <ScopeContext.Provider value={currentScope}>

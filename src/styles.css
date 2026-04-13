@@ -479,6 +479,21 @@ h1 {
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
 }
 
+.selected-location-popover__surface::before {
+  content: '';
+  position: absolute;
+  top: -0.45rem;
+  left: clamp(1.5rem, var(--selected-location-popover-arrow-left, 20%), calc(100% - 1.5rem));
+  width: 1rem;
+  height: 1rem;
+  transform: translateX(-50%) rotate(45deg);
+  border-left: 1px solid rgba(121, 213, 255, 0.18);
+  border-top: 1px solid rgba(121, 213, 255, 0.18);
+  background: linear-gradient(180deg, rgba(7, 16, 30, 0.96), rgba(7, 16, 30, 0.9));
+  box-shadow: -5px -5px 18px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+}
+
 @supports (anchor-name: --selected-location-trigger) and (position-anchor: --selected-location-trigger) and (top: anchor(bottom)) {
   .selected-location-popover--floating {
     position: absolute;
