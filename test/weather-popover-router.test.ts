@@ -191,6 +191,23 @@ const getSelectedLocationIds = (appState: DebugAppState) => {
   }
 }
 
+const getSavedSearchLocations = (appState: DebugAppState) => {
+  const appRoot = getAppRoot(appState)
+
+  return Array.isArray(appRoot.attrs.savedSearchLocations)
+    ? appRoot.attrs.savedSearchLocations.filter(
+        (value): value is {
+          id: string
+          name: string
+          subtitle: string
+          latitude: number
+          longitude: number
+          timezone: string | null
+        } => Boolean(value && typeof value === 'object' && typeof (value as { id?: unknown }).id === 'string'),
+      )
+    : []
+}
+
 const clickElement = (element: Element) => {
   element.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
 }
@@ -411,6 +428,80 @@ describe('SelectedLocation popover router', () => {
       () => queryPopover(additionalLocationId),
       (element) => element == null,
       'additional location popover did not disappear from the DOM',
+    )
+  })
+
+  test('selected search results are saved and removable in the sidebar', async () => {
+    harness = await createWeatherTestHarness()
+
+    await harness.whenReady()
+    const readyState = await waitForWeatherLoaded(harness)
+    await waitForLocationCardsRendered(harness)
+    const { mainLocationId } = getSelectedLocationIds(readyState)
+
+    const trigger = harness.rootElement.querySelector(
+      `[data-selected-location-id="${mainLocationId}"] [data-selected-location-trigger]`,
+    )
+
+    expect(trigger).not.toBeNull()
+
+    clickElement(trigger as Element)
+
+    const editTrigger = await waitFor(
+      () => document.body.querySelector('[data-location-edit-trigger]'),
+      (element) => Boolean(element),
+      'location edit trigger did not appear',
+    )
+
+    clickElement(editTrigger as Element)
+
+    const searchInput = await waitFor(
+      () => document.body.querySelector('[data-location-search-input]') as HTMLInputElement | null,
+      (element) => Boolean(element),
+      'search input did not appear',
+    )
+
+    setInputValue(searchInput as HTMLInputElement, 'Tokyo')
+
+    const searchResult = await waitFor(
+      () => document.body.querySelector('[data-location-search-result="tokyo-1"]'),
+      (element) => Boolean(element),
+      'Tokyo search result did not appear',
+    )
+
+    clickElement(searchResult as Element)
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => getSavedSearchLocations(appState).some((item) => item.id === 'tokyo-1'),
+      'selected search result was not saved into the app root list',
+    )
+
+    const reopenEditTrigger = await waitFor(
+      () => document.body.querySelector('[data-location-edit-trigger]'),
+      (element) => Boolean(element),
+      'edit trigger did not return after saving a result',
+    )
+
+    clickElement(reopenEditTrigger as Element)
+
+    const savedResult = await waitFor(
+      () => document.body.querySelector('[data-location-search-saved-result="tokyo-1"]'),
+      (element) => Boolean(element),
+      'saved search result did not appear in the sidebar',
+    )
+
+    expect(savedResult?.textContent).toContain('Tokyo')
+
+    const removeButton = document.body.querySelector('[data-location-search-saved-remove="tokyo-1"]')
+    expect(removeButton).not.toBeNull()
+
+    clickElement(removeButton as Element)
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => getSavedSearchLocations(appState).length === 0,
+      'saved search result was not removed from the app root list',
     )
   })
 

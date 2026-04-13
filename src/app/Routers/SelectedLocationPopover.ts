@@ -156,6 +156,11 @@ export const SelectedLocationPopoverRouter = model({
     searchStatus: ['input', 'idle'],
     searchError: ['input', null],
     searchResults: ['input', []],
+    savedSearchLocations: [
+      'comp',
+      ['< @one:savedSearchLocations < $root'],
+      (savedSearchLocations: unknown) => (Array.isArray(savedSearchLocations) ? savedSearchLocations : []),
+    ],
     searchRequest: ['input', null],
     activeSearchRequestId: ['input', 0],
   },
@@ -409,6 +414,40 @@ export const SelectedLocationPopoverRouter = model({
           return {
             ...buildSearchResetState(currentRequestId + 1),
             replaceWeatherLocation: payload,
+          }
+        },
+      ],
+    },
+    saveLocationSearchResult: {
+      to: {
+        saveLocationSearchResult: ['<<<< #', { action: 'saveLocationSearchResult', inline_subwalker: true }],
+      },
+      fn: [
+        ['$noop'] as const,
+        (payload: unknown, noop: unknown) => {
+          if (!isLocationSearchResult(payload)) {
+            return noop
+          }
+
+          return {
+            saveLocationSearchResult: payload,
+          }
+        },
+      ],
+    },
+    removeLocationSearchResult: {
+      to: {
+        removeLocationSearchResult: ['<<<< #', { action: 'removeLocationSearchResult', inline_subwalker: true }],
+      },
+      fn: [
+        ['$noop'] as const,
+        (payload: unknown, noop: unknown) => {
+          if (!isLocationSearchResult(payload) && typeof payload !== 'string') {
+            return noop
+          }
+
+          return {
+            removeLocationSearchResult: typeof payload === 'string' ? payload : payload.id,
           }
         },
       ],

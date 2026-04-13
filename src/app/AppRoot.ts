@@ -2,12 +2,29 @@ import { appRoot } from 'dkt/appRoot.js'
 import { merge as mergeDcl } from 'dkt/dcl/merge.js'
 import { SessionRoot } from './SessionRoot'
 import { SelectedLocation, WeatherLocation } from './rels'
+import type { LocationSearchResult } from './rels/location-models'
 import {
   SELECTED_LOCATION_CREATION_SHAPE,
   WEATHER_LOCATION_BASE_CREATION_SHAPE,
   buildInitialSelectedLocations,
   buildInitialWeatherLocations,
 } from './rels/weatherSeed'
+
+const isLocationSearchResult = (value: unknown): value is LocationSearchResult => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Partial<LocationSearchResult>
+
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.name === 'string' &&
+    typeof candidate.subtitle === 'string' &&
+    typeof candidate.latitude === 'number' &&
+    typeof candidate.longitude === 'number'
+  )
+}
 
 const normalizeLocation = (value: unknown, fallback: string) => {
   if (typeof value === 'string' && value.trim()) {
@@ -75,6 +92,7 @@ const app_props = mergeDcl({
     temperatureText: ['input', '-- \u00b0C'],
     summary: ['input', 'Waiting for backend weather data'],
     updatedAt: ['input', null],
+    savedSearchLocations: ['input', []],
   },
   actions: {
     handleInit: [
@@ -167,6 +185,57 @@ const app_props = mergeDcl({
             temperatureText: '-- \u00b0C',
             summary: 'Waiting for backend weather data',
             updatedAt: null,
+          }
+        },
+      ],
+    },
+    saveLocationSearchResult: {
+      to: {
+        savedSearchLocations: ['savedSearchLocations'],
+      },
+      fn: [
+        ['savedSearchLocations'] as const,
+        (payload: unknown, savedSearchLocations: unknown) => {
+          if (!isLocationSearchResult(payload)) {
+            return {}
+          }
+
+          const currentSavedLocations = Array.isArray(savedSearchLocations)
+            ? savedSearchLocations.filter(isLocationSearchResult)
+            : []
+
+          return {
+            savedSearchLocations: [
+              payload,
+              ...currentSavedLocations.filter((item) => item.id !== payload.id),
+            ],
+          }
+        },
+      ],
+    },
+    removeLocationSearchResult: {
+      to: {
+        savedSearchLocations: ['savedSearchLocations'],
+      },
+      fn: [
+        ['savedSearchLocations'] as const,
+        (payload: unknown, savedSearchLocations: unknown) => {
+          const id = typeof payload === 'string'
+            ? payload
+            : isLocationSearchResult(payload)
+              ? payload.id
+              : ''
+
+          if (!id) {
+            return {}
+          }
+
+          const currentSavedLocations = Array.isArray(savedSearchLocations)
+            ? savedSearchLocations.filter(isLocationSearchResult)
+            : []
+
+          return {
+            savedSearchLocations: currentSavedLocations.filter((item) => item.id !== id),
           }
         },
       ],

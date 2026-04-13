@@ -587,6 +587,27 @@ h1 {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.selected-location-search__layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.45fr) minmax(15rem, 0.85fr);
+  align-items: start;
+}
+
+.selected-location-search__main,
+.selected-location-search__sidebar {
+  display: grid;
+  gap: 0.9rem;
+  align-content: start;
+}
+
+.selected-location-search__sidebar {
+  padding: 0.95rem;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
 .selected-location-search__header,
 .selected-location-search__field {
   display: grid;
@@ -623,6 +644,57 @@ h1 {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.selected-location-search__saved-hint,
+.selected-location-search__saved-empty {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.selected-location-search__saved-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.selected-location-search__saved-item {
+  display: flex;
+  align-items: stretch;
+  gap: 0.6rem;
+}
+
+.selected-location-search__saved-result {
+  flex: 1 1 auto;
+  display: grid;
+  gap: 0.18rem;
+  justify-items: start;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  text-align: left;
+}
+
+.selected-location-search__saved-result strong {
+  font-size: 0.98rem;
+}
+
+.selected-location-search__saved-result span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.selected-location-search__saved-remove {
+  flex: 0 0 auto;
+  width: 2.85rem;
+  min-width: 2.85rem;
+  padding: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  line-height: 1;
 }
 
 .selected-location-search__results {
@@ -726,7 +798,8 @@ h1 {
   .metric-strip,
   .forecast-panels,
   .location-grid,
-  .selected-location-popover__forecasts {
+  .selected-location-popover__forecasts,
+  .selected-location-search__layout {
     grid-template-columns: 1fr;
   }
 
@@ -747,5 +820,11 @@ h1 {
   .selected-location-popover__slot-note {
     max-width: none;
     text-align: left;
+  }
+
+  .selected-location-search__sidebar {
+    padding: 0;
+    border: 0;
+    background: transparent;
   }
 }

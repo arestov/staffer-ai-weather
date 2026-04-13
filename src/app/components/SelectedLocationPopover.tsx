@@ -303,12 +303,14 @@ function SelectedLocationPopover({
     'searchStatus',
     'searchError',
     'searchResults',
+    'savedSearchLocations',
   ])
   const isEditingLocation = Boolean(routerAttrs.isEditingLocation)
   const searchQuery = typeof routerAttrs.searchQuery === 'string' ? routerAttrs.searchQuery : ''
   const searchStatus = typeof routerAttrs.searchStatus === 'string' ? routerAttrs.searchStatus : 'idle'
   const searchError = typeof routerAttrs.searchError === 'string' ? routerAttrs.searchError : null
   const searchResults = toLocationSearchResults(routerAttrs.searchResults)
+  const savedSearchLocations = toLocationSearchResults(routerAttrs.savedSearchLocations)
 
   const clearSearchDebounce = () => {
     if (searchDebounceRef.current != null) {
@@ -379,6 +381,17 @@ function SelectedLocationPopover({
     })
   }
 
+  const handleSelectLocation = (result: LocationSearchResult) => {
+    clearSearchDebounce()
+    dispatch('saveLocationSearchResult', result)
+    dispatch('selectLocationSearchResult', result)
+  }
+
+  const forgetSearchLocation = (resultId: string) => {
+    clearSearchDebounce()
+    dispatch('removeLocationSearchResult', resultId)
+  }
+
   return (
     <div
       id={popoverId}
@@ -416,16 +429,16 @@ function SelectedLocationPopover({
         searchStatus={searchStatus}
         searchError={searchError}
         searchResults={searchResults}
+        savedResults={savedSearchLocations}
         onSubmitSearch={handleSubmitSearch}
         onQueryChange={handleQueryChange}
         onCancel={() => {
           clearSearchDebounce()
           dispatch('cancelLocationEditing')
         }}
-        onSelectResult={(result) => {
-          clearSearchDebounce()
-          dispatch('selectLocationSearchResult', result)
-        }}
+        onSelectResult={handleSelectLocation}
+        onSelectSavedResult={handleSelectLocation}
+        onRemoveSavedResult={forgetSearchLocation}
       />
     </div>
   )
