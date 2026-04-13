@@ -12,12 +12,17 @@ export const useAttrs = (fields: readonly string[]) => {
   const scope = useScope()
   const normalizedFields = normalizeFields(fields)
   const shape = getAttrsShape(normalizedFields)
+  const resolvedScope = scope ?? runtime.getRootScope()
+
+  if (!resolvedScope) {
+    throw new Error('react sync scope is required. render inside RootScope')
+  }
 
   useShape(shape)
 
   return useSyncExternalStore(
-    (listener) => runtime.subscribeAttrs(scope, normalizedFields, listener),
-    () => runtime.readAttrs(scope, normalizedFields),
-    () => runtime.readAttrs(scope, normalizedFields),
+    (listener) => runtime.subscribeAttrs(resolvedScope, normalizedFields, listener),
+    () => runtime.readAttrs(resolvedScope, normalizedFields),
+    () => runtime.readAttrs(resolvedScope, normalizedFields),
   )
 }

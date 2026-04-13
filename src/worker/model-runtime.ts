@@ -12,6 +12,55 @@ import type { ReactSyncTransportMessage } from '../shared/messageTypes'
 import { AppRoot } from '../app/AppRoot'
 import { createSessionManager } from './session-manager'
 
+type RuntimeModelLike = {
+  _node_id?: string | null
+  model_name?: string | null
+  states?: Record<string, unknown>
+  __getPublicAttrs: () => readonly string[]
+  getLinedStructure: (
+    options: unknown,
+    config: unknown,
+  ) => Promise<readonly RuntimeModelLike[]>
+  input: (callback: () => void | Promise<void>) => unknown
+  dispatch: (actionName: string, payload?: unknown) => Promise<void> | void
+  start_page?: unknown
+}
+
+type SyncSenderLike = {
+  addSyncStream(
+    sessionRoot: RuntimeModelLike,
+    stream: ReturnType<typeof createWorkerStream>,
+    importantRelPaths: readonly (readonly string[])[],
+  ): Promise<void> | void
+  removeSyncStream(stream: ReturnType<typeof createWorkerStream>): void
+  updateStructureUsage(streamId: string, data: unknown): void
+  requireShapeForModel(streamId: string, data: unknown): void
+}
+
+type WeatherRuntimeLike = {
+  start: (options: {
+    App: typeof AppRoot
+    interfaces: {
+      requests_manager: {
+        addRequest(): void
+        considerOwnerAsImportant(): void
+        stopRequests(): void
+      }
+    }
+  }) => Promise<{
+    app_model: RuntimeModelLike
+  }>
+  sync_sender: SyncSenderLike
+  models?: Record<string, RuntimeModelLike>
+}
+
+type WeatherAppRuntime = {
+  runtime: WeatherRuntimeLike
+  inited: {
+    app_model: RuntimeModelLike
+  }
+}
+
 const SESSION_IMPORTANT_REL_PATHS = Object.freeze([
   Object.freeze(['pioneer']),
 ])
@@ -49,7 +98,7 @@ const createWorkerStream = (
 })
 
 export const createWeatherModelRuntime = () => {
-  let current_app: any = null
+  let current_app: WeatherAppRuntime | null = null
   let booting = false
   const sessionManager = createSessionManager()
   const connections = new Set<{
@@ -92,7 +141,7 @@ export const createWeatherModelRuntime = () => {
     })
   }
 
-  const bootstrapApp = async () => {
+  const bootstrapApp = async (): Promise<WeatherAppRuntime> => {
     if (current_app) {
       return current_app
     }
@@ -113,7 +162,7 @@ export const createWeatherModelRuntime = () => {
           emitError(connection, error)
         }
       },
-    })
+    }) as unknown as WeatherRuntimeLike
     const inited = await runtime.start({
       App: AppRoot,
       interfaces: {
@@ -130,6 +179,10 @@ export const createWeatherModelRuntime = () => {
       inited,
     }
     booting = false
+
+    if (!current_app) {
+      throw new Error('weather app runtime failed to bootstrap')
+    }
 
     return current_app
   }
@@ -154,8 +207,15 @@ export const createWeatherModelRuntime = () => {
 
     if (typeof scope_node_id === 'string' && scope_node_id) {
       dispatchTarget =
-        (session && getModelById(session.sessionRoot, scope_node_id)) ||
-        getModelById(appModel, scope_node_id) ||
+        (session &&
+          getModelById(
+            session.sessionRoot as unknown as Parameters<typeof getModelById>[0],
+            scope_node_id,
+          )) ||
+        getModelById(
+          appModel as unknown as Parameters<typeof getModelById>[0],
+          scope_node_id,
+        ) ||
         dispatchTarget
     }
 
@@ -178,7 +238,7 @@ export const createWeatherModelRuntime = () => {
   }
 
   const getSessionRoot = async (
-    app: any,
+    app: WeatherAppRuntime,
     sessionId: string,
     route?: unknown,
   ) => {
@@ -186,12 +246,12 @@ export const createWeatherModelRuntime = () => {
       app.inited.app_model.input(async () => {
         try {
           const sessionRoot = await hookSessionRoot(
-            app.inited.app_model,
-            app.inited.app_model.start_page,
+            app.inited.app_model as unknown as Parameters<typeof hookSessionRoot>[0],
+            app.inited.app_model.start_page as unknown as Parameters<typeof hookSessionRoot>[1],
             {
               sessionKey: sessionId,
               route: route ?? null,
-            },
+            } as Parameters<typeof hookSessionRoot>[2],
           )
 
           resolve(sessionRoot)
@@ -390,7 +450,7 @@ export const createWeatherModelRuntime = () => {
       return null
     }
 
-    const serializeModel = (model: any) => {
+    const serializeModel = (model: RuntimeModelLike) => {
       const rawPublicAttrs = model.__getPublicAttrs?.()
       const publicAttrs = Array.isArray(rawPublicAttrs) ? rawPublicAttrs : []
       const attrs = Object.fromEntries(
@@ -417,7 +477,9 @@ export const createWeatherModelRuntime = () => {
 
     const appModel = current_app.inited.app_model
     const lined = await appModel.getLinedStructure({}, {})
-    const runtimeModels = Object.values(current_app.runtime.models || {})
+    const runtimeModels = Object.values(
+      (current_app.runtime.models ?? {}) as Record<string, RuntimeModelLike>,
+    )
 
     return {
       lined: lined.map(serializeModel),
