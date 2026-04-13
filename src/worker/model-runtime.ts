@@ -11,6 +11,7 @@ import { APP_MSG, RUNTIME_LOG_SCOPE } from '../shared/messageTypes'
 import type { ReactSyncTransportMessage } from '../shared/messageTypes'
 import { AppRoot } from '../app/AppRoot'
 import { createSessionManager } from './session-manager'
+import { fetchWeatherFromOpenMeteo } from './weather-api'
 
 type RuntimeModelLike = {
   _node_id?: string | null
@@ -65,6 +66,33 @@ const SESSION_IMPORTANT_REL_PATHS = Object.freeze([
   Object.freeze(['pioneer']),
 ])
 
+const LIVE_UPDATE_INTERVAL_MS = 10 * 60 * 1000  // 10 minutes
+const LIVE_UPDATE_RETRY_MS = 30 * 1000           // 30 seconds on error
+const LIVE_UPDATE_MAX_RETRIES = 3
+
+const fetchWeatherForAllLocations = async (app: WeatherAppRuntime) => {
+  const appModel = app.inited.app_model
+  const locationRel = _getCurrentRel(appModel, 'weatherLocation') as RuntimeModelLike[] | null
+
+  const locations: RuntimeModelLike[] = Array.isArray(locationRel) ? locationRel : []
+
+  for (const location of locations) {
+    const lat = location.states?.['latitude'] as number | null | undefined
+    const lon = location.states?.['longitude'] as number | null | undefined
+
+    if (lat == null || lon == null) continue
+
+    try {
+      const payload = await fetchWeatherFromOpenMeteo(lat, lon)
+      await location.dispatch('applyWeather', payload)
+    } catch (error) {
+      await location.dispatch('failWeather', {
+        message: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+}
+
 const runtimeEnv =
   typeof process !== 'undefined' && process?.env ? process.env : undefined
 
@@ -100,6 +128,8 @@ const createWorkerStream = (
 export const createWeatherModelRuntime = () => {
   let current_app: WeatherAppRuntime | null = null
   let booting = false
+  let liveUpdateTimer: ReturnType<typeof setTimeout> | null = null
+  let weatherFetchStarted = false
   const sessionManager = createSessionManager()
   const connections = new Set<{
     transport: DomSyncTransportLike<ReactSyncTransportMessage>
@@ -107,6 +137,37 @@ export const createWeatherModelRuntime = () => {
     destroyed: boolean
     sessionId: string | null
   }>()
+
+  const startLiveUpdate = (app: WeatherAppRuntime) => {
+    if (liveUpdateTimer != null) return
+
+    let retryCount = 0
+
+    const tick = async () => {
+      liveUpdateTimer = null
+
+      try {
+        await fetchWeatherForAllLocations(app)
+        retryCount = 0
+        liveUpdateTimer = setTimeout(tick, LIVE_UPDATE_INTERVAL_MS)
+      } catch {
+        retryCount += 1
+        const delay = retryCount <= LIVE_UPDATE_MAX_RETRIES
+          ? LIVE_UPDATE_RETRY_MS
+          : LIVE_UPDATE_INTERVAL_MS
+        liveUpdateTimer = setTimeout(tick, delay)
+      }
+    }
+
+    liveUpdateTimer = setTimeout(tick, LIVE_UPDATE_INTERVAL_MS)
+  }
+
+  const stopLiveUpdate = () => {
+    if (liveUpdateTimer != null) {
+      clearTimeout(liveUpdateTimer)
+      liveUpdateTimer = null
+    }
+  }
 
   const emitForConnection = (
     connection: { transport: DomSyncTransportViewLike<ReactSyncTransportMessage> },
@@ -303,6 +364,15 @@ export const createWeatherModelRuntime = () => {
     })
 
     appendLog(connection, `session booted -> ${session.sessionId}`)
+
+    if (!weatherFetchStarted) {
+      weatherFetchStarted = true
+      fetchWeatherForAllLocations(app)
+        .then(() => startLiveUpdate(app))
+        .catch((error) => {
+          appendLog(connection, `initial weather fetch failed: ${error}`)
+        })
+    }
   }
 
   const handleMessage = async (
@@ -332,6 +402,9 @@ export const createWeatherModelRuntime = () => {
           sessionManager.destroySession(connection.sessionId)
           connection.sessionId = null
         }
+        if (connections.size === 0) {
+          stopLiveUpdate()
+        }
         return
       }
       case APP_MSG.CONTROL_DISPATCH_APP_ACTION: {
@@ -353,12 +426,10 @@ export const createWeatherModelRuntime = () => {
         return
       }
       case APP_MSG.CONTROL_REFRESH_WEATHER: {
-        await handleDispatchAction(
-          connection,
-          'refreshWeather',
-          message.payload,
-          message.scope_node_id,
-        )
+        const app = await bootstrapApp()
+        fetchWeatherForAllLocations(app).catch((error) => {
+          appendLog(connection, `refresh weather failed: ${error}`)
+        })
         return
       }
       case APP_MSG.SYNC_UPDATE_STRUCTURE_USAGE: {
@@ -424,6 +495,9 @@ export const createWeatherModelRuntime = () => {
           appendLog(connection, `session released -> ${session.sessionId}`)
         })
         connections.delete(connection)
+        if (connections.size === 0) {
+          stopLiveUpdate()
+        }
         transport.destroy()
       },
     }
