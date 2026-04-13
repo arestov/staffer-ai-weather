@@ -27,7 +27,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <App session={session} />
+    <App session={session} forecastLimit={3} />
   </StrictMode>,
 )
 

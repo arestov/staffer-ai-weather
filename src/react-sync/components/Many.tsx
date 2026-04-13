@@ -11,10 +11,12 @@ export const Many = ({
   rel,
   item: Item,
   empty = null,
+  limit,
 }: {
   rel: string
   item: React.ComponentType
   empty?: React.ReactNode
+  limit?: number
 }) => {
   const runtime = useReactScopeRuntime()
   const scope = useScope()
@@ -28,13 +30,16 @@ export const Many = ({
     () => (scope ? runtime.readMany(scope, rel) : EMPTY_ITEMS),
   )
 
-  if (!scope || !items.length) {
+  const visibleItems =
+    typeof limit === 'number' ? items.slice(0, Math.max(0, limit)) : items
+
+  if (!scope || !visibleItems.length) {
     return <>{empty}</>
   }
 
   return (
     <>
-      {items.map((itemScope) => (
+      {visibleItems.map((itemScope) => (
         <ScopeContext.Provider key={itemScope._nodeId} value={itemScope}>
           <Item />
         </ScopeContext.Provider>

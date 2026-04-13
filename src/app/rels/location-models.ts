@@ -132,20 +132,33 @@ export const WeatherLocation = model({
           },
         ],
       },
-      fn: (_payload: unknown, locationName: unknown) => {
-        const name = typeof locationName === 'string' ? locationName : ''
+      fn: [
+        ['name'] as const,
+        (_payload: unknown, locationName: unknown) => {
+          const name = typeof locationName === 'string' ? locationName : ''
 
-        return {
-          currentWeather: {
-            attrs: buildWeatherState(name, 'ready'),
-          },
-          hourlyForecastSeries: [
-            buildForecastSeries(name, 0),
-            buildForecastSeries(name, 1),
-          ],
-          dailyForecastSeries: [buildForecastSeries(name, 2)],
-        }
+          return {
+            currentWeather: {
+              attrs: buildWeatherState(name, 'ready'),
+            },
+            hourlyForecastSeries: [
+              buildForecastSeries(name, 0),
+              buildForecastSeries(name, 1),
+            ],
+            dailyForecastSeries: [buildForecastSeries(name, 2)],
+          }
+        },
+      ],
+    },
+    startLoading: {
+      to: {
+        loadStatus: ['loadStatus'],
+        lastError: ['lastError'],
       },
+      fn: () => ({
+        loadStatus: 'loading',
+        lastError: null,
+      }),
     },
     applyWeather: {
       to: {

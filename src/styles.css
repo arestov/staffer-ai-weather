@@ -317,6 +317,16 @@ h1 {
   color: #d5f4ff;
 }
 
+.status-pill--loading {
+  background: rgba(255, 211, 112, 0.16);
+  color: #ffe7b0;
+}
+
+.status-pill--error {
+  background: rgba(255, 119, 119, 0.16);
+  color: #ffc3c3;
+}
+
 .forecast-panels {
   display: grid;
   gap: 1rem;

@@ -75,22 +75,45 @@ const fetchWeatherForAllLocations = async (app: WeatherAppRuntime) => {
   const locationRel = _getCurrentRel(appModel, 'weatherLocation') as RuntimeModelLike[] | null
 
   const locations: RuntimeModelLike[] = Array.isArray(locationRel) ? locationRel : []
+  const entries = locations
+    .map((location) => {
+      const lat = location.states?.latitude as number | null | undefined
+      const lon = location.states?.longitude as number | null | undefined
 
-  for (const location of locations) {
-    const lat = location.states?.['latitude'] as number | null | undefined
-    const lon = location.states?.['longitude'] as number | null | undefined
+      if (lat == null || lon == null) {
+        return null
+      }
 
-    if (lat == null || lon == null) continue
+      return { location, lat, lon }
+    })
+    .filter((entry): entry is { location: RuntimeModelLike; lat: number; lon: number } => Boolean(entry))
 
-    try {
-      const payload = await fetchWeatherFromOpenMeteo(lat, lon)
-      await location.dispatch('applyWeather', payload)
-    } catch (error) {
-      await location.dispatch('failWeather', {
-        message: error instanceof Error ? error.message : String(error),
-      })
-    }
+  if (!entries.length) {
+    return
   }
+
+  await Promise.allSettled(
+    entries.map(({ location }) => location.dispatch('startLoading')),
+  )
+
+  const results = await Promise.allSettled(
+    entries.map(({ lat, lon }) => fetchWeatherFromOpenMeteo(lat, lon)),
+  )
+
+  await Promise.allSettled(
+    entries.map(({ location }, index) => {
+      const result = results[index]
+
+      if (result.status === 'fulfilled') {
+        return location.dispatch('applyWeather', result.value)
+      }
+
+      return location.dispatch('failWeather', {
+        message:
+          result.reason instanceof Error ? result.reason.message : String(result.reason),
+      })
+    }),
+  )
 }
 
 const runtimeEnv =
@@ -167,6 +190,8 @@ export const createWeatherModelRuntime = () => {
       clearTimeout(liveUpdateTimer)
       liveUpdateTimer = null
     }
+
+    weatherFetchStarted = false
   }
 
   const emitForConnection = (
@@ -368,7 +393,9 @@ export const createWeatherModelRuntime = () => {
     if (!weatherFetchStarted) {
       weatherFetchStarted = true
       fetchWeatherForAllLocations(app)
-        .then(() => startLiveUpdate(app))
+        .finally(() => {
+          startLiveUpdate(app)
+        })
         .catch((error) => {
           appendLog(connection, `initial weather fetch failed: ${error}`)
         })

@@ -19,7 +19,15 @@ const formatUpdatedAt = (value: string | null) => {
   return date.toLocaleString()
 }
 
-export default function App({ session }: { session: WeatherAppSession }) {
+const DEFAULT_FORECAST_LIMIT = 3
+
+export default function App({
+  session,
+  forecastLimit = DEFAULT_FORECAST_LIMIT,
+}: {
+  session: WeatherAppSession
+  forecastLimit?: number
+}) {
   const snapshot = useSyncRoot(session.runtime)
   const bootedLabel = snapshot.booted ? 'Booted' : 'Not booted'
 
@@ -54,7 +62,7 @@ export default function App({ session }: { session: WeatherAppSession }) {
         <One rel="pioneer" fallback={<GraphFallback />}>
           <section className="main-stage">
             <One rel="mainLocation" fallback={<LocationFallback featured />}>
-              <FeaturedLocationCard />
+              <FeaturedLocationCard forecastLimit={forecastLimit} />
             </One>
           </section>
 
@@ -81,20 +89,21 @@ const ForecastShape = defineShape({
   attrs: ['label', 'temperatureText', 'summary'],
 })
 
-const CurrentWeatherCard = shapeOf(function CurrentWeatherCard() {
-  const attrs = useAttrs([
-    'location',
-    'status',
-    'temperatureText',
-    'summary',
-    'updatedAt',
-  ])
+const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
+  loadStatus,
+  loadNote,
+}: {
+  loadStatus?: string
+  loadNote?: string
+}) {
+  const attrs = useAttrs(['location', 'status', 'temperatureText', 'summary', 'updatedAt'])
 
   const location = String(attrs.location || 'Unknown location')
-  const status = String(attrs.status || 'booting')
+  const status = String(loadStatus || attrs.status || 'booting')
   const temperatureText = String(attrs.temperatureText || '-- \u00b0C')
   const summary = String(attrs.summary || '')
   const updatedAt = (attrs.updatedAt as string | null) ?? null
+  const statusNote = loadNote || `Updated ${formatUpdatedAt(updatedAt)}`
 
   return (
     <>
@@ -103,7 +112,7 @@ const CurrentWeatherCard = shapeOf(function CurrentWeatherCard() {
       <p className="weather-readout__summary">{summary}</p>
       <p className="weather-readout__meta">
         <span className={`status-pill status-pill--${status}`}>{status}</span>
-        <span>Updated {formatUpdatedAt(updatedAt)}</span>
+        <span>{statusNote}</span>
       </p>
     </>
   )
@@ -121,14 +130,32 @@ const ForecastCard = shapeOf(function ForecastCard() {
   )
 }, ForecastShape)
 
-const WeatherLocationInner = ({ featured = false }: { featured?: boolean }) => {
+const WeatherLocationInner = ({
+  featured = false,
+  forecastLimit,
+}: {
+  featured?: boolean
+  forecastLimit?: number
+}) => {
+  const weatherLocationAttrs = useAttrs(['loadStatus', 'lastError', 'weatherFetchedAt'])
+  const loadStatus = String(weatherLocationAttrs.loadStatus || 'idle')
+  const lastError = typeof weatherLocationAttrs.lastError === 'string' ? weatherLocationAttrs.lastError : null
+  const weatherFetchedAt = (weatherLocationAttrs.weatherFetchedAt as string | null) ?? null
+  const weatherStatus = loadStatus === 'idle' ? undefined : loadStatus
+  const weatherNote =
+    loadStatus === 'loading'
+      ? 'Loading weather data'
+      : loadStatus === 'error' && lastError
+        ? `Last update failed: ${lastError}`
+        : `Updated ${formatUpdatedAt(weatherFetchedAt)}`
+
   return (
     <div className={featured ? 'location-card location-card--featured' : 'location-card'}>
       <One rel="weatherLocation" fallback={<LocationFallback featured={featured} />}>
         <div className="location-card__body">
           <One rel="currentWeather" fallback={<LocationFallback featured={featured} />}>
             <article className="weather-readout weather-readout--location">
-              <CurrentWeatherCard />
+              <CurrentWeatherCard loadStatus={weatherStatus} loadNote={weatherNote} />
             </article>
           </One>
 
@@ -138,13 +165,23 @@ const WeatherLocationInner = ({ featured = false }: { featured?: boolean }) => {
                 <div>
                   <div className="mini-section-label">Hourly forecast</div>
                   <div className="forecast-list">
-                    <Many rel="hourlyForecastSeries" item={ForecastCard} empty={<ForecastEmpty />} />
+                    <Many
+                      rel="hourlyForecastSeries"
+                      item={ForecastCard}
+                      empty={<ForecastEmpty />}
+                      limit={forecastLimit}
+                    />
                   </div>
                 </div>
                 <div>
                   <div className="mini-section-label">Daily forecast</div>
                   <div className="forecast-list">
-                    <Many rel="dailyForecastSeries" item={ForecastCard} empty={<ForecastEmpty />} />
+                    <Many
+                      rel="dailyForecastSeries"
+                      item={ForecastCard}
+                      empty={<ForecastEmpty />}
+                      limit={forecastLimit}
+                    />
                   </div>
                 </div>
               </div>
@@ -156,7 +193,9 @@ const WeatherLocationInner = ({ featured = false }: { featured?: boolean }) => {
   )
 }
 
-const FeaturedLocationCard = () => <WeatherLocationInner featured />
+const FeaturedLocationCard = ({ forecastLimit }: { forecastLimit?: number }) => (
+  <WeatherLocationInner featured forecastLimit={forecastLimit} />
+)
 const AdditionalLocationCard = () => <WeatherLocationInner />
 
 function GraphFallback() {
