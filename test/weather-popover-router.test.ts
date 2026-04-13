@@ -170,6 +170,7 @@ describe('SelectedLocation popover router', () => {
   afterEach(() => {
     harness?.destroy()
     harness = null
+    vi.restoreAllMocks()
   })
 
   test('smoke: app boots and weather loads', async () => {
@@ -190,6 +191,7 @@ describe('SelectedLocation popover router', () => {
 
   test('featured location opens and closes the popover router', async () => {
     harness = await createWeatherTestHarness()
+    const scrollBySpy = vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined)
 
     await harness.whenReady()
     const readyState = await waitForWeatherLoaded(harness)
@@ -208,6 +210,14 @@ describe('SelectedLocation popover router', () => {
       (appState) => getRouterCurrentModelId(appState) === mainLocationId,
       'featured location did not become current popover router model',
     )
+
+    await waitFor(
+      () => scrollBySpy.mock.calls.length,
+      (callCount) => callCount >= 1,
+      'featured location did not trigger auto-scroll',
+    )
+
+    expect(scrollBySpy.mock.lastCall?.[0]).toMatchObject({ behavior: 'smooth' })
 
     const popover = await waitFor(
       () => queryPopover(mainLocationId),
@@ -237,6 +247,7 @@ describe('SelectedLocation popover router', () => {
 
   test('additional location opens and closes the popover router', async () => {
     harness = await createWeatherTestHarness()
+    const scrollBySpy = vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined)
 
     await harness.whenReady()
     const readyState = await waitForWeatherLoaded(harness)
@@ -259,6 +270,14 @@ describe('SelectedLocation popover router', () => {
       (appState) => getRouterCurrentModelId(appState) === additionalLocationId,
       'additional location did not become current popover router model',
     )
+
+    await waitFor(
+      () => scrollBySpy.mock.calls.length,
+      (callCount) => callCount >= 1,
+      'additional location did not trigger auto-scroll',
+    )
+
+    expect(scrollBySpy.mock.lastCall?.[0]).toMatchObject({ behavior: 'smooth' })
 
     const popover = await waitFor(
       () => queryPopover(additionalLocationId),
@@ -288,6 +307,7 @@ describe('SelectedLocation popover router', () => {
 
   test('switching selected location reuses one floating layer', async () => {
     harness = await createWeatherTestHarness()
+    const scrollBySpy = vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined)
 
     await harness.whenReady()
     const readyState = await waitForWeatherLoaded(harness)
@@ -326,6 +346,14 @@ describe('SelectedLocation popover router', () => {
       (appState) => getRouterCurrentModelId(appState) === additionalLocationId,
       'additional location did not become current router model after switch',
     )
+
+    await waitFor(
+      () => scrollBySpy.mock.calls.length,
+      (callCount) => callCount >= 2,
+      'switching locations did not trigger a second auto-scroll',
+    )
+
+    expect(scrollBySpy.mock.lastCall?.[0]).toMatchObject({ behavior: 'smooth' })
 
     const secondLayer = await waitFor(
       () => queryPopoverLayer(),

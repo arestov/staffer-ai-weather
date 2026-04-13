@@ -468,6 +468,7 @@ h1 {
 .selected-location-popover__surface {
   position: relative;
   width: 100%;
+  min-block-size: 12rem;
   padding: 1rem;
   border-radius: 28px;
   border: 1px solid rgba(121, 213, 255, 0.18);

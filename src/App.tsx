@@ -32,6 +32,7 @@ const FORECAST_PLACEHOLDER_KEYS = ['now', 'soon', 'later'] as const
 const SELECTED_LOCATION_POPOVER_ROUTER_NAME = 'router-selectedLocationPopover'
 const SELECTED_LOCATION_POPOVER_ID = 'selected-location-popover-layer'
 const SELECTED_LOCATION_POPOVER_GAP = 16
+const SELECTED_LOCATION_POPOVER_SCROLL_OFFSET = 24
 
 type FloatingPopoverLayout = {
   top: number
@@ -62,6 +63,27 @@ const supportsCssNativePopoverPositioning = () => {
     CSS.supports('top: anchor(bottom)') &&
     CSS.supports('width: anchor-size(--weather-shell width)')
   )
+}
+
+const scrollSelectedLocationIntoView = (selectedLocationId: string) => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return
+  }
+
+  const anchorElement = document.querySelector(
+    `[data-selected-location-id="${selectedLocationId}"]`,
+  ) as HTMLElement | null
+
+  if (!anchorElement) {
+    return
+  }
+
+  const rect = anchorElement.getBoundingClientRect()
+
+  window.scrollBy({
+    top: rect.top - SELECTED_LOCATION_POPOVER_SCROLL_OFFSET,
+    behavior: 'smooth',
+  })
 }
 
 export default function App({
@@ -142,6 +164,8 @@ const useFloatingSelectedLocationPopoverLayout = (
       setLayout(null)
       return
     }
+
+    setLayout(null)
 
     let frameId = 0
     let timeoutId: ReturnType<typeof setTimeout> | null = null
@@ -314,6 +338,7 @@ const WeatherLocationInner = ({
     }
 
     openResource(selectedLocationId)
+    scrollSelectedLocationIntoView(selectedLocationId)
   }
 
   return (
@@ -464,6 +489,42 @@ function SelectedLocationPopover({
   selectedLocationId: string
   onClose: () => void
 }) {
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    let firstFrameId = 0
+    let secondFrameId = 0
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+    const runScroll = () => {
+      scrollSelectedLocationIntoView(selectedLocationId)
+    }
+
+    if (typeof window.requestAnimationFrame === 'function') {
+      firstFrameId = window.requestAnimationFrame(() => {
+        secondFrameId = window.requestAnimationFrame(runScroll)
+      })
+    } else {
+      timeoutId = setTimeout(runScroll, 0)
+    }
+
+    return () => {
+      if (firstFrameId && typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(firstFrameId)
+      }
+
+      if (secondFrameId && typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(secondFrameId)
+      }
+
+      if (timeoutId != null) {
+        clearTimeout(timeoutId)
+      }
+    }
+  }, [selectedLocationId])
+
   return (
     <div
       id={popoverId}
