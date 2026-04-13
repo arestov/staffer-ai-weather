@@ -97,7 +97,7 @@ const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
   loadNote,
 }: {
   loadStatus?: string
-  loadNote?: string
+  loadNote?: string | null
 }) {
   const attrs = useAttrs(['location', 'status', 'temperatureText', 'summary', 'updatedAt'])
 
@@ -106,7 +106,7 @@ const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
   const temperatureText = String(attrs.temperatureText || '-- \u00b0C')
   const summary = String(attrs.summary || '')
   const updatedAt = (attrs.updatedAt as string | null) ?? null
-  const statusNote = loadNote || `Updated ${formatUpdatedAt(updatedAt)}`
+  const statusNote = loadNote ?? (updatedAt ? `Updated ${formatUpdatedAt(updatedAt)}` : null)
 
   return (
     <>
@@ -115,7 +115,7 @@ const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
       <p className="weather-readout__summary">{summary}</p>
       <p className="weather-readout__meta">
         <span className={`status-pill status-pill--${status}`}>{status}</span>
-        <span>{statusNote}</span>
+        {statusNote ? <span>{statusNote}</span> : null}
       </p>
     </>
   )
@@ -143,14 +143,13 @@ const WeatherLocationInner = ({
   const weatherLocationAttrs = useAttrs(['loadStatus', 'lastError', 'weatherFetchedAt'])
   const loadStatus = String(weatherLocationAttrs.loadStatus || 'idle')
   const lastError = typeof weatherLocationAttrs.lastError === 'string' ? weatherLocationAttrs.lastError : null
-  const weatherFetchedAt = (weatherLocationAttrs.weatherFetchedAt as string | null) ?? null
   const weatherStatus = loadStatus === 'idle' ? undefined : loadStatus
   const weatherNote =
     loadStatus === 'loading'
       ? 'Loading weather data'
       : loadStatus === 'error' && lastError
         ? `Last update failed: ${lastError}`
-        : `Updated ${formatUpdatedAt(weatherFetchedAt)}`
+        : null
 
   const weatherLocationBodyFallback = (
     <div className="location-card__body">
