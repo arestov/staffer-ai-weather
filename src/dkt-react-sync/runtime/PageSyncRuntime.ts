@@ -1,0 +1,35 @@
+import type { ReactScopeRuntime } from './ReactScopeRuntime'
+import type { ReactSyncScopeHandle } from '../scope/ScopeHandle'
+import type { SyncStore } from './createSyncStore'
+
+export interface PageRootSnapshot {
+  booted: boolean
+  ready: boolean
+  version: number
+  rootNodeId: string | null
+  sessionId: string | null
+  weatherLoadStatus: string
+  weatherLoadError: string | null
+}
+
+export interface PageSyncRuntime extends ReactScopeRuntime {
+  store: SyncStore<PageRootSnapshot>
+  bootstrap(): void
+  debugDescribeNode(nodeId: string): unknown
+  debugDumpGraph(): unknown
+  debugMessages(): readonly unknown[]
+  dispatchAction(
+    actionName: string,
+    payload?: unknown,
+    scope?: ReactSyncScopeHandle | null,
+  ): void
+  refreshWeather(): void
+  destroy(): void
+  getSnapshot(): PageRootSnapshot
+  getRootAttrs(attrNames: readonly string[]): Record<string, unknown>
+  subscribe(listener: () => void): () => void
+  subscribeRootAttrs(
+    attrNames: readonly string[],
+    listener: () => void,
+  ): () => void
+}

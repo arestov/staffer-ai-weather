@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import type { PageSyncRuntime } from '../createPageSyncReceiverRuntime'
+import type { PageSyncRuntime } from '../../dkt-react-sync/runtime/PageSyncRuntime'
 
 export const useModelAttrs = (
   runtime: PageSyncRuntime,
