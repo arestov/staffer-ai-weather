@@ -1,5 +1,5 @@
 import type { ReactSyncScopeHandle } from '../../dkt-react-sync/scope/ScopeHandle'
-import type { DefinedReactShape } from '../shape/defineShape'
+import type { DefinedReactShape } from '../../dkt-react-sync/shape/defineShape'
 
 export interface ReactScopeRuntime {
   getRootScope(): ReactSyncScopeHandle | null
@@ -46,4 +46,5 @@ export interface ReactScopeRuntime {
     scope?: ReactSyncScopeHandle | null,
   ): void
 }
+
 

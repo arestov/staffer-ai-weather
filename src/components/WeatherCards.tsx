@@ -1,6 +1,6 @@
 import { One } from '../react-sync/components/One'
 import { Many } from '../react-sync/components/Many'
-import { defineShape, shapeOf } from '../react-sync/shape/defineShape'
+import { defineShape, shapeOf } from '../dkt-react-sync/shape/defineShape'
 import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
 
 const LOCATION_PLACEHOLDER_KEYS = ['north', 'center', 'south'] as const
@@ -238,4 +238,5 @@ export function PopoverWeatherSectionFallback() {
     </div>
   )
 }
+
 

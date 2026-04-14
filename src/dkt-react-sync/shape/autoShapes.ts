@@ -1,4 +1,4 @@
-import { defineShape, type DefinedReactShape } from '../../react-sync/shape/defineShape'
+import { defineShape, type DefinedReactShape } from './defineShape'
 
 const attrsShapesByKey = new Map<string, DefinedReactShape>()
 const relShapesByName = new Map<string, DefinedReactShape>()
@@ -29,4 +29,5 @@ export const getRelShape = (relName: string) => {
 
   return shape
 }
+
 
