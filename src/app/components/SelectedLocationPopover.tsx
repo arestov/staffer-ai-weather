@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { One } from '../../react-sync/components/One'
 import { ScopeContext } from '../../react-sync/context/ScopeContext'
@@ -21,16 +21,9 @@ import {
 
 export const SELECTED_LOCATION_POPOVER_ROUTER_NAME = 'router-selectedLocationPopover'
 export const SELECTED_LOCATION_POPOVER_ID = 'selected-location-popover-layer'
+export const SELECTED_LOCATION_POPOVER_ARROW_ID = 'selected-location-popover-arrow'
 
-const SELECTED_LOCATION_POPOVER_GAP = 16
 const SELECTED_LOCATION_POPOVER_SCROLL_OFFSET = 24
-
-type FloatingPopoverLayout = {
-  top: number
-  left: number
-  width: number
-  arrowLeft: number
-}
 
 export const scrollSelectedLocationIntoView = (selectedLocationId: string) => {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -55,133 +48,6 @@ export const scrollSelectedLocationIntoView = (selectedLocationId: string) => {
   } catch {
     // jsdom does not implement scrollBy; ignore to keep tests deterministic.
   }
-}
-
-const supportsCssNativePopoverPositioning = () => {
-  if (
-    typeof window === 'undefined' ||
-    typeof HTMLElement === 'undefined' ||
-    typeof CSS === 'undefined' ||
-    typeof CSS.supports !== 'function'
-  ) {
-    return false
-  }
-
-  if (
-    typeof HTMLElement.prototype.showPopover !== 'function' ||
-    typeof HTMLElement.prototype.hidePopover !== 'function'
-  ) {
-    return false
-  }
-
-  return (
-    CSS.supports('anchor-name: --selected-location-trigger') &&
-    CSS.supports('position-anchor: --selected-location-trigger') &&
-    CSS.supports('top: anchor(bottom)') &&
-    CSS.supports('width: anchor-size(--weather-shell width)')
-  )
-}
-
-const useFloatingSelectedLocationPopoverLayout = (
-  selectedLocationId: string | null,
-  enabled: boolean,
-) => {
-  const [layout, setLayout] = useState<FloatingPopoverLayout | null>(null)
-
-  useLayoutEffect(() => {
-    if (
-      !enabled ||
-      !selectedLocationId ||
-      typeof window === 'undefined' ||
-      typeof document === 'undefined'
-    ) {
-      setLayout(null)
-      return
-    }
-
-    setLayout(null)
-
-    let frameId = 0
-    let timeoutId: ReturnType<typeof setTimeout> | null = null
-    let resizeObserver: ResizeObserver | null = null
-
-    const updateLayout = () => {
-      frameId = 0
-      timeoutId = null
-
-      const anchorElement = document.querySelector(
-        `[data-selected-location-id="${selectedLocationId}"]`,
-      ) as HTMLElement | null
-      const shellElement = document.querySelector('.app-shell') as HTMLElement | null
-
-      if (!anchorElement || !shellElement) {
-        setLayout(null)
-        return
-      }
-
-      const anchorRect = anchorElement.getBoundingClientRect()
-      const shellRect = shellElement.getBoundingClientRect()
-      const arrowLeft = anchorRect.left - shellRect.left + anchorRect.width * 0.35
-
-      setLayout({
-        top: window.scrollY + anchorRect.bottom + SELECTED_LOCATION_POPOVER_GAP,
-        left: window.scrollX + shellRect.left,
-        width: shellRect.width,
-        arrowLeft: Math.max(24, Math.min(shellRect.width - 24, arrowLeft)),
-      })
-    }
-
-    const scheduleUpdate = () => {
-      if (frameId || timeoutId != null) {
-        return
-      }
-
-      if (typeof window.requestAnimationFrame === 'function') {
-        frameId = window.requestAnimationFrame(updateLayout)
-        return
-      }
-
-      timeoutId = setTimeout(updateLayout, 0)
-    }
-
-    scheduleUpdate()
-    window.addEventListener('resize', scheduleUpdate)
-    window.addEventListener('scroll', scheduleUpdate, true)
-
-    if (typeof ResizeObserver === 'function') {
-      resizeObserver = new ResizeObserver(scheduleUpdate)
-
-      const anchorElement = document.querySelector(
-        `[data-selected-location-id="${selectedLocationId}"]`,
-      ) as HTMLElement | null
-      const shellElement = document.querySelector('.app-shell') as HTMLElement | null
-
-      if (anchorElement) {
-        resizeObserver.observe(anchorElement)
-      }
-
-      if (shellElement) {
-        resizeObserver.observe(shellElement)
-      }
-    }
-
-    return () => {
-      window.removeEventListener('resize', scheduleUpdate)
-      window.removeEventListener('scroll', scheduleUpdate, true)
-
-      if (frameId && typeof window.cancelAnimationFrame === 'function') {
-        window.cancelAnimationFrame(frameId)
-      }
-
-      if (timeoutId != null) {
-        clearTimeout(timeoutId)
-      }
-
-      resizeObserver?.disconnect()
-    }
-  }, [enabled, selectedLocationId])
-
-  return layout
 }
 
 const toLocationSearchResults = (value: unknown): LocationSearchResult[] => {
@@ -215,21 +81,18 @@ export function SelectedLocationPopoverLayer({
     SELECTED_LOCATION_POPOVER_ROUTER_NAME,
   )
   const popoverRef = useRef<HTMLElement | null>(null)
+  const arrowPopoverRef = useRef<HTMLElement | null>(null)
   const lastOpenNodeIdRef = useRef<string | null>(null)
-  const nativePositioning = supportsCssNativePopoverPositioning()
-  const layout = useFloatingSelectedLocationPopoverLayout(
-    currentNodeId,
-    true,
-  )
 
   useEffect(() => {
-    const node = popoverRef.current
+    const popoverNode = popoverRef.current
+    const arrowNode = arrowPopoverRef.current
 
-    if (!nativePositioning || !node) {
+    if (!popoverNode || !arrowNode) {
       return
     }
 
-    const isOpen = () => {
+    const isOpen = (node: HTMLElement) => {
       try {
         return node.matches(':popover-open')
       } catch {
@@ -237,17 +100,49 @@ export function SelectedLocationPopoverLayer({
       }
     }
 
-    if (currentNodeId && currentScope) {
-      if (!isOpen()) {
+    const showWithSource = (
+      node: HTMLElement,
+      triggerButton: HTMLButtonElement | null,
+      shouldRefresh = false,
+    ) => {
+      if (typeof node.showPopover !== 'function') {
+        return
+      }
+
+      if (isOpen(node) && !shouldRefresh) {
+        return
+      }
+
+      if (isOpen(node) && shouldRefresh && typeof node.hidePopover === 'function') {
+        node.hidePopover()
+      }
+
+      try {
+        const showPopover = node.showPopover as (options?: { source?: HTMLElement }) => void
+        showPopover({ source: triggerButton ?? undefined })
+      } catch {
         node.showPopover()
       }
+    }
+
+    if (currentNodeId && currentScope) {
+      const triggerButton = document.querySelector(
+        `[data-selected-location-id="${currentNodeId}"] .selected-location-card-button`,
+      ) as HTMLButtonElement | null
+
+      showWithSource(popoverNode, triggerButton)
+      showWithSource(arrowNode, triggerButton, true)
       return
     }
 
-    if (isOpen()) {
-      node.hidePopover()
+    if (isOpen(popoverNode) && typeof popoverNode.hidePopover === 'function') {
+      popoverNode.hidePopover()
     }
-  }, [currentNodeId, currentScope, nativePositioning])
+
+    if (isOpen(arrowNode) && typeof arrowNode.hidePopover === 'function') {
+      arrowNode.hidePopover()
+    }
+  }, [currentNodeId, currentScope])
 
   useEffect(() => {
     if (!currentNodeId || !currentScope || typeof document === 'undefined') {
@@ -312,44 +207,41 @@ export function SelectedLocationPopoverLayer({
     return null
   }
 
-  const floatingStyle = !nativePositioning && currentNodeId && currentScope && layout
-    ? {
-        top: `${layout.top}px`,
-        left: `${layout.left}px`,
-        width: `${layout.width}px`,
-      }
-    : undefined
-
-  const popoverStyle = layout
-    ? ({
-        ...floatingStyle,
-        '--selected-location-popover-arrow-left': `${layout.arrowLeft}px`,
-      } as CSSProperties)
-    : floatingStyle
-
   return createPortal(
-    <section
-      ref={popoverRef}
-      id={SELECTED_LOCATION_POPOVER_ID}
-      popover={nativePositioning ? 'manual' : undefined}
-      hidden={!nativePositioning && (!currentNodeId || !currentScope)}
-      className="selected-location-popover selected-location-popover--floating"
-      data-selected-location-popover-layer
-      data-popover-for={currentNodeId ?? ''}
-      style={popoverStyle}
-    >
-      {currentScope && routerScope ? (
-        <ScopeContext.Provider value={routerScope}>
-          <SelectedLocationPopover
-            popoverId={SELECTED_LOCATION_POPOVER_ID}
-            selectedLocationId={currentNodeId ?? ''}
-            selectedLocationScope={currentScope}
-            onRefreshWeather={onRefreshWeather}
-            onClose={clearCurrent}
-          />
-        </ScopeContext.Provider>
-      ) : null}
-    </section>,
+    <>
+      <section
+        ref={popoverRef}
+        id={SELECTED_LOCATION_POPOVER_ID}
+        popover="manual"
+        hidden={!currentNodeId || !currentScope}
+        className="selected-location-popover selected-location-popover--floating"
+        data-selected-location-popover-layer
+        data-popover-for={currentNodeId ?? ''}
+      >
+        {currentScope && routerScope ? (
+          <ScopeContext.Provider value={routerScope}>
+            <SelectedLocationPopover
+              popoverId={SELECTED_LOCATION_POPOVER_ID}
+              selectedLocationId={currentNodeId ?? ''}
+              selectedLocationScope={currentScope}
+              onRefreshWeather={onRefreshWeather}
+              onClose={clearCurrent}
+            />
+          </ScopeContext.Provider>
+        ) : null}
+      </section>
+
+      <section
+        ref={arrowPopoverRef}
+        id={SELECTED_LOCATION_POPOVER_ARROW_ID}
+        popover="manual"
+        hidden={!currentNodeId || !currentScope}
+        className="selected-location-popover-arrow selected-location-popover-arrow--floating"
+        aria-hidden="true"
+        data-selected-location-popover-arrow
+        data-popover-for={currentNodeId ?? ''}
+      />
+    </>,
     document.body,
   )
 }
@@ -418,31 +310,22 @@ function SelectedLocationPopover({
 
     let firstFrameId = 0
     let secondFrameId = 0
-    let timeoutId: ReturnType<typeof setTimeout> | null = null
 
     const runScroll = () => {
       scrollSelectedLocationIntoView(selectedLocationId)
     }
 
-    if (typeof window.requestAnimationFrame === 'function') {
-      firstFrameId = window.requestAnimationFrame(() => {
-        secondFrameId = window.requestAnimationFrame(runScroll)
-      })
-    } else {
-      timeoutId = setTimeout(runScroll, 0)
-    }
+    firstFrameId = window.requestAnimationFrame(() => {
+      secondFrameId = window.requestAnimationFrame(runScroll)
+    })
 
     return () => {
-      if (firstFrameId && typeof window.cancelAnimationFrame === 'function') {
+      if (firstFrameId) {
         window.cancelAnimationFrame(firstFrameId)
       }
 
-      if (secondFrameId && typeof window.cancelAnimationFrame === 'function') {
+      if (secondFrameId) {
         window.cancelAnimationFrame(secondFrameId)
-      }
-
-      if (timeoutId != null) {
-        clearTimeout(timeoutId)
       }
     }
   }, [selectedLocationId])

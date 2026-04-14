@@ -64,6 +64,24 @@ const main = async () => {
         ),
       )
     }
+
+    const arrowMetrics = await page.$eval(
+      '[data-selected-location-popover]',
+      (element) => {
+        const style = getComputedStyle(element, '::before')
+
+        return {
+          top: style.top,
+          left: style.left,
+          position: style.position,
+          transform: style.transform,
+          width: style.width,
+          height: style.height,
+        }
+      },
+    )
+
+    console.log(JSON.stringify({ selector: '::before', computed: arrowMetrics }, null, 2))
   } finally {
     await page.close()
     await browser.close()

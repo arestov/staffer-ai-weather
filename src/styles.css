@@ -107,7 +107,6 @@ input:focus {
 .app-shell {
   position: relative;
   z-index: 1;
-  anchor-name: --weather-shell;
   min-height: 100vh;
   display: grid;
   gap: 1.35rem;
@@ -475,58 +474,65 @@ h1 {
 
 .selected-location-popover--floating {
   position: absolute;
+  position-anchor: --selected-location-trigger;
+  top: calc(anchor(bottom) + 16px);
+  left: 0;
+  right: 0;
   z-index: 24;
   margin: 0;
-  inset: auto;
   border: 0;
   padding: 0;
   background: transparent;
   color: inherit;
   overflow: visible;
+  width: 100%;
+
+      
+  backdrop-filter: blur(22px);
+  
+  border: 1px solid rgba(121, 213, 255, 0.18);
+  border-width: 1px 0 0 1px;
+}
+
+@position-try --align-right {
+  left: auto;
+  right: calc(anchor(right));
 }
 
 .selected-location-popover--floating::backdrop {
   background: transparent;
 }
 
-.selected-location-popover__surface {
-  position: relative;
-  width: 100%;
-  min-block-size: 12rem;
-  padding: 1rem;
-  border-radius: 28px;
-  border: 1px solid rgba(121, 213, 255, 0.18);
-  background:
-    linear-gradient(180deg, rgba(7, 16, 30, 0.96), rgba(7, 16, 30, 0.9)),
-    radial-gradient(circle at top right, rgba(121, 213, 255, 0.14), transparent 28%);
-  backdrop-filter: blur(22px);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
-}
-
-.selected-location-popover__surface::before {
-  content: '';
+.selected-location-popover-arrow--floating {
   position: absolute;
-  top: -0.45rem;
-  left: clamp(1.5rem, var(--selected-location-popover-arrow-left, 20%), calc(100% - 1.5rem));
+  position-anchor: --selected-location-trigger;
+  top: calc(anchor(bottom) + 0.5rem);
+  left: anchor(25%);
   width: 1rem;
   height: 1rem;
+  margin: 0;
+  border: 0;
+  padding: 0;
   transform: translateX(-50%) rotate(45deg);
   border-left: 1px solid rgba(121, 213, 255, 0.18);
   border-top: 1px solid rgba(121, 213, 255, 0.18);
   background: linear-gradient(180deg, rgba(7, 16, 30, 0.96), rgba(7, 16, 30, 0.9));
   box-shadow: -5px -5px 18px rgba(0, 0, 0, 0.12);
   pointer-events: none;
+  overflow: visible;
+  z-index: 25;
+  backdrop-filter: blur(22px);
 }
 
-@supports (anchor-name: --selected-location-trigger) and (position-anchor: --selected-location-trigger) and (top: anchor(bottom)) {
-  .selected-location-popover--floating {
-    position: absolute;
-    position-anchor: --selected-location-trigger;
-    top: calc(anchor(bottom) + 16px);
-    left: anchor(--weather-shell left);
-    width: anchor-size(--weather-shell width);
-    max-width: none;
-  }
+.selected-location-popover__surface {
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+  max-width: 1000px;
+  min-block-size: 12rem;
+  padding: 1rem;
+  
+  min-height: 50vh;
 }
 
 .selected-location-popover__header {
