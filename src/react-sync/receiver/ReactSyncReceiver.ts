@@ -1,5 +1,5 @@
 import { SYNCR_TYPES } from 'dkt-all/libs/provoda/SyncR_TYPES.js'
-import type { ReactSyncScopeHandle } from '../scope/ScopeHandle'
+import type { ReactSyncScopeHandle } from '../../dkt-react-sync/scope/ScopeHandle'
 
 type DictKey = number | string
 type Listener = () => void
@@ -920,3 +920,4 @@ export class ReactSyncReceiver {
     return nextValues
   }
 }
+

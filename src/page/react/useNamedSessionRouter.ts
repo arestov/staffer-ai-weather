@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { useReactScopeRuntime } from '../../react-sync/hooks/useReactScopeRuntime'
-import type { ReactSyncScopeHandle } from '../../react-sync/scope/ScopeHandle'
+import type { ReactSyncScopeHandle } from '../../dkt-react-sync/scope/ScopeHandle'
 import { getRelShape } from '../../react-sync/shape/autoShapes'
 
 const useMountedRelShape = (

@@ -1,4 +1,4 @@
-import type { ReactSyncScopeHandle } from '../scope/ScopeHandle'
+import type { ReactSyncScopeHandle } from '../../dkt-react-sync/scope/ScopeHandle'
 import type { DefinedReactShape } from './defineShape'
 
 type Listener = () => void
@@ -356,3 +356,4 @@ export class ShapeRegistry {
     runtime.requireNodeShapes(nodeId, shapeIds)
   }
 }
+
