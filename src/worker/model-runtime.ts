@@ -9,7 +9,7 @@ import { getModelById } from 'dkt-all/libs/provoda/utils/getModelById.js'
 import { _getCurrentRel, _listRels } from 'dkt-all/libs/provoda/_internal/_listRels.js'
 import { APP_MSG, RUNTIME_LOG_SCOPE } from '../shared/messageTypes'
 import type { ReactSyncTransportMessage } from '../shared/messageTypes'
-import { AppRoot } from '../app/AppRoot'
+import { AppRoot } from '../models/AppRoot'
 import { createSessionManager } from './session-manager'
 import { createLocationSearchApi } from './location-search-api'
 import { createWeatherLoaderApi, fetchWeatherFromOpenMeteo } from './weather-api'
@@ -644,3 +644,4 @@ export const createWeatherModelRuntime = (options?: {
     debugDumpAppState,
   }
 }
+
