@@ -1,5 +1,5 @@
 import { useContext } from 'react'
-import { ReactScopeRuntimeContext } from '../context/ReactScopeRuntimeContext'
+import { ReactScopeRuntimeContext } from '../../dkt-react-sync/context/ReactScopeRuntimeContext'
 
 export const useReactScopeRuntime = () => {
   const runtime = useContext(ReactScopeRuntimeContext)
@@ -10,3 +10,4 @@ export const useReactScopeRuntime = () => {
 
   return runtime
 }
+

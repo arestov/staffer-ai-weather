@@ -1,6 +1,7 @@
 import { createContext } from 'react'
-import type { ReactScopeRuntime } from '../runtime/ReactScopeRuntime'
+import type { ReactScopeRuntime } from '../../react-sync/runtime/ReactScopeRuntime'
 
 export const ReactScopeRuntimeContext = createContext<ReactScopeRuntime | null>(
   null,
 )
+
