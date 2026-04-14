@@ -1,4 +1,4 @@
-import type { LocationSearchResult } from '../app/rels/location-models'
+import type { LocationSearchResult } from '../models/WeatherLocation'
 import type { WeatherBackendApi } from './weather-backend-api'
 
 export interface LocationSearchApi {
