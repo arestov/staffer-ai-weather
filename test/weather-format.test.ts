@@ -4,7 +4,7 @@ import {
   formatHourlyLabel,
   formatTemperature,
   weatherCodeToSummary,
-} from '../src/app/rels/weatherFormat'
+} from '../src/models/weatherFormat'
 
 describe('weather formatters', () => {
   test('formats known and unknown weather codes', () => {

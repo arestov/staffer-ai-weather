@@ -2,7 +2,7 @@ import { ScopeContext } from '../../dkt-react-sync/context/ScopeContext'
 import { useReactScopeRuntime } from '../hooks/useReactScopeRuntime'
 import { useShape } from '../hooks/useShape'
 import { getRelShape } from '../shape/autoShapes'
-import { useScope } from '../hooks/useScope'
+import { useScope } from '../../dkt-react-sync/hooks/useScope'
 import { useSyncExternalStore } from 'react'
 
 const EMPTY_ITEMS = Object.freeze([]) as readonly []
@@ -47,4 +47,5 @@ export const Many = ({
     </>
   )
 }
+
 
