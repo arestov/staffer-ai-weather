@@ -10,7 +10,7 @@ import {
   WEATHER_LOCATION_BASE_CREATION_SHAPE,
   buildInitialSelectedLocations,
   buildInitialWeatherLocations,
-} from '../app/rels/weatherSeed'
+} from './weatherSeed'
 
 type SavedSearchLocationsSyncStatus = 'idle' | 'loading' | 'syncing' | 'ready' | 'error'
 
@@ -555,4 +555,5 @@ const app_props = mergeDcl({
 })
 
 export const AppRoot = appRoot(app_props, app_props.init)
+
 

@@ -5,7 +5,7 @@ import { HourlyForecastSeries } from './HourlyForecastSeries'
 import {
   CURRENT_WEATHER_CREATION_SHAPE,
   FORECAST_SERIES_CREATION_SHAPE,
-} from '../app/rels/weatherSeed'
+} from './weatherSeed'
 import { fetchWeatherFromOpenMeteo } from '../worker/weather-api'
 import {
   formatDailyLabel,
@@ -395,3 +395,4 @@ export const WeatherLocation = model({
     },
   },
 })
+
