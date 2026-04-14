@@ -1,4 +1,4 @@
-import { One } from './One'
+import { One } from '../../dkt-react-sync/components/One'
 
 export const Path = ({
   rels,
@@ -23,3 +23,4 @@ export const Path = ({
     </One>
   )
 }
+

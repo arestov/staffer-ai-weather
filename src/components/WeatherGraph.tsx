@@ -1,4 +1,4 @@
-import { One } from '../react-sync/components/One'
+import { One } from '../dkt-react-sync/components/One'
 import { Many } from '../react-sync/components/Many'
 import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
 import { useScope } from '../dkt-react-sync/hooks/useScope'
@@ -212,5 +212,6 @@ function GraphFallback() {
     </div>
   )
 }
+
 
 

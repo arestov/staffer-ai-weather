@@ -1,4 +1,4 @@
-import { One } from '../react-sync/components/One'
+import { One } from '../dkt-react-sync/components/One'
 import { Many } from '../react-sync/components/Many'
 import { defineShape, shapeOf } from '../dkt-react-sync/shape/defineShape'
 import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
@@ -238,5 +238,6 @@ export function PopoverWeatherSectionFallback() {
     </div>
   )
 }
+
 
 
