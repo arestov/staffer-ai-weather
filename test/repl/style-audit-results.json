@@ -1,0 +1,303 @@
+{
+  "mainPage": {
+    "1_body": {
+      "background": "radial-gradient(circle at 18% 20%, rgba(124, 201, 214, 0.16), rgba(0, 0, 0, 0) 30%) repeat scroll 0% 0% / auto padding-box border-box, radial-gradient(circle at 80% 10%, rgba(234, 251, 87, 0.24), rgba(0, 0, 0, 0) 14%) repeat scroll 0% 0% / auto padding-box border-box, rgba(0, 0, 0, 0) linear-gradient(rgb(236, 231, 225), rgba(216, 209, 200, 0.92)) repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "background-image": "radial-gradient(circle at 18% 20%, rgba(124, 201, 214, 0.16), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 80% 10%, rgba(234, 251, 87, 0.24), rgba(0, 0, 0, 0) 14%), linear-gradient(rgb(236, 231, 225), rgba(216, 209, 200, 0.92))",
+      "border": "0px none rgba(23, 21, 19, 0.96)",
+      "border-color": "rgba(23, 21, 19, 0.96)",
+      "border-width": "0px",
+      "box-shadow": "none"
+    },
+    "1b_bodyBefore": {
+      "background": "linear-gradient(90deg, rgba(163, 155, 144, 0.12) 1px, rgba(0, 0, 0, 0) 1px) repeat scroll 0% 0% / 320px 100% padding-box border-box, linear-gradient(rgba(163, 155, 144, 0.08) 1px, rgba(0, 0, 0, 0) 1px) repeat scroll 0% 0% / 100% 220px padding-box border-box, radial-gradient(circle at 20% 18%, rgba(236, 231, 225, 0.86), rgba(0, 0, 0, 0) 24%) repeat scroll 0% 0% / auto padding-box border-box, rgba(0, 0, 0, 0) radial-gradient(circle at 72% 32%, rgba(236, 231, 225, 0.62), rgba(0, 0, 0, 0) 18%) repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "background-image": "linear-gradient(90deg, rgba(163, 155, 144, 0.12) 1px, rgba(0, 0, 0, 0) 1px), linear-gradient(rgba(163, 155, 144, 0.08) 1px, rgba(0, 0, 0, 0) 1px), radial-gradient(circle at 20% 18%, rgba(236, 231, 225, 0.86), rgba(0, 0, 0, 0) 24%), radial-gradient(circle at 72% 32%, rgba(236, 231, 225, 0.62), rgba(0, 0, 0, 0) 18%)",
+      "border": "0px none rgba(23, 21, 19, 0.96)",
+      "border-color": "rgba(23, 21, 19, 0.96)",
+      "border-width": "0px",
+      "box-shadow": "none",
+      "content": "\"\""
+    },
+    "2_appHeaderTrigger": {
+      "background": "radial-gradient(circle at 35% 35%, rgba(236, 231, 225, 0.96), rgba(236, 231, 225, 0.28) 55%, rgba(236, 231, 225, 0.06) 100%) repeat scroll 0% 0% / auto padding-box border-box, rgba(0, 0, 0, 0) linear-gradient(135deg, rgba(236, 231, 225, 0.92), rgba(216, 209, 200, 0.82)) repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "background-image": "radial-gradient(circle at 35% 35%, rgba(236, 231, 225, 0.96), rgba(236, 231, 225, 0.28) 55%, rgba(236, 231, 225, 0.06) 100%), linear-gradient(135deg, rgba(236, 231, 225, 0.92), rgba(216, 209, 200, 0.82))",
+      "border": "1px solid rgba(23, 21, 19, 0.08)",
+      "border-color": "rgba(23, 21, 19, 0.08)",
+      "border-width": "1px",
+      "box-shadow": "rgba(236, 231, 225, 0.22) 0px 0px 0px 1px, rgba(23, 21, 19, 0.1) 0px 18px 44px 0px",
+      "color": "rgba(23, 21, 19, 0.96)",
+      "font-family": "\"Source Sans 3\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "font-size": "16px",
+      "font-weight": "500",
+      "letter-spacing": "normal",
+      "line-height": "24px"
+    },
+    "2b_triggerDot": {
+      "background": "rgb(234, 251, 87) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgb(234, 251, 87)",
+      "box-shadow": "rgba(234, 251, 87, 0.22) 0px 0px 0px 5.6px",
+      "width": "15.1875px",
+      "height": "15.1875px"
+    },
+    "3_featuredCard": {
+      "background": "rgba(0, 0, 0, 0) linear-gradient(rgba(255, 255, 255, 0.52), rgba(216, 209, 200, 0.62)) repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "background-image": "linear-gradient(rgba(255, 255, 255, 0.52), rgba(216, 209, 200, 0.62))",
+      "border": "1px solid rgba(23, 21, 19, 0.1)",
+      "border-color": "rgba(23, 21, 19, 0.1)",
+      "border-width": "1px",
+      "box-shadow": "rgba(23, 21, 19, 0.08) 0px 28px 40px 0px"
+    },
+    "4_weatherReadout": {
+      "background": "rgba(23, 21, 19, 0.04) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgba(23, 21, 19, 0.04)",
+      "background-image": "none",
+      "border": "1px solid rgba(23, 21, 19, 0.08)",
+      "border-color": "rgba(23, 21, 19, 0.08)",
+      "border-width": "1px",
+      "box-shadow": "none"
+    },
+    "4b_readoutLabel": {
+      "color": "rgb(108, 101, 92)",
+      "font-family": "\"IBM Plex Mono\", SFMono-Regular, Consolas, \"Liberation Mono\", monospace",
+      "font-size": "11.2px",
+      "font-weight": "500",
+      "letter-spacing": "1.792px",
+      "line-height": "16.8px"
+    },
+    "4c_readoutValue": {
+      "color": "rgba(23, 21, 19, 0.96)",
+      "font-family": "\"Bricolage Grotesque\", \"Source Sans 3\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "font-size": "86.4px",
+      "font-weight": "600",
+      "letter-spacing": "-5.184px",
+      "line-height": "75.168px"
+    },
+    "4d_readoutSummary": {
+      "color": "rgb(71, 66, 61)",
+      "font-family": "\"Source Sans 3\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "font-size": "16px",
+      "font-weight": "500",
+      "letter-spacing": "normal",
+      "line-height": "24px"
+    },
+    "4e_readoutMeta": {
+      "color": "rgb(108, 101, 92)",
+      "font-family": "\"Source Sans 3\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "font-size": "13.6px",
+      "font-weight": "500",
+      "letter-spacing": "normal",
+      "line-height": "20.4px"
+    },
+    "5_statusPillReady": {
+      "background": "rgb(234, 251, 87) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgb(234, 251, 87)",
+      "color": "rgb(23, 21, 19)",
+      "font-family": "\"IBM Plex Mono\", SFMono-Regular, Consolas, \"Liberation Mono\", monospace",
+      "font-size": "10.88px",
+      "font-weight": "500",
+      "letter-spacing": "1.088px",
+      "line-height": "16.32px"
+    },
+    "6_forecastChip": {
+      "background": "rgba(23, 21, 19, 0.06) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgba(23, 21, 19, 0.06)",
+      "background-image": "none",
+      "border": "1px solid rgba(23, 21, 19, 0.08)",
+      "border-color": "rgba(23, 21, 19, 0.08)",
+      "border-width": "1px",
+      "box-shadow": "none"
+    },
+    "6b_chipLabel": {
+      "color": "rgb(108, 101, 92)",
+      "font-family": "\"IBM Plex Mono\", SFMono-Regular, Consolas, \"Liberation Mono\", monospace",
+      "font-size": "10.88px",
+      "font-weight": "500",
+      "letter-spacing": "1.3056px",
+      "line-height": "16.32px"
+    },
+    "6c_chipStrong": {
+      "color": "rgba(23, 21, 19, 0.96)",
+      "font-family": "\"Bricolage Grotesque\", \"Source Sans 3\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "font-size": "19.2px",
+      "font-weight": "600",
+      "letter-spacing": "normal",
+      "line-height": "28.8px"
+    },
+    "6d_chipP": {
+      "color": "rgb(71, 66, 61)",
+      "font-family": "\"Source Sans 3\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "font-size": "14.08px",
+      "font-weight": "500",
+      "letter-spacing": "normal",
+      "line-height": "21.12px"
+    },
+    "7_additionalCard": {
+      "background": "rgba(255, 255, 255, 0.58) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgba(255, 255, 255, 0.58)",
+      "background-image": "none",
+      "border": "1px solid rgba(23, 21, 19, 0.1)",
+      "border-color": "rgba(23, 21, 19, 0.1)",
+      "border-width": "1px",
+      "box-shadow": "rgba(23, 21, 19, 0.08) 0px 28px 40px 0px"
+    },
+    "_additionalCardCount": 3,
+    "_statusPillFound": true,
+    "_featuredChipFound": true
+  },
+  "popover": {
+    "8_popoverSurface": {
+      "background": "rgba(255, 255, 255, 0.84) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgba(255, 255, 255, 0.84)",
+      "background-image": "none",
+      "border": "",
+      "border-color": "rgba(23, 21, 19, 0.12)",
+      "border-width": "2px 0px 0px",
+      "box-shadow": "none"
+    },
+    "9_popoverArrowBefore": {
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "background-image": "none",
+      "border": "0px none rgba(23, 21, 19, 0.96)",
+      "border-color": "rgba(23, 21, 19, 0.96)",
+      "border-width": "0px",
+      "box-shadow": "none",
+      "width": "auto",
+      "height": "auto",
+      "transform": "none"
+    },
+    "9b_popoverArrowEl": {
+      "background": "rgba(255, 255, 255, 0.84) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgba(255, 255, 255, 0.84)",
+      "background-image": "none",
+      "border": "",
+      "border-color": "rgba(23, 21, 19, 0.12) rgb(0, 0, 0) rgb(0, 0, 0) rgba(23, 21, 19, 0.12)",
+      "border-width": "2px 0px 0px 2px",
+      "box-shadow": "rgba(23, 21, 19, 0.06) -5px -5px 18px 0px"
+    },
+    "10_editTrigger": {
+      "background": "rgb(234, 251, 87) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgb(234, 251, 87)",
+      "background-image": "none",
+      "border": "1px solid rgba(0, 0, 0, 0)",
+      "border-color": "rgba(0, 0, 0, 0)",
+      "border-width": "1px",
+      "box-shadow": "none",
+      "color": "rgb(23, 21, 19)",
+      "font-family": "\"Source Sans 3\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "font-size": "16px",
+      "font-weight": "500"
+    },
+    "10b_closeBtn": {
+      "background": "rgb(23, 21, 19) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgb(23, 21, 19)",
+      "background-image": "none",
+      "border": "1px solid rgba(0, 0, 0, 0)",
+      "border-color": "rgba(0, 0, 0, 0)",
+      "border-width": "1px",
+      "box-shadow": "none",
+      "color": "rgb(236, 231, 225)",
+      "font-family": "\"Source Sans 3\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "font-size": "23.2px",
+      "font-weight": "500"
+    },
+    "11_popoverReadout": {
+      "background": "rgba(23, 21, 19, 0.04) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgba(23, 21, 19, 0.04)",
+      "background-image": "none",
+      "border": "1px solid rgba(23, 21, 19, 0.08)",
+      "border-color": "rgba(23, 21, 19, 0.08)",
+      "border-width": "1px",
+      "box-shadow": "none"
+    },
+    "12_popoverChip": {
+      "background": "rgba(23, 21, 19, 0.06) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgba(23, 21, 19, 0.06)",
+      "background-image": "none",
+      "border": "0px none rgba(23, 21, 19, 0.96)",
+      "border-color": "rgba(23, 21, 19, 0.96)",
+      "border-width": "0px",
+      "box-shadow": "none"
+    },
+    "_popoverFound": true,
+    "_editTriggerFound": true,
+    "_closeBtnFound": true
+  },
+  "searchPanel": {
+    "14_searchPanel": {
+      "background": "rgba(23, 21, 19, 0.04) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgba(23, 21, 19, 0.04)",
+      "background-image": "none",
+      "border": "1px solid rgba(23, 21, 19, 0.08)",
+      "border-color": "rgba(23, 21, 19, 0.08)",
+      "border-width": "1px",
+      "box-shadow": "none"
+    },
+    "15_searchInput": {
+      "background": "rgb(236, 231, 225) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgb(236, 231, 225)",
+      "background-image": "none",
+      "border": "1px solid rgba(23, 21, 19, 0.12)",
+      "border-color": "rgba(23, 21, 19, 0.12)",
+      "border-width": "1px",
+      "box-shadow": "rgba(236, 231, 225, 0.4) 0px 1px 0px 0px inset",
+      "color": "rgba(23, 21, 19, 0.96)",
+      "font-family": "\"Source Sans 3\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "font-size": "16px",
+      "font-weight": "400",
+      "border-radius": "14px"
+    },
+    "13_searchSubmit": {
+      "background": "rgb(234, 251, 87) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgb(234, 251, 87)",
+      "background-image": "none",
+      "border": "1px solid rgba(0, 0, 0, 0)",
+      "border-color": "rgba(0, 0, 0, 0)",
+      "border-width": "1px",
+      "box-shadow": "none",
+      "color": "rgb(23, 21, 19)",
+      "font-family": "\"Source Sans 3\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "font-size": "16px",
+      "font-weight": "500"
+    },
+    "17_sidebar": {
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "background-image": "none",
+      "border": "0px none rgba(23, 21, 19, 0.96)",
+      "border-color": "rgba(23, 21, 19, 0.96)",
+      "border-width": "0px",
+      "box-shadow": "none"
+    },
+    "16_savedResult": null,
+    "18_currentLocation": {
+      "background": "rgba(124, 201, 214, 0.14) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgba(124, 201, 214, 0.14)",
+      "background-image": "none",
+      "border": "1px solid rgba(23, 21, 19, 0.12)",
+      "border-color": "rgba(23, 21, 19, 0.12)",
+      "border-width": "1px",
+      "box-shadow": "rgba(23, 21, 19, 0.06) 0px 10px 24px 0px"
+    },
+    "_searchPanelFound": true,
+    "_searchInputFound": true,
+    "_searchSubmitFound": true,
+    "_sidebarFound": true,
+    "_savedResultFound": false
+  },
+  "searchResults": {
+    "16_searchResult": {
+      "background": "rgba(124, 201, 214, 0.14) none repeat scroll 0% 0% / auto padding-box border-box",
+      "background-color": "rgba(124, 201, 214, 0.14)",
+      "background-image": "none",
+      "border": "1px solid rgba(23, 21, 19, 0.12)",
+      "border-color": "rgba(23, 21, 19, 0.12)",
+      "border-width": "1px",
+      "box-shadow": "rgba(23, 21, 19, 0.06) 0px 10px 24px 0px"
+    },
+    "_searchResultFound": true
+  }
+}
