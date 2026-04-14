@@ -1,5 +1,5 @@
 import { createElement, type ComponentProps, type ComponentType } from 'react'
-import { MountedShape } from '../../react-sync/shape/MountedShape'
+import { MountedShape } from './MountedShape'
 
 const SHAPE_META = Symbol.for('weather.react_sync.shape')
 
@@ -58,4 +58,5 @@ export const getShapeOf = (component: ComponentType<any>) =>
   (component as ComponentType<any> & {
     [SHAPE_META]?: DefinedReactShape
   })[SHAPE_META] ?? null
+
 
