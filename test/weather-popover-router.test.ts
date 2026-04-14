@@ -538,6 +538,20 @@ describe('SelectedLocation popover router', () => {
       'selected search result was not saved into the app root list',
     )
 
+    await waitFor(
+      () => queryPopover(mainLocationId),
+      (element) => element == null,
+      'popover did not close after saving a result',
+    )
+
+    const reopenTrigger = harness.rootElement.querySelector(
+      `[data-selected-location-id="${mainLocationId}"] [data-selected-location-trigger]`,
+    )
+
+    expect(reopenTrigger).not.toBeNull()
+
+    clickElement(reopenTrigger as Element)
+
     const reopenEditTrigger = await waitFor(
       () => document.body.querySelector('[data-location-edit-trigger]'),
       (element) => Boolean(element),
@@ -756,12 +770,17 @@ describe('SelectedLocation popover router', () => {
     expect(replacedWeatherLocation?.attrs.loadStatus).toBe('ready')
     expect(countWeatherLocationModels(replacedState)).toBe(initialWeatherLocationCount)
     expect(fetchWeatherFromOpenMeteo).toHaveBeenCalledWith(35.6762, 139.6503)
-    expect(queryPopover(mainLocationId)?.textContent).toContain('Tokyo')
 
     await waitFor(
-      () => queryPopover(mainLocationId)?.querySelector('[data-location-search-panel]'),
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => getRouterCurrentModelId(appState) == null,
+      'popover router did not clear after selecting a replacement location',
+    )
+
+    await waitFor(
+      () => queryPopover(mainLocationId),
       (element) => element == null,
-      'search panel did not close after selecting a replacement location',
+      'popover did not close after selecting a replacement location',
     )
   })
 
@@ -1064,6 +1083,20 @@ describe('SelectedLocation popover router', () => {
     )
 
     expect(firstRequestState).toBeTruthy()
+
+    await waitFor(
+      () => queryPopover(mainLocationId),
+      (element) => element == null,
+      'popover did not close after the first replacement',
+    )
+
+    const reopenTrigger = harness.rootElement.querySelector(
+      `[data-selected-location-id="${mainLocationId}"] [data-selected-location-trigger]`,
+    )
+
+    expect(reopenTrigger).not.toBeNull()
+
+    clickElement(reopenTrigger as Element)
 
     const secondEditTrigger = await waitFor(
       () => document.body.querySelector('[data-location-edit-trigger]'),

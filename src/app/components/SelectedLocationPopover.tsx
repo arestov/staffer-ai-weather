@@ -347,6 +347,7 @@ function SelectedLocationPopover({
     clearSearchDebounce()
     dispatch('saveLocationSearchResult', result)
     dispatch('selectLocationSearchResult', result)
+    onClose()
   }
 
   const forgetSearchLocation = (resultId: string) => {
