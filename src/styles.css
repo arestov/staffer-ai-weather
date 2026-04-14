@@ -112,6 +112,7 @@ input:focus {
   gap: 1.35rem;
   padding: clamp(1rem, 3vw, 2rem);
   align-content: start;
+  padding-bottom: 4rem;
 }
 
 .app-header-shell {
