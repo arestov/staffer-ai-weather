@@ -13,7 +13,8 @@
     "lint:a11y": "biome check src --only=a11y --formatter-enabled=false",
     "lint:a11y:write": "biome check src --only=a11y --formatter-enabled=false --write",
     "preview": "vite preview",
-    "repl": "node ./test/repl/run.mjs"
+    "repl": "node ./test/repl/run.mjs",
+    "repl:playwright": "node ./test/repl/playwright-run.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",
@@ -28,6 +29,7 @@
     "browserslist": "^4.28.2",
     "caniuse-lite": "^1.0.30001788",
     "jsdom": "^26.1.0",
+    "playwright": "^1.59.1",
     "typescript": "^5.7.0",
     "vite": "^6.0.0",
     "vitest": "^3.2.4"
