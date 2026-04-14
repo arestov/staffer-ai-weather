@@ -2,7 +2,7 @@ import { One } from '../dkt-react-sync/components/One'
 import { Many } from '../dkt-react-sync/components/Many'
 import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
 import { useScope } from '../dkt-react-sync/hooks/useScope'
-import { useNamedSessionRouter } from '../page/react/useNamedSessionRouter'
+import { useNamedSessionRouter } from '../dkt-react-sync/hooks/useNamedSessionRouter'
 import {
   SELECTED_LOCATION_POPOVER_ID,
   SELECTED_LOCATION_POPOVER_ROUTER_NAME,
@@ -212,6 +212,7 @@ function GraphFallback() {
     </div>
   )
 }
+
 
 
 

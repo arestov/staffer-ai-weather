@@ -1,7 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react'
-import { useReactScopeRuntime } from '../../dkt-react-sync/hooks/useReactScopeRuntime'
-import type { ReactSyncScopeHandle } from '../../dkt-react-sync/scope/ScopeHandle'
-import { getRelShape } from '../../dkt-react-sync/shape/autoShapes'
+import { useReactScopeRuntime } from './useReactScopeRuntime'
+import type { ReactSyncScopeHandle } from '../scope/ScopeHandle'
+import { getRelShape } from '../shape/autoShapes'
 
 const useMountedRelShape = (
   scope: ReactSyncScopeHandle | null,
@@ -74,5 +74,6 @@ export const useNamedSessionRouter = (routerName: string) => {
     },
   }
 }
+
 
 

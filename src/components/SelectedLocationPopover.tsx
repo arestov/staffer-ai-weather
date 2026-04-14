@@ -5,7 +5,7 @@ import { ScopeContext } from '../dkt-react-sync/context/ScopeContext'
 import { useActions } from '../dkt-react-sync/hooks/useActions'
 import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
 import type { ReactSyncScopeHandle } from '../dkt-react-sync/scope/ScopeHandle'
-import { useNamedSessionRouter } from '../page/react/useNamedSessionRouter'
+import { useNamedSessionRouter } from '../dkt-react-sync/hooks/useNamedSessionRouter'
 import type { LocationSearchResult } from '../models/WeatherLocation'
 import { SelectedLocationSearchPanel } from './SelectedLocationSearchPanel'
 import {
@@ -534,6 +534,7 @@ function SelectedLocationPopoverCurrentWeatherFallback({
     </>
   )
 }
+
 
 
 
