@@ -47,10 +47,14 @@ export const scrollSelectedLocationIntoView = (selectedLocationId: string) => {
 
   const rect = anchorElement.getBoundingClientRect()
 
-  window.scrollBy({
-    top: rect.top - SELECTED_LOCATION_POPOVER_SCROLL_OFFSET,
-    behavior: 'smooth',
-  })
+  try {
+    window.scrollBy({
+      top: rect.top - SELECTED_LOCATION_POPOVER_SCROLL_OFFSET,
+      behavior: 'smooth',
+    })
+  } catch {
+    // jsdom does not implement scrollBy; ignore to keep tests deterministic.
+  }
 }
 
 const supportsCssNativePopoverPositioning = () => {
@@ -211,6 +215,7 @@ export function SelectedLocationPopoverLayer({
     SELECTED_LOCATION_POPOVER_ROUTER_NAME,
   )
   const popoverRef = useRef<HTMLElement | null>(null)
+  const lastOpenNodeIdRef = useRef<string | null>(null)
   const nativePositioning = supportsCssNativePopoverPositioning()
   const layout = useFloatingSelectedLocationPopoverLayout(
     currentNodeId,
@@ -243,6 +248,65 @@ export function SelectedLocationPopoverLayer({
       node.hidePopover()
     }
   }, [currentNodeId, currentScope, nativePositioning])
+
+  useEffect(() => {
+    if (!currentNodeId || !currentScope || typeof document === 'undefined') {
+      return
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return
+      }
+
+      event.preventDefault()
+      clearCurrent()
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [clearCurrent, currentNodeId, currentScope])
+
+  useEffect(() => {
+    if (typeof document === 'undefined' || typeof window === 'undefined') {
+      return
+    }
+
+    if (currentNodeId && currentScope) {
+      lastOpenNodeIdRef.current = currentNodeId
+
+      const frameId = window.requestAnimationFrame(() => {
+        const focusTarget = popoverRef.current?.querySelector<HTMLElement>('[data-popover-focus]')
+        focusTarget?.focus()
+      })
+
+      return () => {
+        window.cancelAnimationFrame(frameId)
+      }
+    }
+
+    const lastOpenNodeId = lastOpenNodeIdRef.current
+
+    if (!lastOpenNodeId) {
+      return
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      const triggerButton = document.querySelector(
+        `[data-selected-location-id="${lastOpenNodeId}"] .selected-location-card-button`,
+      ) as HTMLButtonElement | null
+
+      triggerButton?.focus()
+      lastOpenNodeIdRef.current = null
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+    }
+  }, [currentNodeId, currentScope])
 
   if (typeof document === 'undefined') {
     return null
@@ -303,6 +367,8 @@ function SelectedLocationPopover({
   onRefreshWeather: () => void
   onClose: () => void
 }) {
+  const titleId = `${popoverId}-title`
+
   const { dispatch } = useActions()
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const routerAttrs = useAttrs([
@@ -409,22 +475,27 @@ function SelectedLocationPopover({
 
   return (
     <div
-      id={popoverId}
       className="selected-location-popover__surface"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby={titleId}
+      tabIndex={-1}
       data-selected-location-popover
       data-popover-for={selectedLocationId}
     >
       <div className="selected-location-popover__header">
         <div>
-          <div className="mini-section-label">Selected location</div>
-          <h2 className="selected-location-popover__title">Edit location</h2>
+          <p className="mini-section-label">Selected location</p>
+          <h2 id={titleId} className="selected-location-popover__title">
+            Edit location
+          </h2>
         </div>
 
         <button
           className="secondary selected-location-popover__close"
           type="button"
           onClick={onClose}
-          aria-label="Close location popover"
+          data-popover-focus
           data-popover-close
         >
           Close
@@ -502,7 +573,7 @@ function SelectedLocationPopoverWeatherSectionInner({
     <>
       <div className="selected-location-popover__slot-header">
         <div>
-          <div className="mini-section-label">Current slot</div>
+          <h3 className="mini-section-label">Current slot</h3>
           <p className="selected-location-popover__slot-name">{currentName || 'Selected location'}</p>
         </div>
       </div>
@@ -555,7 +626,7 @@ function SelectedLocationPopoverCurrentWeatherPanel({
   return (
     <>
       <div className="selected-location-popover__toolbar">
-        <div className="mini-section-label">Current weather</div>
+        <h3 className="mini-section-label">Current weather</h3>
 
         {!isEditingLocation ? (
           <button
@@ -595,7 +666,7 @@ function SelectedLocationPopoverCurrentWeatherFallback({
   return (
     <>
       <div className="selected-location-popover__toolbar">
-        <div className="mini-section-label">Current weather</div>
+        <h3 className="mini-section-label">Current weather</h3>
 
         {!isEditingLocation ? (
           <button

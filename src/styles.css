@@ -74,6 +74,18 @@ button:hover {
   border-color: rgba(121, 213, 255, 0.42);
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 button.secondary {
   background: rgba(255, 255, 255, 0.06);
 }
@@ -113,10 +125,11 @@ input:focus {
 }
 
 .app-header-trigger {
-  width: 1em;
-  height: 1em;
-  padding: 0;
-  border: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.9rem;
   border-radius: 999px;
   background:
     radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.15) 55%, rgba(255, 255, 255, 0.03) 100%),
@@ -125,7 +138,21 @@ input:focus {
     0 0 0 1px rgba(255, 255, 255, 0.18),
     0 0 18px rgba(121, 213, 255, 0.25);
   cursor: pointer;
-  display: block;
+}
+
+.app-header-trigger__dot {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 0 14px rgba(121, 213, 255, 0.35);
+}
+
+.app-header-trigger__text {
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .app-header-trigger:focus-visible {
@@ -147,30 +174,25 @@ input:focus {
   backdrop-filter: blur(18px);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
   opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
   transform: translateY(-0.4rem) scale(0.985);
   transition:
     opacity 160ms ease,
-    transform 160ms ease,
-    visibility 0s linear 160ms;
+    transform 160ms ease;
 }
 
-.app-header-shell:hover .app-header,
-.app-header-shell:focus-within .app-header {
+.app-header-shell[data-open='true'] .app-header {
   opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
   transform: translateY(0) scale(1);
-  transition:
-    opacity 160ms ease,
-    transform 160ms ease,
-    visibility 0s;
+}
+
+.app-header[hidden] {
+  display: none;
 }
 
 .eyebrow,
 .section-label,
 .mini-section-label {
+  margin: 0;
   color: var(--accent);
   text-transform: uppercase;
   letter-spacing: 0.18em;
@@ -393,9 +415,12 @@ h1 {
 .forecast-list {
   display: flex;
   gap: 0.75rem;
+  margin: 0;
   min-height: 10.5rem;
   overflow-x: auto;
+  padding-left: 0;
   padding-bottom: 0.2rem;
+  list-style: none;
 }
 
 .forecast-chip {
@@ -656,6 +681,9 @@ h1 {
 .selected-location-search__saved-list {
   display: grid;
   gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .selected-location-search__saved-item {
@@ -700,6 +728,9 @@ h1 {
 .selected-location-search__results {
   display: grid;
   gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .selected-location-search__result {

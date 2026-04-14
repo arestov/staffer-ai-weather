@@ -74,11 +74,15 @@ const WeatherLocationInner = ({
     'lastError',
     'weatherFetchedAt',
   ])
+  const weatherLocationName = typeof weatherLocationAttrs.name === 'string' ? weatherLocationAttrs.name : ''
   const loadStatus = String(weatherLocationAttrs.loadStatus || 'idle')
   const lastError = typeof weatherLocationAttrs.lastError === 'string' ? weatherLocationAttrs.lastError : null
   const weatherStatus = loadStatus === 'idle' ? undefined : loadStatus
   const selectedLocationId = scope?._nodeId ?? ''
   const isPopoverOpen = Boolean(selectedLocationId && popoverNodeId === selectedLocationId)
+  const locationCardLabel = weatherLocationName
+    ? `Open details for ${weatherLocationName}`
+    : 'Open selected location details'
   const weatherLoadError = loadStatus === 'error' && lastError ? lastError : null
   const weatherNote =
     loadStatus === 'loading'
@@ -112,8 +116,10 @@ const WeatherLocationInner = ({
         className="selected-location-card-button"
         type="button"
         onClick={openPopover}
+        aria-controls={SELECTED_LOCATION_POPOVER_ID}
         aria-expanded={isPopoverOpen}
-        aria-controls={isPopoverOpen ? SELECTED_LOCATION_POPOVER_ID : undefined}
+        aria-haspopup="dialog"
+        aria-label={locationCardLabel}
         data-popover-anchor={isPopoverOpen ? 'active' : undefined}
         data-selected-location-trigger
       >
@@ -136,26 +142,26 @@ const WeatherLocationInner = ({
                 <>
                   <div className="forecast-panels">
                     <div>
-                      <div className="mini-section-label">Hourly forecast</div>
-                      <div className="forecast-list">
+                      <h2 className="mini-section-label">Hourly forecast</h2>
+                      <ul className="forecast-list" aria-label="Hourly forecast">
                         <Many
                           rel="hourlyForecastSeries"
                           item={ForecastCard}
                           empty={<ForecastEmpty count={forecastLimit ?? DEFAULT_FORECAST_LIMIT} />}
                           limit={forecastLimit}
                         />
-                      </div>
+                      </ul>
                     </div>
                     <div>
-                      <div className="mini-section-label">Daily forecast</div>
-                      <div className="forecast-list">
+                      <h2 className="mini-section-label">Daily forecast</h2>
+                      <ul className="forecast-list" aria-label="Daily forecast">
                         <Many
                           rel="dailyForecastSeries"
                           item={ForecastCard}
                           empty={<ForecastEmpty count={forecastLimit ?? DEFAULT_FORECAST_LIMIT} />}
                           limit={forecastLimit}
                         />
-                      </div>
+                      </ul>
                     </div>
                   </div>
                 </>
@@ -190,6 +196,10 @@ const AdditionalLocationCard = () => <WeatherLocationInner />
 function GraphFallback() {
   return (
     <div className="graph-fallback" aria-busy="true" aria-live="polite">
+      <p className="sr-only" role="status">
+        Loading weather dashboard.
+      </p>
+
       <section className="main-stage">
         <LocationFallback featured forecastLimit={DEFAULT_FORECAST_LIMIT} />
       </section>

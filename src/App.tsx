@@ -16,6 +16,8 @@ export default function App({
 
   return (
     <main className="app-shell">
+      <h1 className="sr-only">Weather dashboard</h1>
+
       <AppHeader
         bootedLabel={bootedLabel}
         rootNodeId={snapshot.rootNodeId}

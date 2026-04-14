@@ -54,7 +54,7 @@ export const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
       <div className="weather-readout__label">{location}</div>
       <div className="weather-readout__value">{temperatureText}</div>
       <p className="weather-readout__summary">{summary}</p>
-      <p className="weather-readout__meta">
+      <div className="weather-readout__meta">
         <span className={`status-pill status-pill--${status}`}>{status}</span>
         {statusNote ? <span>{statusNote}</span> : null}
         {loadStatus === 'error' && onRetry ? (
@@ -62,7 +62,7 @@ export const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
             Retry weather
           </button>
         ) : null}
-      </p>
+      </div>
     </>
   )
 }, CurrentWeatherShape)
@@ -75,18 +75,18 @@ export function WeatherReadoutError({
   onRetry?: () => void
 }) {
   return (
-    <div className="weather-readout weather-readout--location weather-readout--error" aria-live="polite">
+    <div className="weather-readout weather-readout--location weather-readout--error" role="alert">
       <div className="weather-readout__label">Weather unavailable</div>
       <div className="weather-readout__value weather-readout__value--placeholder">-- °C</div>
       <p className="weather-readout__summary">{message}</p>
-      <p className="weather-readout__meta">
+      <div className="weather-readout__meta">
         <span className="status-pill status-pill--error">error</span>
         {onRetry ? (
           <button type="button" className="secondary" onClick={onRetry} data-weather-retry>
             Retry weather
           </button>
         ) : null}
-      </p>
+      </div>
     </div>
   )
 }
@@ -95,17 +95,18 @@ export const ForecastCard = shapeOf(function ForecastCard() {
   const attrs = useAttrs(['label', 'temperatureText', 'summary'])
 
   return (
-    <article className="forecast-chip">
+    <li className="forecast-chip">
       <span className="forecast-chip__label">{String(attrs.label || '')}</span>
       <strong>{String(attrs.temperatureText || '-- \u00b0C')}</strong>
       <p>{String(attrs.summary || '')}</p>
-    </article>
+    </li>
   )
 }, ForecastShape)
 
 export function WeatherReadoutFallback() {
   return (
     <div className="weather-readout weather-readout--location weather-readout--placeholder">
+      <span className="sr-only">Loading weather information.</span>
       <div className="weather-readout__label" aria-hidden="true">
         <span className="skeleton skeleton-line skeleton-line--label" />
       </div>
@@ -115,10 +116,10 @@ export function WeatherReadoutFallback() {
       <p className="weather-readout__summary" aria-hidden="true">
         <span className="skeleton skeleton-line skeleton-line--summary" />
       </p>
-      <p className="weather-readout__meta" aria-hidden="true">
+      <div className="weather-readout__meta" aria-hidden="true">
         <span className="skeleton skeleton-pill" />
         <span className="skeleton skeleton-line skeleton-line--meta" />
-      </p>
+      </div>
     </div>
   )
 }
@@ -129,7 +130,7 @@ export function ForecastEmpty({ count }: { count: number }) {
   return (
     <>
       {keys.map((key) => (
-        <article
+        <li
           key={key}
           className="forecast-chip forecast-chip--empty forecast-chip--placeholder"
           aria-hidden="true"
@@ -137,7 +138,7 @@ export function ForecastEmpty({ count }: { count: number }) {
           <span className="skeleton skeleton-line skeleton-line--label" />
           <span className="skeleton skeleton-block skeleton-block--forecast-value" />
           <span className="skeleton skeleton-line skeleton-line--summary" />
-        </article>
+        </li>
       ))}
     </>
   )
@@ -147,16 +148,16 @@ export function ForecastPanelsFallback({ forecastLimit = DEFAULT_FORECAST_LIMIT 
   return (
     <div className="forecast-panels">
       <div>
-        <div className="mini-section-label">Hourly forecast</div>
-        <div className="forecast-list">
+        <h3 className="mini-section-label">Hourly forecast</h3>
+        <ul className="forecast-list" aria-label="Hourly forecast">
           <ForecastEmpty count={forecastLimit} />
-        </div>
+        </ul>
       </div>
       <div>
-        <div className="mini-section-label">Daily forecast</div>
-        <div className="forecast-list">
+        <h3 className="mini-section-label">Daily forecast</h3>
+        <ul className="forecast-list" aria-label="Daily forecast">
           <ForecastEmpty count={forecastLimit} />
-        </div>
+        </ul>
       </div>
     </div>
   )
@@ -203,27 +204,27 @@ export function PopoverForecastColumns() {
   return (
     <div className="selected-location-popover__forecasts">
       <div>
-        <div className="mini-section-label">Hourly forecast</div>
-        <div className="forecast-list forecast-list--popover">
+        <h3 className="mini-section-label">Hourly forecast</h3>
+        <ul className="forecast-list forecast-list--popover" aria-label="Hourly forecast">
           <Many
             rel="hourlyForecastSeries"
             item={ForecastCard}
             empty={<ForecastEmpty count={POPOVER_FORECAST_LIMIT} />}
             limit={POPOVER_FORECAST_LIMIT}
           />
-        </div>
+        </ul>
       </div>
 
       <div>
-        <div className="mini-section-label">Daily forecast</div>
-        <div className="forecast-list forecast-list--popover">
+        <h3 className="mini-section-label">Daily forecast</h3>
+        <ul className="forecast-list forecast-list--popover" aria-label="Daily forecast">
           <Many
             rel="dailyForecastSeries"
             item={ForecastCard}
             empty={<ForecastEmpty count={POPOVER_FORECAST_LIMIT} />}
             limit={POPOVER_FORECAST_LIMIT}
           />
-        </div>
+        </ul>
       </div>
     </div>
   )
