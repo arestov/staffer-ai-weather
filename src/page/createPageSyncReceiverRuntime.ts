@@ -12,7 +12,7 @@ import { APP_MSG, RUNTIME_LOG_SCOPE } from '../shared/messageTypes'
 import type { ReactSyncTransportMessage } from '../shared/messageTypes'
 import { createSyncStore, type SyncStore } from './createSyncStore'
 
-export interface WeatherRootSnapshot {
+export interface PageRootSnapshot {
   booted: boolean
   ready: boolean
   version: number
@@ -22,8 +22,8 @@ export interface WeatherRootSnapshot {
   weatherLoadError: string | null
 }
 
-export interface WeatherPageSyncRuntime extends ReactScopeRuntime {
-  store: SyncStore<WeatherRootSnapshot>
+export interface PageSyncRuntime extends ReactScopeRuntime {
+  store: SyncStore<PageRootSnapshot>
   bootstrap(): void
   debugDescribeNode(nodeId: string): unknown
   debugDumpGraph(): unknown
@@ -35,7 +35,7 @@ export interface WeatherPageSyncRuntime extends ReactScopeRuntime {
   ): void
   refreshWeather(): void
   destroy(): void
-  getSnapshot(): WeatherRootSnapshot
+  getSnapshot(): PageRootSnapshot
   getRootAttrs(attrNames: readonly string[]): Record<string, unknown>
   subscribe(listener: () => void): () => void
   subscribeRootAttrs(
@@ -49,7 +49,7 @@ type RootAttrsCacheEntry = {
   values: Record<string, unknown>
 }
 
-const createEmptySnapshot = (): WeatherRootSnapshot => ({
+const createEmptySnapshot = (): PageRootSnapshot => ({
   booted: false,
   ready: false,
   version: 0,
@@ -60,9 +60,9 @@ const createEmptySnapshot = (): WeatherRootSnapshot => ({
 })
 
 const createSnapshotWithVersion = (
-  current: WeatherRootSnapshot,
-  patch: Partial<WeatherRootSnapshot>,
-): WeatherRootSnapshot => ({
+  current: PageRootSnapshot,
+  patch: Partial<PageRootSnapshot>,
+): PageRootSnapshot => ({
   ...current,
   ...patch,
   version: current.version + 1,
@@ -72,7 +72,7 @@ export const createPageSyncReceiverRuntime = ({
   transport,
 }: {
   transport: DomSyncTransportLike<ReactSyncTransportMessage>
-}): WeatherPageSyncRuntime => {
+}): PageSyncRuntime => {
   const store = createSyncStore(createEmptySnapshot())
   const rootAttrsCache = new Map<string, RootAttrsCacheEntry>()
   const debugMessageLog: unknown[] = []

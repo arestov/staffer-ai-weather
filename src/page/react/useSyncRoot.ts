@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
-import type { WeatherPageSyncRuntime } from '../createPageSyncReceiverRuntime'
+import type { PageSyncRuntime } from '../createPageSyncReceiverRuntime'
 
-export const useSyncRoot = (runtime: WeatherPageSyncRuntime) =>
+export const useSyncRoot = (runtime: PageSyncRuntime) =>
   useSyncExternalStore(
     runtime.subscribe,
     runtime.getSnapshot,

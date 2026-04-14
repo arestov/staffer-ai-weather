@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react'
-import type { WeatherPageSyncRuntime } from '../createPageSyncReceiverRuntime'
+import type { PageSyncRuntime } from '../createPageSyncReceiverRuntime'
 
 export const useModelAttrs = (
-  runtime: WeatherPageSyncRuntime,
+  runtime: PageSyncRuntime,
   attrNames: string[],
 ) =>
   useSyncExternalStore(
