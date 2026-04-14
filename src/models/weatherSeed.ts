@@ -1,5 +1,5 @@
 const INITIAL_LOCATIONS = [
-  { name: 'Moscow', latitude: 55.7558, longitude: 37.6173, timezone: 'Europe/Moscow' },
+  { name: 'Reykjavik', latitude: 64.1466, longitude: -21.9426, timezone: 'Atlantic/Reykjavik' },
   { name: 'Berlin', latitude: 52.52, longitude: 13.405, timezone: 'Europe/Berlin' },
   { name: 'Portland', latitude: 45.5152, longitude: -122.6784, timezone: 'America/Los_Angeles' },
   { name: 'Lisbon', latitude: 38.7223, longitude: -9.1393, timezone: 'Europe/Lisbon' },

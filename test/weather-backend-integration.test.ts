@@ -184,7 +184,7 @@ const waitForLocationCardsRendered = async (harness: WeatherTestHarness) => {
     }),
     (domState) =>
       domState.cardCount >= 4 &&
-      domState.text.includes('Moscow') &&
+      domState.text.includes('Reykjavik') &&
       domState.text.includes('Berlin'),
     'selected location cards did not finish rendering',
   )

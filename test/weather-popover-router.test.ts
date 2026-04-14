@@ -284,7 +284,7 @@ const waitForLocationCardsRendered = async (harness: WeatherTestHarness) => {
     }),
     (domState) =>
       domState.cardCount >= 4 &&
-      domState.text.includes('Moscow') &&
+      domState.text.includes('Reykjavik') &&
       domState.text.includes('Berlin'),
     'selected location cards did not finish rendering',
   )
@@ -373,7 +373,7 @@ describe('SelectedLocation popover router', () => {
         .filter((model) => model.modelName === 'weather_location')
         .map((model) => model.attrs.loadStatus),
     ).toEqual(['ready', 'ready', 'ready', 'ready'])
-    expect(harness.rootElement.textContent).toContain('Moscow')
+    expect(harness.rootElement.textContent).toContain('Reykjavik')
   })
 
   test('featured location opens and closes the popover router', async () => {
@@ -681,7 +681,7 @@ describe('SelectedLocation popover router', () => {
 
     await waitFor(
       () => queryPopover(mainLocationId)?.textContent ?? '',
-      (text) => text.includes('Moscow'),
+      (text) => text.includes('Reykjavik'),
       'selected location popover did not hydrate the current location before edit',
     )
 
