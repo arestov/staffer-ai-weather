@@ -1,7 +1,7 @@
 import { SYNCR_TYPES } from 'dkt-all/libs/provoda/SyncR_TYPES.js'
 import type { DomSyncTransportLike } from 'dkt/dom-sync/transport.js'
 import { ReactSyncReceiver } from '../react-sync/receiver/ReactSyncReceiver'
-import type { ReactScopeRuntime } from '../react-sync/runtime/ReactScopeRuntime'
+import type { ReactScopeRuntime } from '../dkt-react-sync/runtime/ReactScopeRuntime'
 import type { ReactSyncScopeHandle } from '../dkt-react-sync/scope/ScopeHandle'
 import {
   ShapeRegistry,
@@ -341,4 +341,5 @@ export const createPageSyncReceiverRuntime = ({
     },
   }
 }
+
 
