@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import {
+  createGeoLocationApi,
   detectAutoLocation,
   fetchCountryIs,
   fetchOpenMeteoGeocoding,
@@ -91,6 +92,26 @@ describe('geo-location-api', () => {
       await expect(fetchOpenMeteoGeocoding('Berlin')).rejects.toThrow(
         'Open-Meteo geocoding responded with 422',
       )
+    })
+  })
+
+  describe('detectLocationByCoordinates', () => {
+    test('returns coordinate-only location without additional network requests', async () => {
+      const fetchMock = vi.fn()
+      vi.stubGlobal('fetch', fetchMock)
+
+      const geoApi = createGeoLocationApi()
+      const result = await geoApi.detectLocationByCoordinates({ latitude: 52.52, longitude: 13.4 })
+
+      expect(result).toEqual({
+        id: 'coords-52.5200-13.4000',
+        name: '',
+        subtitle: '',
+        latitude: 52.52,
+        longitude: 13.4,
+        timezone: null,
+      })
+      expect(fetchMock).not.toHaveBeenCalled()
     })
   })
 

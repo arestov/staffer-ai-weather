@@ -44,6 +44,7 @@ vi.mock('../src/worker/geo-location-api', () => ({
     source_name: 'geoLocation',
     errors_fields: [],
     detectLocation: detectLocationMock,
+    detectLocationByCoordinates: detectLocationMock,
   }),
 }))
 

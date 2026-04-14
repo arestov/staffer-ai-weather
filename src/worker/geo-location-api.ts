@@ -6,7 +6,7 @@ export type CountryIsResponse = {
 }
 
 type OpenMeteoGeocodingResult = {
-  id: number
+  id?: number
   name: string
   latitude: number
   longitude: number
@@ -24,6 +24,10 @@ export interface GeoLocationApi {
   source_name: 'geoLocation'
   errors_fields: string[]
   detectLocation(): Promise<LocationSearchResult>
+  detectLocationByCoordinates(coordinates: {
+    latitude: number
+    longitude: number
+  }): Promise<LocationSearchResult>
 }
 
 const COUNTRY_IS_URL = 'https://api.country.is/'
@@ -252,8 +256,10 @@ export const fetchOpenMeteoGeocoding = async (query: string): Promise<LocationSe
     throw new Error('No geocoding results found')
   }
 
+  const fallbackId = `${result.name.toLowerCase()}-${result.latitude.toFixed(4)}-${result.longitude.toFixed(4)}`
+
   return {
-    id: String(result.id),
+    id: typeof result.id === 'number' ? String(result.id) : fallbackId,
     name: result.name,
     subtitle: [result.admin1, result.country].filter(Boolean).join(', '),
     latitude: result.latitude,
@@ -261,6 +267,18 @@ export const fetchOpenMeteoGeocoding = async (query: string): Promise<LocationSe
     timezone: result.timezone ?? null,
   }
 }
+
+export const toCoordinateOnlyLocation = (
+  latitude: number,
+  longitude: number,
+): LocationSearchResult => ({
+  id: `coords-${latitude.toFixed(4)}-${longitude.toFixed(4)}`,
+  name: '',
+  subtitle: '',
+  latitude,
+  longitude,
+  timezone: null,
+})
 
 export const detectAutoLocation = async (): Promise<LocationSearchResult> => {
   const countryData = await fetchCountryIs()
@@ -272,4 +290,6 @@ export const createGeoLocationApi = (): GeoLocationApi => ({
   source_name: 'geoLocation',
   errors_fields: [],
   detectLocation: detectAutoLocation,
+  detectLocationByCoordinates: ({ latitude, longitude }) =>
+    Promise.resolve(toCoordinateOnlyLocation(latitude, longitude)),
 })

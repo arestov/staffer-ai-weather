@@ -6,11 +6,14 @@ type SelectedLocationSearchPanelProps = {
   searchQuery: string
   searchStatus: string
   searchError: string | null
+  currentLocationStatus: string
+  currentLocationError: string | null
   searchResults: LocationSearchResult[]
   savedResults: LocationSearchResult[]
   onSubmitSearch: (event: FormEvent<HTMLFormElement>) => void
   onRetrySearch?: () => void
   onQueryChange: (query: string) => void
+  onUseCurrentLocation: () => void
   onCancel: () => void
   onSelectResult: (result: LocationSearchResult) => void
   onSelectSavedResult: (result: LocationSearchResult) => void
@@ -22,11 +25,14 @@ export function SelectedLocationSearchPanel({
   searchQuery,
   searchStatus,
   searchError,
+  currentLocationStatus,
+  currentLocationError,
   searchResults,
   savedResults,
   onSubmitSearch,
   onRetrySearch,
   onQueryChange,
+  onUseCurrentLocation,
   onCancel,
   onSelectResult,
   onSelectSavedResult,
@@ -96,6 +102,44 @@ export function SelectedLocationSearchPanel({
               </button>
             </div>
           </form>
+
+          <ul
+            className="selected-location-search__results selected-location-search__results--current"
+            aria-label="Current location"
+            data-location-search-current
+          >
+            <li>
+              <button
+                className="selected-location-search__result selected-location-search__result--current"
+                type="button"
+                onClick={onUseCurrentLocation}
+                data-location-search-current-location
+              >
+                <strong>Use current location</strong>
+                <span>Ask browser permission, then replace this slot using live coordinates.</span>
+              </button>
+            </li>
+          </ul>
+
+          {currentLocationStatus === 'loading' ? (
+            <p
+              className="selected-location-search__status"
+              role="status"
+              data-location-search-current-location-status
+            >
+              Detecting your current location...
+            </p>
+          ) : null}
+
+          {currentLocationStatus === 'error' && currentLocationError ? (
+            <p
+              className="selected-location-search__status selected-location-search__status--error"
+              role="alert"
+              data-location-search-current-location-error
+            >
+              {currentLocationError}
+            </p>
+          ) : null}
 
           {searchStatus === 'loading' ? (
             <p

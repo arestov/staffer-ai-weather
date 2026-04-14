@@ -733,6 +733,10 @@ h1 {
   list-style: none;
 }
 
+.selected-location-search__results--current {
+  margin-top: 0.2rem;
+}
+
 .selected-location-search__result {
   display: grid;
   gap: 0.18rem;
@@ -750,6 +754,11 @@ h1 {
 .selected-location-search__result span {
   color: var(--muted);
   font-size: 0.88rem;
+}
+
+.selected-location-search__result--current {
+  border: 1px solid rgba(128, 206, 255, 0.4);
+  background: rgba(62, 161, 225, 0.14);
 }
 
 .graph-fallback {

@@ -42,7 +42,8 @@ export const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
 }) {
   const attrs = useAttrs(['location', 'status', 'temperatureText', 'summary', 'updatedAt'])
 
-  const location = String(attrs.location || 'Unknown location')
+  const rawLocation = typeof attrs.location === 'string' ? attrs.location.trim() : ''
+  const location = rawLocation || '[by coordinates]'
   const status = String(loadStatus || attrs.status || 'booting')
   const temperatureText = String(attrs.temperatureText || '-- \u00b0C')
   const summary = String(attrs.summary || '')

@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { createWeatherTestHarness, type WeatherTestHarness } from './harness/createWeatherTestHarness'
 
-const { fetchWeatherFromOpenMeteo, fetchLocationSearchResults } = vi.hoisted(() => ({
+const {
+  fetchWeatherFromOpenMeteo,
+  fetchLocationSearchResults,
+  detectLocationMock,
+  detectLocationByCoordinatesMock,
+} = vi.hoisted(() => ({
   fetchWeatherFromOpenMeteo: vi.fn(
     async (latitude: number, longitude: number) => ({
       current: {
@@ -75,6 +80,17 @@ const { fetchWeatherFromOpenMeteo, fetchLocationSearchResults } = vi.hoisted(() 
       },
     ]
   }),
+  detectLocationMock: vi.fn(async () => {
+    throw new Error('auto geo disabled in tests')
+  }),
+  detectLocationByCoordinatesMock: vi.fn(async ({ latitude, longitude }: { latitude: number; longitude: number }) => ({
+    id: `coords-${latitude.toFixed(4)}-${longitude.toFixed(4)}`,
+    name: '',
+    subtitle: '',
+    latitude,
+    longitude,
+    timezone: null,
+  })),
 }))
 
 vi.mock('../src/worker/weather-api', () => ({
@@ -93,6 +109,15 @@ vi.mock('../src/worker/location-search-api', () => ({
     source_name: 'locationSearch',
     errors_fields: [],
     search: fetchLocationSearchResults,
+  }),
+}))
+
+vi.mock('../src/worker/geo-location-api', () => ({
+  createGeoLocationApi: () => ({
+    source_name: 'geoLocation',
+    errors_fields: [],
+    detectLocation: detectLocationMock,
+    detectLocationByCoordinates: detectLocationByCoordinatesMock,
   }),
 }))
 
@@ -218,6 +243,18 @@ const setInputValue = (element: HTMLInputElement, value: string) => {
   valueSetter?.call(element, value)
   element.dispatchEvent(new window.Event('input', { bubbles: true }))
   element.dispatchEvent(new window.Event('change', { bubbles: true }))
+}
+
+const setNavigatorGeolocation = (geolocation: {
+  getCurrentPosition: (
+    success: (position: { coords: { latitude: number; longitude: number } }) => void,
+    error?: (positionError: { code: number; message?: string }) => void,
+  ) => void
+}) => {
+  Object.defineProperty(window.navigator, 'geolocation', {
+    configurable: true,
+    value: geolocation,
+  })
 }
 
 const countWeatherLocationModels = (appState: DebugAppState) => {
@@ -1026,6 +1063,174 @@ describe('SelectedLocation popover router', () => {
       (element) => Boolean(element),
       'search retry did not render Tokyo in the DOM',
     )
+  })
+
+  test('search edit always shows the current-location button', async () => {
+    harness = await createWeatherTestHarness()
+
+    await harness.whenReady()
+    const readyState = await waitForWeatherLoaded(harness)
+    await waitForLocationCardsRendered(harness)
+    const { mainLocationId } = getSelectedLocationIds(readyState)
+
+    const trigger = harness.rootElement.querySelector(
+      `[data-selected-location-id="${mainLocationId}"] [data-selected-location-trigger]`,
+    )
+
+    expect(trigger).not.toBeNull()
+    clickElement(trigger as Element)
+
+    const editTrigger = await waitFor(
+      () => document.body.querySelector('[data-location-edit-trigger]'),
+      (element) => Boolean(element),
+      'location edit trigger did not appear for current-location button test',
+    )
+
+    clickElement(editTrigger as Element)
+
+    await waitFor(
+      () => document.body.querySelector('[data-location-search-current-location]'),
+      (element) => Boolean(element),
+      'current-location button did not appear above search results',
+    )
+  })
+
+  test('current-location button uses browser coordinates when permission is granted', async () => {
+    harness = await createWeatherTestHarness()
+
+    await harness.whenReady()
+    const readyState = await waitForWeatherLoaded(harness)
+    await waitForLocationCardsRendered(harness)
+    const { mainLocationId } = getSelectedLocationIds(readyState)
+
+    detectLocationMock.mockClear()
+    detectLocationByCoordinatesMock.mockClear()
+
+    const trigger = harness.rootElement.querySelector(
+      `[data-selected-location-id="${mainLocationId}"] [data-selected-location-trigger]`,
+    )
+
+    expect(trigger).not.toBeNull()
+    clickElement(trigger as Element)
+
+    const editTrigger = await waitFor(
+      () => document.body.querySelector('[data-location-edit-trigger]'),
+      (element) => Boolean(element),
+      'location edit trigger did not appear for browser coordinates test',
+    )
+
+    clickElement(editTrigger as Element)
+
+    setNavigatorGeolocation({
+      getCurrentPosition(success) {
+        success({
+          coords: {
+            latitude: 40.7128,
+            longitude: -74.006,
+          },
+        })
+      },
+    })
+
+    const currentLocationButton = await waitFor(
+      () => document.body.querySelector('[data-location-search-current-location]'),
+      (element) => Boolean(element),
+      'current-location button did not render for browser coordinates test',
+    )
+
+    clickElement(currentLocationButton as Element)
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const weatherLocation = getWeatherLocationForSelectedLocation(appState, mainLocationId)
+
+        return weatherLocation?.attrs.latitude === 40.7128 && weatherLocation?.attrs.longitude === -74.006
+      },
+      'selected location was not replaced from browser coordinates',
+    )
+
+    await waitFor(
+      () =>
+        harness.rootElement
+          .querySelector('[data-selected-location-id]')
+          ?.textContent
+          ?.replace(/\s+/g, ' ')
+          .trim() ?? '',
+      (text) => text.includes('[by coordinates]'),
+      'main card did not render the coordinate fallback label',
+    )
+
+    expect(detectLocationByCoordinatesMock).toHaveBeenCalledWith({
+      latitude: 40.7128,
+      longitude: -74.006,
+    })
+    expect(detectLocationMock).not.toHaveBeenCalled()
+  })
+
+  test('current-location button falls back to worker auto-detect when permission is denied', async () => {
+    harness = await createWeatherTestHarness()
+
+    await harness.whenReady()
+    const readyState = await waitForWeatherLoaded(harness)
+    await waitForLocationCardsRendered(harness)
+    const { mainLocationId } = getSelectedLocationIds(readyState)
+
+    detectLocationMock.mockClear()
+    detectLocationByCoordinatesMock.mockClear()
+    detectLocationMock.mockResolvedValueOnce({
+      id: 'fallback-berlin',
+      name: 'Berlin',
+      subtitle: 'Berlin, Germany',
+      latitude: 52.52,
+      longitude: 13.405,
+      timezone: 'Europe/Berlin',
+    })
+
+    const trigger = harness.rootElement.querySelector(
+      `[data-selected-location-id="${mainLocationId}"] [data-selected-location-trigger]`,
+    )
+
+    expect(trigger).not.toBeNull()
+    clickElement(trigger as Element)
+
+    const editTrigger = await waitFor(
+      () => document.body.querySelector('[data-location-edit-trigger]'),
+      (element) => Boolean(element),
+      'location edit trigger did not appear for permission denied test',
+    )
+
+    clickElement(editTrigger as Element)
+
+    setNavigatorGeolocation({
+      getCurrentPosition(_success, error) {
+        error?.({
+          code: 1,
+          message: 'permission denied',
+        })
+      },
+    })
+
+    const currentLocationButton = await waitFor(
+      () => document.body.querySelector('[data-location-search-current-location]'),
+      (element) => Boolean(element),
+      'current-location button did not render for permission denied test',
+    )
+
+    clickElement(currentLocationButton as Element)
+
+    await waitFor(
+      async () => getAppState(harness as WeatherTestHarness),
+      (appState) => {
+        const weatherLocation = getWeatherLocationForSelectedLocation(appState, mainLocationId)
+
+        return weatherLocation?.attrs.name === 'Berlin'
+      },
+      'selected location was not replaced by fallback detectLocation',
+    )
+
+    expect(detectLocationMock).toHaveBeenCalledTimes(1)
+    expect(detectLocationByCoordinatesMock).not.toHaveBeenCalled()
   })
 
   test('stale weather response from an earlier replacement does not overwrite the latest one', async () => {

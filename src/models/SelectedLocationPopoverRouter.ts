@@ -3,6 +3,7 @@ import { model } from 'dkt/model.js'
 import { Router as RouterCore } from 'dkt-all/models/Router.js'
 import type { LocationSearchResult } from './WeatherLocation'
 import type { LocationSearchApi } from '../worker/location-search-api'
+import type { GeoLocationApi } from '../worker/geo-location-api'
 
 type SearchStatus = 'idle' | 'loading' | 'ready' | 'error'
 
@@ -17,6 +18,30 @@ type SearchResponsePayload = {
 }
 
 type SearchFailurePayload = {
+  requestId: number
+  message: string
+}
+
+type CurrentLocationStatus = 'idle' | 'loading' | 'error'
+
+type CurrentLocationRequest =
+  | {
+    requestId: number
+    kind: 'browserCoordinates'
+    latitude: number
+    longitude: number
+  }
+  | {
+    requestId: number
+    kind: 'fallback'
+  }
+
+type CurrentLocationResponsePayload = {
+  requestId: number
+  result: LocationSearchResult
+}
+
+type CurrentLocationFailurePayload = {
   requestId: number
   message: string
 }
@@ -109,6 +134,7 @@ const buildSearchResetState = (
     isEditingLocation: boolean
     searchQuery: string
     searchStatus: SearchStatus
+    currentLocationStatus: CurrentLocationStatus
   }> = {},
 ) => ({
   isEditingLocation: overrides.isEditingLocation ?? false,
@@ -118,6 +144,9 @@ const buildSearchResetState = (
   searchResults: [],
   searchRequest: null,
   activeSearchRequestId: requestId,
+  currentLocationStatus: overrides.currentLocationStatus ?? 'idle',
+  currentLocationError: null,
+  currentLocationRequest: null,
 })
 
 const buildSearchingState = (
@@ -135,10 +164,75 @@ const buildSearchingState = (
     query,
   },
   activeSearchRequestId: requestId,
+  currentLocationStatus: 'idle' as const,
+  currentLocationError: null,
+  currentLocationRequest: null,
 })
 
 const toErrorMessage = (error: unknown) => {
   return error instanceof Error ? error.message : String(error)
+}
+
+const normalizeBrowserCoordinates = (value: unknown) => {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const candidate = value as {
+    latitude?: unknown
+    longitude?: unknown
+  }
+
+  if (typeof candidate.latitude !== 'number' || typeof candidate.longitude !== 'number') {
+    return null
+  }
+
+  return {
+    latitude: candidate.latitude,
+    longitude: candidate.longitude,
+  }
+}
+
+const isCurrentLocationRequest = (value: unknown): value is CurrentLocationRequest => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Partial<CurrentLocationRequest>
+
+  if (typeof candidate.requestId !== 'number') {
+    return false
+  }
+
+  if (candidate.kind === 'fallback') {
+    return true
+  }
+
+  return (
+    candidate.kind === 'browserCoordinates' &&
+    typeof candidate.latitude === 'number' &&
+    typeof candidate.longitude === 'number'
+  )
+}
+
+const isCurrentLocationResponsePayload = (value: unknown): value is CurrentLocationResponsePayload => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Partial<CurrentLocationResponsePayload>
+
+  return typeof candidate.requestId === 'number' && isLocationSearchResult(candidate.result)
+}
+
+const isCurrentLocationFailurePayload = (value: unknown): value is CurrentLocationFailurePayload => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Partial<CurrentLocationFailurePayload>
+
+  return typeof candidate.requestId === 'number' && typeof candidate.message === 'string'
 }
 
 export const SelectedLocationPopoverRouter = model({
@@ -156,6 +250,10 @@ export const SelectedLocationPopoverRouter = model({
     searchStatus: ['input', 'idle'],
     searchError: ['input', null],
     searchResults: ['input', []],
+    currentLocationStatus: ['input', 'idle'],
+    currentLocationError: ['input', null],
+    currentLocationRequest: ['input', null],
+    activeCurrentLocationRequestId: ['input', 0],
     savedSearchLocations: [
       'comp',
       ['< @one:savedSearchLocations < $root'],
@@ -214,6 +312,60 @@ export const SelectedLocationPopoverRouter = model({
           },
         ],
       },
+      runCurrentLocationLookup: {
+        api: ['self'],
+        trigger: ['currentLocationRequest'],
+        require: ['currentLocationRequest'],
+        create_when: {
+          api_inits: true,
+        },
+        is_async: true,
+        fn: [
+          ['currentLocationRequest'] as const,
+          async (
+            self: {
+              dispatch: (actionName: string, payload?: unknown) => Promise<void> | void
+              app?: {
+                getInterface: (interfaceName: string) => unknown
+              }
+            },
+            _task: unknown,
+            currentLocationRequest: unknown,
+          ) => {
+            if (!isCurrentLocationRequest(currentLocationRequest)) {
+              return
+            }
+
+            try {
+              const geoLocation = (
+                self.app?.getInterface('geoLocation') ??
+                self.app?.getInterface('geoLocationSource')
+              ) as GeoLocationApi | null
+
+              if (!geoLocation) {
+                throw new Error('Geo location interface is not available')
+              }
+
+              const result = currentLocationRequest.kind === 'browserCoordinates'
+                ? await geoLocation.detectLocationByCoordinates({
+                  latitude: currentLocationRequest.latitude,
+                  longitude: currentLocationRequest.longitude,
+                })
+                : await geoLocation.detectLocation()
+
+              await self.dispatch('applyCurrentLocationLookupResponse', {
+                requestId: currentLocationRequest.requestId,
+                result,
+              })
+            } catch (error) {
+              await self.dispatch('failCurrentLocationLookupResponse', {
+                requestId: currentLocationRequest.requestId,
+                message: toErrorMessage(error),
+              })
+            }
+          },
+        ],
+      },
     },
   },
   actions: {
@@ -224,6 +376,9 @@ export const SelectedLocationPopoverRouter = model({
         searchStatus: ['searchStatus'],
         searchError: ['searchError'],
         searchResults: ['searchResults'],
+        currentLocationStatus: ['currentLocationStatus'],
+        currentLocationError: ['currentLocationError'],
+        currentLocationRequest: ['currentLocationRequest'],
         searchRequest: ['searchRequest'],
         activeSearchRequestId: ['activeSearchRequestId'],
       },
@@ -253,6 +408,9 @@ export const SelectedLocationPopoverRouter = model({
         searchStatus: ['searchStatus'],
         searchError: ['searchError'],
         searchResults: ['searchResults'],
+        currentLocationStatus: ['currentLocationStatus'],
+        currentLocationError: ['currentLocationError'],
+        currentLocationRequest: ['currentLocationRequest'],
         searchRequest: ['searchRequest'],
         activeSearchRequestId: ['activeSearchRequestId'],
       },
@@ -274,6 +432,9 @@ export const SelectedLocationPopoverRouter = model({
         searchQuery: ['searchQuery'],
         searchStatus: ['searchStatus'],
         searchError: ['searchError'],
+        currentLocationStatus: ['currentLocationStatus'],
+        currentLocationError: ['currentLocationError'],
+        currentLocationRequest: ['currentLocationRequest'],
         searchRequest: ['searchRequest'],
         activeSearchRequestId: ['activeSearchRequestId'],
       },
@@ -301,6 +462,9 @@ export const SelectedLocationPopoverRouter = model({
         searchStatus: ['searchStatus'],
         searchError: ['searchError'],
         searchResults: ['searchResults'],
+        currentLocationStatus: ['currentLocationStatus'],
+        currentLocationError: ['currentLocationError'],
+        currentLocationRequest: ['currentLocationRequest'],
         searchRequest: ['searchRequest'],
         activeSearchRequestId: ['activeSearchRequestId'],
       },
@@ -336,6 +500,9 @@ export const SelectedLocationPopoverRouter = model({
         searchStatus: ['searchStatus'],
         searchError: ['searchError'],
         searchResults: ['searchResults'],
+        currentLocationStatus: ['currentLocationStatus'],
+        currentLocationError: ['currentLocationError'],
+        currentLocationRequest: ['currentLocationRequest'],
         searchRequest: ['searchRequest'],
         activeSearchRequestId: ['activeSearchRequestId'],
       },
@@ -400,6 +567,132 @@ export const SelectedLocationPopoverRouter = model({
         },
       ],
     },
+    requestCurrentLocationFromBrowser: {
+      to: {
+        currentLocationStatus: ['currentLocationStatus'],
+        currentLocationError: ['currentLocationError'],
+        currentLocationRequest: ['currentLocationRequest'],
+        activeCurrentLocationRequestId: ['activeCurrentLocationRequestId'],
+      },
+      fn: [
+        ['$noop', 'activeCurrentLocationRequestId'] as const,
+        (payload: unknown, noop: unknown, activeCurrentLocationRequestId: unknown) => {
+          const coordinates = normalizeBrowserCoordinates(payload)
+
+          if (!coordinates) {
+            return noop
+          }
+
+          const requestId = typeof activeCurrentLocationRequestId === 'number'
+            ? activeCurrentLocationRequestId + 1
+            : 1
+
+          return {
+            currentLocationStatus: 'loading',
+            currentLocationError: null,
+            currentLocationRequest: {
+              requestId,
+              kind: 'browserCoordinates',
+              latitude: coordinates.latitude,
+              longitude: coordinates.longitude,
+            },
+            activeCurrentLocationRequestId: requestId,
+          }
+        },
+      ],
+    },
+    requestCurrentLocationFallback: {
+      to: {
+        currentLocationStatus: ['currentLocationStatus'],
+        currentLocationError: ['currentLocationError'],
+        currentLocationRequest: ['currentLocationRequest'],
+        activeCurrentLocationRequestId: ['activeCurrentLocationRequestId'],
+      },
+      fn: [
+        ['activeCurrentLocationRequestId'] as const,
+        (_payload: unknown, activeCurrentLocationRequestId: unknown) => {
+          const requestId = typeof activeCurrentLocationRequestId === 'number'
+            ? activeCurrentLocationRequestId + 1
+            : 1
+
+          return {
+            currentLocationStatus: 'loading',
+            currentLocationError: null,
+            currentLocationRequest: {
+              requestId,
+              kind: 'fallback',
+            },
+            activeCurrentLocationRequestId: requestId,
+          }
+        },
+      ],
+    },
+    applyCurrentLocationLookupResponse: {
+      to: {
+        isEditingLocation: ['isEditingLocation'],
+        searchQuery: ['searchQuery'],
+        searchStatus: ['searchStatus'],
+        searchError: ['searchError'],
+        searchResults: ['searchResults'],
+        searchRequest: ['searchRequest'],
+        activeSearchRequestId: ['activeSearchRequestId'],
+        currentLocationStatus: ['currentLocationStatus'],
+        currentLocationError: ['currentLocationError'],
+        currentLocationRequest: ['currentLocationRequest'],
+        replaceWeatherLocation: ['<< current_mp_md', { action: 'replaceWeatherLocation', inline_subwalker: true }],
+      },
+      fn: [
+        ['$noop', 'activeCurrentLocationRequestId', 'activeSearchRequestId'] as const,
+        (
+          payload: unknown,
+          noop: unknown,
+          activeCurrentLocationRequestId: unknown,
+          activeSearchRequestId: unknown,
+        ) => {
+          if (
+            !isCurrentLocationResponsePayload(payload) ||
+            typeof activeCurrentLocationRequestId !== 'number' ||
+            payload.requestId !== activeCurrentLocationRequestId
+          ) {
+            return noop
+          }
+
+          const currentSearchRequestId = typeof activeSearchRequestId === 'number'
+            ? activeSearchRequestId
+            : 0
+
+          return {
+            ...buildSearchResetState(currentSearchRequestId + 1),
+            replaceWeatherLocation: payload.result,
+          }
+        },
+      ],
+    },
+    failCurrentLocationLookupResponse: {
+      to: {
+        currentLocationStatus: ['currentLocationStatus'],
+        currentLocationError: ['currentLocationError'],
+        currentLocationRequest: ['currentLocationRequest'],
+      },
+      fn: [
+        ['$noop', 'activeCurrentLocationRequestId'] as const,
+        (payload: unknown, noop: unknown, activeCurrentLocationRequestId: unknown) => {
+          if (
+            !isCurrentLocationFailurePayload(payload) ||
+            typeof activeCurrentLocationRequestId !== 'number' ||
+            payload.requestId !== activeCurrentLocationRequestId
+          ) {
+            return noop
+          }
+
+          return {
+            currentLocationStatus: 'error',
+            currentLocationError: payload.message,
+            currentLocationRequest: null,
+          }
+        },
+      ],
+    },
     selectLocationSearchResult: {
       to: {
         isEditingLocation: ['isEditingLocation'],
@@ -409,6 +702,9 @@ export const SelectedLocationPopoverRouter = model({
         searchResults: ['searchResults'],
         searchRequest: ['searchRequest'],
         activeSearchRequestId: ['activeSearchRequestId'],
+        currentLocationStatus: ['currentLocationStatus'],
+        currentLocationError: ['currentLocationError'],
+        currentLocationRequest: ['currentLocationRequest'],
         replaceWeatherLocation: ['<< current_mp_md', { action: 'replaceWeatherLocation', inline_subwalker: true }],
       },
       fn: [

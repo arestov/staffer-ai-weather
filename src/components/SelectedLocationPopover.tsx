@@ -72,6 +72,56 @@ const toLocationSearchResults = (value: unknown): LocationSearchResult[] => {
   })
 }
 
+type BrowserCoordinates = {
+  latitude: number
+  longitude: number
+}
+
+const isBrowserCoordinates = (value: unknown): value is BrowserCoordinates => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Partial<BrowserCoordinates>
+
+  return typeof candidate.latitude === 'number' && typeof candidate.longitude === 'number'
+}
+
+const isGeoPermissionDeniedError = (error: unknown) => {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const candidate = error as { code?: unknown }
+
+  return candidate.code === 1
+}
+
+const readBrowserCoordinates = async (): Promise<BrowserCoordinates> => {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) {
+    throw new Error('Browser geolocation is not available')
+  }
+
+  return new Promise<BrowserCoordinates>((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        })
+      },
+      (error) => {
+        reject(error)
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 10_000,
+        maximumAge: 0,
+      },
+    )
+  })
+}
+
 export function SelectedLocationPopoverLayer({
   onRefreshWeather,
 }: {
@@ -268,6 +318,8 @@ function SelectedLocationPopover({
     'searchError',
     'searchResults',
     'savedSearchLocations',
+    'currentLocationStatus',
+    'currentLocationError',
   ])
   const isEditingLocation = Boolean(routerAttrs.isEditingLocation)
   const searchQuery = typeof routerAttrs.searchQuery === 'string' ? routerAttrs.searchQuery : ''
@@ -275,6 +327,10 @@ function SelectedLocationPopover({
   const searchError = typeof routerAttrs.searchError === 'string' ? routerAttrs.searchError : null
   const searchResults = toLocationSearchResults(routerAttrs.searchResults)
   const savedSearchLocations = toLocationSearchResults(routerAttrs.savedSearchLocations)
+  const currentLocationStatus =
+    typeof routerAttrs.currentLocationStatus === 'string' ? routerAttrs.currentLocationStatus : 'idle'
+  const currentLocationError =
+    typeof routerAttrs.currentLocationError === 'string' ? routerAttrs.currentLocationError : null
 
   const clearSearchDebounce = () => {
     if (searchDebounceRef.current != null) {
@@ -355,6 +411,28 @@ function SelectedLocationPopover({
     dispatch('removeLocationSearchResult', resultId)
   }
 
+  const handleUseCurrentLocation = async () => {
+    clearSearchDebounce()
+
+    try {
+      const coordinates = await readBrowserCoordinates()
+
+      if (!isBrowserCoordinates(coordinates)) {
+        dispatch('requestCurrentLocationFallback')
+        return
+      }
+
+      dispatch('requestCurrentLocationFromBrowser', coordinates)
+    } catch (error) {
+      if (isGeoPermissionDeniedError(error)) {
+        dispatch('requestCurrentLocationFallback')
+        return
+      }
+
+      dispatch('requestCurrentLocationFallback')
+    }
+  }
+
   return (
     <div
       className="selected-location-popover__surface"
@@ -383,11 +461,14 @@ function SelectedLocationPopover({
         searchQuery={searchQuery}
         searchStatus={searchStatus}
         searchError={searchError}
+        currentLocationStatus={currentLocationStatus}
+        currentLocationError={currentLocationError}
         searchResults={searchResults}
         savedResults={savedSearchLocations}
         onSubmitSearch={handleSubmitSearch}
         onRetrySearch={handleRetrySearch}
         onQueryChange={handleQueryChange}
+        onUseCurrentLocation={handleUseCurrentLocation}
         onCancel={() => {
           clearSearchDebounce()
           dispatch('cancelLocationEditing')
