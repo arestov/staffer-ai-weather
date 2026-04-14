@@ -1,4 +1,4 @@
-import { RootScope } from '../react-sync/scope/RootScope'
+import { RootScope } from '../dkt-react-sync/scope/RootScope'
 import type { WeatherAppSession } from '../page/createWeatherAppSession'
 import { useSyncRoot } from '../page/react/useSyncRoot'
 import { AppHeader } from './AppHeader'
@@ -33,3 +33,4 @@ export default function App({
     </main>
   )
 }
+
