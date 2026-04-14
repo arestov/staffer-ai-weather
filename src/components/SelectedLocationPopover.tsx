@@ -6,7 +6,7 @@ import { useActions } from '../react-sync/hooks/useActions'
 import { useAttrs } from '../react-sync/hooks/useAttrs'
 import type { ReactSyncScopeHandle } from '../react-sync/scope/ScopeHandle'
 import { useNamedSessionRouter } from '../page/react/useNamedSessionRouter'
-import type { LocationSearchResult } from '../app/rels/location-models'
+import type { LocationSearchResult } from '../models/WeatherLocation'
 import { SelectedLocationSearchPanel } from './SelectedLocationSearchPanel'
 import {
   CurrentWeatherCard,
@@ -534,3 +534,4 @@ function SelectedLocationPopoverCurrentWeatherFallback({
     </>
   )
 }
+
