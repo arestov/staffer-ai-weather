@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "vitest run",
+    "lint:a11y": "biome check src --only=a11y --formatter-enabled=false",
+    "lint:a11y:write": "biome check src --only=a11y --formatter-enabled=false --write",
     "preview": "vite preview",
     "repl": "node ./test/repl/run.mjs"
   },
@@ -15,13 +17,14 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.11",
     "@types/node": "^22.15.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.0",
     "jsdom": "^26.1.0",
     "typescript": "^5.7.0",
-    "vite": "^6.0.0"
-    ,"vitest": "^3.2.4"
+    "vite": "^6.0.0",
+    "vitest": "^3.2.4"
   }
 }
