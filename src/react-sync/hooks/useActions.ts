@@ -1,4 +1,4 @@
-import { useReactScopeRuntime } from './useReactScopeRuntime'
+import { useReactScopeRuntime } from '../../dkt-react-sync/hooks/useReactScopeRuntime'
 import { useScope } from '../../dkt-react-sync/hooks/useScope'
 
 export const useActions = () => {
@@ -11,5 +11,6 @@ export const useActions = () => {
     },
   }
 }
+
 
 
