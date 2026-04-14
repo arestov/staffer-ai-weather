@@ -1,6 +1,6 @@
 import { One } from '../react-sync/components/One'
 import { Many } from '../react-sync/components/Many'
-import { useAttrs } from '../react-sync/hooks/useAttrs'
+import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
 import { useScope } from '../dkt-react-sync/hooks/useScope'
 import { useNamedSessionRouter } from '../page/react/useNamedSessionRouter'
 import {
@@ -212,4 +212,5 @@ function GraphFallback() {
     </div>
   )
 }
+
 

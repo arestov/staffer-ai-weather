@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { One } from '../react-sync/components/One'
 import { ScopeContext } from '../dkt-react-sync/context/ScopeContext'
 import { useActions } from '../dkt-react-sync/hooks/useActions'
-import { useAttrs } from '../react-sync/hooks/useAttrs'
+import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
 import type { ReactSyncScopeHandle } from '../dkt-react-sync/scope/ScopeHandle'
 import { useNamedSessionRouter } from '../page/react/useNamedSessionRouter'
 import type { LocationSearchResult } from '../models/WeatherLocation'
@@ -534,6 +534,7 @@ function SelectedLocationPopoverCurrentWeatherFallback({
     </>
   )
 }
+
 
 
 
