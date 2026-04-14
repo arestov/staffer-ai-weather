@@ -12,7 +12,7 @@ import {
   formatHourlyLabel,
   formatTemperature,
   weatherCodeToSummary,
-} from '../app/rels/weatherFormat'
+} from './weatherFormat'
 
 export type ApplyWeatherPayload = {
   current: {
@@ -395,4 +395,5 @@ export const WeatherLocation = model({
     },
   },
 })
+
 
