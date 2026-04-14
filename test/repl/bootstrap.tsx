@@ -1,6 +1,6 @@
 import { createRoot, type Root } from 'react-dom/client'
 import App from '../../src/components/App'
-import { AppRoot } from '../../src/app/AppRoot'
+import { AppRoot } from '../../src/models/AppRoot'
 import { createPageSyncReceiverRuntime } from '../../src/page/createPageSyncReceiverRuntime'
 import type { ReactSyncTransportMessage } from '../../src/shared/messageTypes'
 import { createWeatherModelRuntime } from '../../src/worker/model-runtime'
@@ -240,3 +240,4 @@ export const createWeatherReplHarness = async ({
 
   return harness
 }
+
