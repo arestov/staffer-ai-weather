@@ -472,6 +472,12 @@ describe('Weather backend integration', () => {
 
     await openMainLocationEditPanel(harness)
 
+    await waitFor(
+      () => document.body.querySelector(`[data-location-search-saved-result="${tokyoResult.id}"]`),
+      (element) => Boolean(element),
+      'saved location did not appear again in the search panel after reload',
+    )
+
     const removeButton = await waitFor(
       () => document.body.querySelector(`[data-location-search-saved-remove="${tokyoResult.id}"]`),
       (element) => Boolean(element),
