@@ -259,8 +259,6 @@ function SelectedLocationPopover({
   onRefreshWeather: () => void
   onClose: () => void
 }) {
-  const titleId = `${popoverId}-title`
-
   const { dispatch } = useActions()
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const routerAttrs = useAttrs([
@@ -361,34 +359,20 @@ function SelectedLocationPopover({
       className="selected-location-popover__surface"
       role="dialog"
       aria-modal="false"
-      aria-labelledby={titleId}
+      aria-label="Location details"
       tabIndex={-1}
       data-selected-location-popover
       data-popover-for={selectedLocationId}
     >
-      <div className="selected-location-popover__header">
-        <div>
-          <p className="mini-section-label">Selected location</p>
-          <h2 id={titleId} className="selected-location-popover__title">
-            Edit location
-          </h2>
-        </div>
-
-        <button
-          className="secondary selected-location-popover__close"
-          type="button"
-          onClick={onClose}
-          data-popover-focus
-          data-popover-close
-        >
-          Close
-        </button>
-      </div>
-
       <ScopeContext.Provider value={selectedLocationScope}>
-        <SelectedLocationPopoverWeatherSection
+        <SelectedLocationPopoverHeader
           isEditingLocation={isEditingLocation}
           onStartEdit={(seedQuery) => dispatch('startLocationEditing', { seedQuery })}
+          onClose={onClose}
+        />
+
+        <SelectedLocationPopoverWeatherSection
+          isEditingLocation={isEditingLocation}
           onRefreshWeather={onRefreshWeather}
         />
       </ScopeContext.Provider>
@@ -415,20 +399,68 @@ function SelectedLocationPopover({
   )
 }
 
-function SelectedLocationPopoverWeatherSection({
+function SelectedLocationPopoverHeader({
   isEditingLocation,
   onStartEdit,
-  onRefreshWeather,
+  onClose,
 }: {
   isEditingLocation: boolean
   onStartEdit: (seedQuery: string) => void
+  onClose: () => void
+}) {
+  const headerAttrs = useAttrs(['location', 'name'])
+  const seedQuery =
+    typeof headerAttrs.location === 'string' && headerAttrs.location
+      ? headerAttrs.location
+      : typeof headerAttrs.name === 'string'
+        ? headerAttrs.name
+        : ''
+
+  return (
+    <div className="selected-location-popover__header">
+      <div className="selected-location-popover__header-content">
+        {!isEditingLocation ? (
+          <button
+            className="secondary selected-location-popover__edit-trigger"
+            type="button"
+            onClick={() => onStartEdit(seedQuery)}
+            data-location-edit-trigger
+            data-popover-focus
+          >
+            Search Another Location
+          </button>
+        ) : (
+          <p className="selected-location-popover__header-note">
+            Pick a replacement below to update this location card.
+          </p>
+        )}
+      </div>
+
+      <button
+        className="secondary selected-location-popover__close"
+        type="button"
+        onClick={onClose}
+        aria-label="Close popover"
+        data-popover-close
+        {...(isEditingLocation ? { 'data-popover-focus': '' } : {})}
+      >
+        <span aria-hidden="true">×</span>
+      </button>
+    </div>
+  )
+}
+
+function SelectedLocationPopoverWeatherSection({
+  isEditingLocation,
+  onRefreshWeather,
+}: {
+  isEditingLocation: boolean
   onRefreshWeather: () => void
 }) {
   return (
     <One rel="weatherLocation" fallback={<PopoverWeatherSectionFallback />}>
       <SelectedLocationPopoverWeatherSectionInner
         isEditingLocation={isEditingLocation}
-        onStartEdit={onStartEdit}
         onRefreshWeather={onRefreshWeather}
       />
     </One>
@@ -437,48 +469,30 @@ function SelectedLocationPopoverWeatherSection({
 
 function SelectedLocationPopoverWeatherSectionInner({
   isEditingLocation,
-  onStartEdit,
   onRefreshWeather,
 }: {
   isEditingLocation: boolean
-  onStartEdit: (seedQuery: string) => void
   onRefreshWeather: () => void
 }) {
-  const weatherLocationAttrs = useAttrs(['name', 'loadStatus', 'lastError'])
-  const currentName = typeof weatherLocationAttrs.name === 'string'
-    ? weatherLocationAttrs.name
-    : ''
+  const weatherLocationAttrs = useAttrs(['loadStatus', 'lastError'])
   const loadStatus = typeof weatherLocationAttrs.loadStatus === 'string' ? weatherLocationAttrs.loadStatus : 'idle'
   const lastError = typeof weatherLocationAttrs.lastError === 'string' ? weatherLocationAttrs.lastError : null
   const weatherLoadError = loadStatus === 'error' && lastError ? lastError : null
 
   return (
     <>
-      <div className="selected-location-popover__slot-header">
-        <div>
-          <h3 className="mini-section-label">Current slot</h3>
-          <p className="selected-location-popover__slot-name">{currentName || 'Selected location'}</p>
-        </div>
-      </div>
-
       {!isEditingLocation ? (
         <div className="selected-location-popover__body">
           <One
             rel="currentWeather"
             fallback={
               <SelectedLocationPopoverCurrentWeatherFallback
-                fallbackName={currentName}
-                isEditingLocation={isEditingLocation}
-                onStartEdit={onStartEdit}
                 weatherLoadError={weatherLoadError}
                 onRefreshWeather={onRefreshWeather}
               />
             }
           >
             <SelectedLocationPopoverCurrentWeatherPanel
-              fallbackName={currentName}
-              isEditingLocation={isEditingLocation}
-              onStartEdit={onStartEdit}
               onRefreshWeather={onRefreshWeather}
             />
           </One>
@@ -491,86 +505,31 @@ function SelectedLocationPopoverWeatherSectionInner({
 }
 
 function SelectedLocationPopoverCurrentWeatherPanel({
-  fallbackName,
-  isEditingLocation,
-  onStartEdit,
   onRefreshWeather,
 }: {
-  fallbackName: string
-  isEditingLocation: boolean
-  onStartEdit: (seedQuery: string) => void
   onRefreshWeather: () => void
 }) {
-  const currentWeatherAttrs = useAttrs(['location'])
-  const seedQuery = typeof currentWeatherAttrs.location === 'string' && currentWeatherAttrs.location
-    ? currentWeatherAttrs.location
-    : fallbackName
-
   return (
-    <>
-      <div className="selected-location-popover__toolbar">
-        <h3 className="mini-section-label">Current weather</h3>
-
-        {!isEditingLocation ? (
-          <button
-            type="button"
-            onClick={() => onStartEdit(seedQuery)}
-            data-location-edit-trigger
-          >
-            Search Another Location
-          </button>
-        ) : (
-          <p className="selected-location-popover__slot-note">
-            Pick a replacement below to update this location card.
-          </p>
-        )}
-      </div>
-
-      <article className="weather-readout weather-readout--popover">
-        <CurrentWeatherCard onRetry={onRefreshWeather} />
-      </article>
-    </>
+    <article className="weather-readout weather-readout--popover">
+      <CurrentWeatherCard onRetry={onRefreshWeather} />
+    </article>
   )
 }
 
 function SelectedLocationPopoverCurrentWeatherFallback({
-  fallbackName,
-  isEditingLocation,
-  onStartEdit,
   weatherLoadError,
   onRefreshWeather,
 }: {
-  fallbackName: string
-  isEditingLocation: boolean
-  onStartEdit: (seedQuery: string) => void
   weatherLoadError: string | null
   onRefreshWeather: () => void
 }) {
   return (
     <>
-      <div className="selected-location-popover__toolbar">
-        <h3 className="mini-section-label">Current weather</h3>
-
-        {!isEditingLocation ? (
-          <button
-            type="button"
-            onClick={() => onStartEdit(fallbackName)}
-            data-location-edit-trigger
-          >
-            Search Another Location
-          </button>
-        ) : (
-          <p className="selected-location-popover__slot-note">
-            Pick a replacement below to update this location card.
-          </p>
-        )}
-      </div>
-
-        {weatherLoadError ? (
-          <WeatherReadoutError message={`Weather load failed: ${weatherLoadError}`} onRetry={onRefreshWeather} />
-        ) : (
-          <WeatherReadoutFallback />
-        )}
+      {weatherLoadError ? (
+        <WeatherReadoutError message={`Weather load failed: ${weatherLoadError}`} onRetry={onRefreshWeather} />
+      ) : (
+        <WeatherReadoutFallback />
+      )}
     </>
   )
 }

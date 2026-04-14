@@ -412,7 +412,7 @@ describe('SelectedLocation popover router', () => {
       'featured location popover did not appear in the DOM',
     )
 
-    expect(popover?.textContent).toContain('Edit location')
+    expect(popover?.querySelector('[data-location-edit-trigger]')).not.toBeNull()
 
     const closeButton = popover?.querySelector('[data-popover-close]')
     expect(closeButton).not.toBeNull()
@@ -472,7 +472,7 @@ describe('SelectedLocation popover router', () => {
       'additional location popover did not appear in the DOM',
     )
 
-    expect(popover?.textContent).toContain('Edit location')
+    expect(popover?.querySelector('[data-location-edit-trigger]')).not.toBeNull()
 
     const closeButton = popover?.querySelector('[data-popover-close]')
     expect(closeButton).not.toBeNull()
@@ -633,7 +633,7 @@ describe('SelectedLocation popover router', () => {
 
     expect(secondLayer).toBe(firstLayer)
     expect(queryPopover(mainLocationId)).toBeNull()
-    expect(queryPopover(additionalLocationId)?.textContent).toContain('Edit location')
+    expect(queryPopover(additionalLocationId)?.querySelector('[data-location-edit-trigger]')).not.toBeNull()
   })
 
   test('router search replaces selected location in place', async () => {

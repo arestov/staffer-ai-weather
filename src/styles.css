@@ -538,45 +538,39 @@ h1 {
 
 .selected-location-popover__header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.selected-location-popover__title {
-  margin: 0.25rem 0 0;
-  font-size: 1.25rem;
-  line-height: 1.1;
-}
-
-.selected-location-popover__close {
-  padding: 0.65rem 0.95rem;
-}
-
-.selected-location-popover__toolbar {
-  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1rem;
 }
 
-.selected-location-popover__slot-name,
-.selected-location-popover__slot-note {
-  margin: 0.25rem 0 0;
+.selected-location-popover__header-content {
+  display: flex;
+  align-items: center;
+  min-width: 0;
 }
 
-.selected-location-popover__slot-name {
-  font-size: 1.05rem;
-  font-weight: 650;
+.selected-location-popover__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.6rem;
+  height: 2.6rem;
+  padding: 0;
+  font-size: 1.45rem;
+  line-height: 1;
 }
 
-.selected-location-popover__slot-note {
-  max-width: 20rem;
+.selected-location-popover__edit-trigger {
+  white-space: nowrap;
+}
+
+.selected-location-popover__header-note {
+  margin: 0;
+  max-width: 24rem;
   color: var(--muted);
   font-size: 0.92rem;
-  text-align: right;
 }
 
 .selected-location-popover__body {
@@ -847,16 +841,6 @@ h1 {
   .location-card,
   .location-card--featured {
     width: 100%;
-  }
-
-  .selected-location-popover__toolbar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .selected-location-popover__slot-note {
-    max-width: none;
-    text-align: left;
   }
 
   .selected-location-search__sidebar {
