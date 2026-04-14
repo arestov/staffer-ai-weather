@@ -4,6 +4,7 @@ type AppHeaderProps = {
   bootedLabel: string
   rootNodeId: string | null
   sessionId: string | null
+  sessionKey: string | null
   weatherLoadStatus: string
   weatherLoadError: string | null
   onRefreshWeather: () => void
@@ -13,6 +14,7 @@ export function AppHeader({
   bootedLabel,
   rootNodeId,
   sessionId,
+  sessionKey,
   weatherLoadStatus,
   weatherLoadError,
   onRefreshWeather,
@@ -76,6 +78,10 @@ export function AppHeader({
           <article className="metric-card">
             <span>Root node</span>
             <strong>{rootNodeId || 'pending'}</strong>
+          </article>
+          <article className="metric-card">
+            <span>Session key</span>
+            <strong>{sessionKey || 'pending'}</strong>
           </article>
           <article className="metric-card">
             <span>Session</span>

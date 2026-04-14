@@ -5,7 +5,9 @@ import {
 
 export type WeatherTestHarness = WeatherReplHarness
 
-export const createWeatherTestHarness = async (): Promise<WeatherTestHarness> => {
+export const createWeatherTestHarness = async (options?: {
+  sessionKey?: string
+}): Promise<WeatherTestHarness> => {
   document.body.innerHTML = ''
 
   const rootElement = document.createElement('div')
@@ -15,6 +17,7 @@ export const createWeatherTestHarness = async (): Promise<WeatherTestHarness> =>
   const harness = await createWeatherReplHarness({
     window,
     rootElement,
+    sessionKey: options?.sessionKey,
   })
 
   return {

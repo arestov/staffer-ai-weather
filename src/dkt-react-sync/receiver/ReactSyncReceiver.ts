@@ -529,6 +529,23 @@ export class ReactSyncReceiver {
     this.manyReadCache.clear()
   }
 
+  resetGraph() {
+    const previousRootNodeId = this.rootNodeId
+
+    this.rootNodeId = null
+    this.dictFlat = null
+    this.dictNumsByName.clear()
+    this.modelSchema = null
+    this.nodesById.clear()
+    this.scopesByNodeId.clear()
+    this.attrsReadCache.clear()
+    this.manyReadCache.clear()
+
+    if (previousRootNodeId != null) {
+      notifyAll(this.rootSubs)
+    }
+  }
+
   private handleTreeRoot(payload: {
     node_id?: string | number | null
     data?: readonly [DictKey, number | null, number | string | null]

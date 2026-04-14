@@ -8,13 +8,18 @@ export interface PageRootSnapshot {
   version: number
   rootNodeId: string | null
   sessionId: string | null
+  sessionKey: string | null
   weatherLoadStatus: string
   weatherLoadError: string | null
 }
 
 export interface PageSyncRuntime extends ReactScopeRuntime {
   store: SyncStore<PageRootSnapshot>
-  bootstrap(): void
+  bootstrap(options?: {
+    sessionId?: string | null
+    sessionKey?: string | null
+    route?: unknown
+  }): void
   debugDescribeNode(nodeId: string): unknown
   debugDumpGraph(): unknown
   debugMessages(): readonly unknown[]

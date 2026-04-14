@@ -3,10 +3,15 @@ import { createSharedWorkerTransport } from '../shared/createSharedWorkerTranspo
 
 export interface WeatherAppSession {
   sessionId: string | null
+  sessionKey: string | null
   worker: SharedWorker
   runtime: ReturnType<typeof createPageSyncReceiverRuntime>
   store: ReturnType<typeof createPageSyncReceiverRuntime>['store']
-  bootstrap(): void
+  bootstrap(options?: {
+    sessionId?: string | null
+    sessionKey?: string | null
+    route?: unknown
+  }): void
   dispatchAction(actionName: string, payload?: unknown): void
   refreshWeather(): void
   destroy(): void
@@ -40,6 +45,9 @@ export const createWeatherAppSession = (): WeatherAppSession => {
   return {
     get sessionId() {
       return runtime.getSnapshot().sessionId
+    },
+    get sessionKey() {
+      return runtime.getSnapshot().sessionKey
     },
     worker,
     runtime,

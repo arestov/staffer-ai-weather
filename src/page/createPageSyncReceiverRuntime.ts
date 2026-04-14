@@ -27,6 +27,7 @@ const createEmptySnapshot = (): PageRootSnapshot => ({
   version: 0,
   rootNodeId: null,
   sessionId: null,
+  sessionKey: null,
   weatherLoadStatus: 'ready',
   weatherLoadError: null,
 })
@@ -39,6 +40,29 @@ const createSnapshotWithVersion = (
   ...patch,
   version: current.version + 1,
 })
+
+const shouldResetForBootstrap = (
+  current: PageRootSnapshot,
+  options?: {
+    sessionId?: string | null
+    sessionKey?: string | null
+    route?: unknown
+  },
+) => {
+  if (!current.booted) {
+    return false
+  }
+
+  if (options?.sessionKey && options.sessionKey !== current.sessionKey) {
+    return true
+  }
+
+  if (options?.sessionId && options.sessionId !== current.sessionId) {
+    return true
+  }
+
+  return false
+}
 
 export const createPageSyncReceiverRuntime = ({
   transport,
@@ -176,9 +200,35 @@ export const createPageSyncReceiverRuntime = ({
     return nextValues
   }
 
-  const bootstrap = () => {
+  const bootstrap = (options?: {
+    sessionId?: string | null
+    sessionKey?: string | null
+    route?: unknown
+  }) => {
+    const current = store.getSnapshot()
+
+    if (shouldResetForBootstrap(current, options)) {
+      syncReceiver.resetGraph()
+      shapeRegistry.destroy()
+      rootAttrsCache.clear()
+      store.setSnapshot(
+        createSnapshotWithVersion(current, {
+          booted: false,
+          ready: false,
+          rootNodeId: null,
+          sessionId: null,
+          sessionKey: options?.sessionKey ?? null,
+          weatherLoadStatus: 'ready',
+          weatherLoadError: null,
+        }),
+      )
+    }
+
     emit({
       type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
+      ...(options?.sessionId ? { session_id: options.sessionId } : {}),
+      ...(options?.sessionKey ? { session_key: options.sessionKey } : {}),
+      ...(options && 'route' in options ? { route: options.route } : {}),
     })
   }
 
@@ -229,6 +279,10 @@ export const createPageSyncReceiverRuntime = ({
           createSnapshotWithVersion(current, {
             booted: true,
             sessionId: message.session_id ?? current.sessionId,
+            sessionKey:
+              'session_key' in message
+                ? message.session_key ?? current.sessionKey
+                : current.sessionKey,
             rootNodeId: message.root_node_id ?? syncReceiver.getRootNodeId(),
             ready: Boolean(message.root_node_id ?? syncReceiver.getRootNodeId()),
           }),

@@ -15,7 +15,8 @@
     "lint:a11y:write": "biome check src --only=a11y --formatter-enabled=false --write",
     "preview": "vite preview",
     "repl": "node ./test/repl/run.mjs",
-    "repl:playwright": "node ./test/repl/playwright-run.mjs"
+    "repl:playwright": "node ./test/repl/playwright-run.mjs",
+    "test:playwright:session-key": "node ./test/repl/playwright-session-key-run.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",

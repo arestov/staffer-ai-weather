@@ -177,3 +177,26 @@ export const createWeatherBackendApi = (baseUrl: string): WeatherBackendApi => (
     return toLocationSearchResults(payload.places)
   },
 })
+
+export const createScopedWeatherBackendApi = (
+  weatherBackend: WeatherBackendApi,
+  scope: string,
+): WeatherBackendApi => ({
+  source_name: weatherBackend.source_name,
+  errors_fields: weatherBackend.errors_fields.slice(),
+  lookupLocationSearchCache(query) {
+    return weatherBackend.lookupLocationSearchCache(query)
+  },
+  storeLocationSearchCache(query, results) {
+    return weatherBackend.storeLocationSearchCache(query, results)
+  },
+  fetchSavedSearchLocations(nextScope = scope) {
+    return weatherBackend.fetchSavedSearchLocations(nextScope)
+  },
+  saveSavedSearchLocation(place, nextScope = scope) {
+    return weatherBackend.saveSavedSearchLocation(place, nextScope)
+  },
+  removeSavedSearchLocation(placeId, nextScope = scope) {
+    return weatherBackend.removeSavedSearchLocation(placeId, nextScope)
+  },
+})

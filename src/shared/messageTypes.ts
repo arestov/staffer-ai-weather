@@ -31,6 +31,7 @@ export type ReactSyncControlBootstrapModelMessage = {
 export type ReactSyncControlBootstrapSessionMessage = {
   type: typeof APP_MSG.CONTROL_BOOTSTRAP_SESSION
   session_id?: string
+  session_key?: string
   route?: unknown
 }
 
@@ -67,6 +68,7 @@ export type ReactSyncModelBootedMessage = {
 export type ReactSyncSessionBootedMessage = {
   type: typeof APP_MSG.SESSION_BOOTED
   session_id: string
+  session_key: string
   root_node_id: string
 }
 

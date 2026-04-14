@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './components/App'
 import { createWeatherAppSession } from './page/createWeatherAppSession'
+import { bindSessionKeyUrlState } from './page/sessionKeyUrlState'
 import './styles.css'
 
 const rootElement = document.getElementById('root')
@@ -11,11 +12,16 @@ if (!rootElement) {
 }
 
 const session = createWeatherAppSession()
-void session.bootstrap()
+const sessionKeyBinding = bindSessionKeyUrlState({
+  onSessionKeyChange: (sessionKey) => {
+    session.bootstrap({ sessionKey })
+  },
+})
 
 if (import.meta.env.DEV && typeof window !== 'undefined') {
   Object.assign(window as Window & { __weatherSync?: unknown }, {
     __weatherSync: {
+      sessionKeyBinding,
       session,
       dumpGraph: () => session.runtime.debugDumpGraph(),
       describeNode: (nodeId: string) => session.runtime.debugDescribeNode(nodeId),
@@ -33,6 +39,7 @@ createRoot(rootElement).render(
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
+    sessionKeyBinding.destroy()
     session.destroy()
   })
 }

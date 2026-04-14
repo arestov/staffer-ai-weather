@@ -14,6 +14,7 @@ import { createSessionManager } from './session-manager'
 import { createLocationSearchApi } from './location-search-api'
 import { createWeatherLoaderApi, fetchWeatherFromOpenMeteo } from './weather-api'
 import {
+  createScopedWeatherBackendApi,
   createWeatherBackendApi,
   resolveWeatherBackendBaseUrl,
   type WeatherBackendApi,
@@ -71,6 +72,24 @@ type WeatherAppRuntime = {
   }
 }
 
+type WorkerConnection = {
+  transport: DomSyncTransportLike<ReactSyncTransportMessage>
+  stream: ReturnType<typeof createWorkerStream>
+  destroyed: boolean
+  sessionId: string | null
+  sessionKey: string | null
+}
+
+type AppEntry = {
+  sessionKey: string
+  app: WeatherAppRuntime
+  sessionManager: ReturnType<typeof createSessionManager>
+  streamIds: Set<string>
+  liveUpdateTimer: ReturnType<typeof setTimeout> | null
+  weatherFetchStarted: boolean
+  status: 'active' | 'closing'
+}
+
 const SESSION_IMPORTANT_REL_PATHS = Object.freeze([
   Object.freeze(['pioneer']),
 ])
@@ -78,6 +97,8 @@ const SESSION_IMPORTANT_REL_PATHS = Object.freeze([
 const LIVE_UPDATE_INTERVAL_MS = 10 * 60 * 1000  // 10 minutes
 const LIVE_UPDATE_RETRY_MS = 30 * 1000           // 30 seconds on error
 const LIVE_UPDATE_MAX_RETRIES = 3
+const APP_CLEANUP_DELAY_MS = 30 * 1000
+const SESSION_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/
 
 const fetchWeatherForAllLocations = async (
   app: WeatherAppRuntime,
@@ -173,53 +194,42 @@ const createWorkerStream = (
   },
 })
 
+const normalizeSessionKey = (value: unknown) => {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const trimmed = value.trim().replace(/^\/+/, '').replace(/\/+$/, '')
+  return trimmed && SESSION_KEY_PATTERN.test(trimmed) ? trimmed : null
+}
+
+const createGeneratedSessionKey = () => {
+  const randomUuid = globalThis.crypto?.randomUUID?.()
+
+  if (typeof randomUuid === 'string' && randomUuid) {
+    return randomUuid
+  }
+
+  return `weather-${Math.random().toString(36).slice(2)}`
+}
+
 export const createWeatherModelRuntime = (options?: {
   weatherBackendBaseUrl?: string | null
 }) => {
-  let current_app: WeatherAppRuntime | null = null
-  let booting = false
-  let liveUpdateTimer: ReturnType<typeof setTimeout> | null = null
-  let weatherFetchStarted = false
-  const sessionManager = createSessionManager()
-  const connections = new Set<{
-    transport: DomSyncTransportLike<ReactSyncTransportMessage>
-    stream: ReturnType<typeof createWorkerStream>
-    destroyed: boolean
-    sessionId: string | null
-  }>()
-
-  const startLiveUpdate = (app: WeatherAppRuntime) => {
-    if (liveUpdateTimer != null) return
-
-    let retryCount = 0
-
-    const tick = async () => {
-      liveUpdateTimer = null
-
-      try {
-        await fetchWeatherForAllLocations(app)
-        retryCount = 0
-        liveUpdateTimer = setTimeout(tick, LIVE_UPDATE_INTERVAL_MS)
-      } catch {
-        retryCount += 1
-        const delay = retryCount <= LIVE_UPDATE_MAX_RETRIES
-          ? LIVE_UPDATE_RETRY_MS
-          : LIVE_UPDATE_INTERVAL_MS
-        liveUpdateTimer = setTimeout(tick, delay)
-      }
-    }
-
-    liveUpdateTimer = setTimeout(tick, LIVE_UPDATE_INTERVAL_MS)
-  }
-
-  const stopLiveUpdate = () => {
-    if (liveUpdateTimer != null) {
-      clearTimeout(liveUpdateTimer)
-      liveUpdateTimer = null
-    }
-
-    weatherFetchStarted = false
-  }
+  const weatherBackendBaseUrl = resolveWeatherBackendBaseUrl(
+    options?.weatherBackendBaseUrl,
+  )
+  const sharedWeatherBackend = weatherBackendBaseUrl
+    ? createWeatherBackendApi(weatherBackendBaseUrl)
+    : null
+  const appEntriesBySessionKey = new Map<string, AppEntry>()
+  const appBootBySessionKey = new Map<string, Promise<AppEntry>>()
+  const appCleanupTimersBySessionKey = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >()
+  const connections = new Set<WorkerConnection>()
+  const connectionsByStreamId = new Map<string, WorkerConnection>()
 
   const emitForConnection = (
     connection: { transport: DomSyncTransportViewLike<ReactSyncTransportMessage> },
@@ -254,77 +264,244 @@ export const createWeatherModelRuntime = (options?: {
     })
   }
 
-  const bootstrapApp = async (): Promise<WeatherAppRuntime> => {
-    if (current_app) {
-      return current_app
+  const emitToStreamId = (
+    streamId: string,
+    message: ReactSyncTransportMessage,
+  ) => {
+    const connection = connectionsByStreamId.get(streamId)
+    if (!connection) {
+      return
     }
 
-    if (booting) {
-      while (!current_app) {
-        await new Promise((resolve) => setTimeout(resolve, 10))
-      }
-      return current_app
-    }
+    emitForConnection(connection, message)
+  }
 
-    booting = true
-    const runtime = prepareAppRuntime({
-      sync_sender: true,
-      warnUnexpectedAttrs: true,
-      onError(error: unknown) {
-        for (const connection of connections) {
-          emitError(connection, error)
-        }
-      },
-    }) as unknown as WeatherRuntimeLike
-    const weatherBackendBaseUrl = resolveWeatherBackendBaseUrl(
-      options?.weatherBackendBaseUrl,
-    )
-    const weatherBackendSource = weatherBackendBaseUrl
-      ? createWeatherBackendApi(weatherBackendBaseUrl)
-      : null
-    const inited = await runtime.start({
-      App: AppRoot,
-      interfaces: {
-        requests_manager: {
-          addRequest() {},
-          considerOwnerAsImportant() {},
-          stopRequests() {},
-        },
-        locationSearchSource: createLocationSearchApi({
-          weatherBackend: weatherBackendSource,
-        }),
-        weatherLoaderSource: createWeatherLoaderApi(),
-        ...(weatherBackendSource ? { weatherBackendSource } : {}),
-      },
+  const broadcastToApp = (
+    appEntry: AppEntry,
+    message: ReactSyncTransportMessage,
+  ) => {
+    for (const streamId of appEntry.streamIds) {
+      emitToStreamId(streamId, message)
+    }
+  }
+
+  const broadcastWeatherLoadState = (
+    appEntry: AppEntry,
+    status: string,
+    error: string | null,
+  ) => {
+    broadcastToApp(appEntry, {
+      type: APP_MSG.WEATHER_LOAD_STATE,
+      status,
+      error,
     })
+  }
 
-    current_app = {
-      runtime,
-      inited,
-    }
-    booting = false
-
-    if (!current_app) {
-      throw new Error('weather app runtime failed to bootstrap')
+  const stopLiveUpdate = (appEntry: AppEntry) => {
+    if (appEntry.liveUpdateTimer != null) {
+      clearTimeout(appEntry.liveUpdateTimer)
+      appEntry.liveUpdateTimer = null
     }
 
-    return current_app
+    appEntry.weatherFetchStarted = false
+  }
+
+  const startLiveUpdate = (appEntry: AppEntry) => {
+    if (appEntry.liveUpdateTimer != null) {
+      return
+    }
+
+    let retryCount = 0
+
+    const tick = async () => {
+      appEntry.liveUpdateTimer = null
+
+      try {
+        await fetchWeatherForAllLocations(appEntry.app, (status, error) => {
+          broadcastWeatherLoadState(appEntry, status, error)
+        })
+        retryCount = 0
+        appEntry.liveUpdateTimer = setTimeout(tick, LIVE_UPDATE_INTERVAL_MS)
+      } catch {
+        retryCount += 1
+        const delay = retryCount <= LIVE_UPDATE_MAX_RETRIES
+          ? LIVE_UPDATE_RETRY_MS
+          : LIVE_UPDATE_INTERVAL_MS
+        appEntry.liveUpdateTimer = setTimeout(tick, delay)
+      }
+    }
+
+    appEntry.liveUpdateTimer = setTimeout(tick, LIVE_UPDATE_INTERVAL_MS)
+  }
+
+  const cancelAppCleanup = (sessionKey: string) => {
+    const timer = appCleanupTimersBySessionKey.get(sessionKey)
+    if (!timer) {
+      return
+    }
+
+    clearTimeout(timer)
+    appCleanupTimersBySessionKey.delete(sessionKey)
+  }
+
+  const scheduleAppCleanup = (sessionKey: string) => {
+    cancelAppCleanup(sessionKey)
+
+    appCleanupTimersBySessionKey.set(
+      sessionKey,
+      setTimeout(() => {
+        appCleanupTimersBySessionKey.delete(sessionKey)
+        const appEntry = appEntriesBySessionKey.get(sessionKey)
+
+        if (!appEntry || appEntry.streamIds.size > 0) {
+          return
+        }
+
+        stopLiveUpdate(appEntry)
+        appEntriesBySessionKey.delete(sessionKey)
+      }, APP_CLEANUP_DELAY_MS),
+    )
+  }
+
+  const markAppActive = (appEntry: AppEntry) => {
+    appEntry.status = 'active'
+    cancelAppCleanup(appEntry.sessionKey)
+  }
+
+  const attachStreamToApp = (appEntry: AppEntry, streamId: string) => {
+    markAppActive(appEntry)
+    appEntry.streamIds.add(streamId)
+  }
+
+  const detachStreamFromApp = (appEntry: AppEntry, streamId: string) => {
+    appEntry.streamIds.delete(streamId)
+
+    if (appEntry.streamIds.size > 0) {
+      return
+    }
+
+    appEntry.status = 'closing'
+    scheduleAppCleanup(appEntry.sessionKey)
+  }
+
+  const ensureAppEntry = async (sessionKey: string): Promise<AppEntry> => {
+    const existing = appEntriesBySessionKey.get(sessionKey)
+    if (existing) {
+      markAppActive(existing)
+      return existing
+    }
+
+    const booting = appBootBySessionKey.get(sessionKey)
+    if (booting) {
+      return await booting
+    }
+
+    const nextBoot = (async () => {
+      const runtime = prepareAppRuntime({
+        sync_sender: true,
+        warnUnexpectedAttrs: true,
+        onError(error: unknown) {
+          const activeEntry = appEntriesBySessionKey.get(sessionKey)
+          if (!activeEntry) {
+            return
+          }
+
+          for (const streamId of activeEntry.streamIds) {
+            const connection = connectionsByStreamId.get(streamId)
+            if (connection) {
+              emitError(connection, error)
+            }
+          }
+        },
+      }) as unknown as WeatherRuntimeLike
+      const scopedWeatherBackend = sharedWeatherBackend
+        ? createScopedWeatherBackendApi(sharedWeatherBackend, sessionKey)
+        : null
+      const inited = await runtime.start({
+        App: AppRoot,
+        interfaces: {
+          requests_manager: {
+            addRequest() {},
+            considerOwnerAsImportant() {},
+            stopRequests() {},
+          },
+          locationSearchSource: createLocationSearchApi({
+            weatherBackend: sharedWeatherBackend,
+          }),
+          weatherLoaderSource: createWeatherLoaderApi(),
+          ...(scopedWeatherBackend ? { weatherBackendSource: scopedWeatherBackend } : {}),
+        },
+      })
+
+      const appEntry: AppEntry = {
+        sessionKey,
+        app: {
+          runtime,
+          inited,
+        },
+        sessionManager: createSessionManager(),
+        streamIds: new Set(),
+        liveUpdateTimer: null,
+        weatherFetchStarted: false,
+        status: 'active',
+      }
+
+      appEntriesBySessionKey.set(sessionKey, appEntry)
+      cancelAppCleanup(sessionKey)
+
+      return appEntry
+    })()
+
+    appBootBySessionKey.set(sessionKey, nextBoot)
+
+    try {
+      return await nextBoot
+    } finally {
+      appBootBySessionKey.delete(sessionKey)
+    }
+  }
+
+  const getConnectionAppEntry = (connection: WorkerConnection) => {
+    if (!connection.sessionKey) {
+      return null
+    }
+
+    return appEntriesBySessionKey.get(connection.sessionKey) ?? null
+  }
+
+  const releaseConnectionBinding = (connection: WorkerConnection) => {
+    const appEntry = getConnectionAppEntry(connection)
+
+    if (!appEntry) {
+      connection.sessionId = null
+      connection.sessionKey = null
+      return
+    }
+
+    appEntry.app.runtime.sync_sender.removeSyncStream(connection.stream)
+    appEntry.sessionManager.detachStream(connection.stream.id, (session) => {
+      appendLog(connection, `session released -> ${session.sessionId}`)
+    })
+    detachStreamFromApp(appEntry, connection.stream.id)
+
+    connection.sessionId = null
+    connection.sessionKey = null
   }
 
   const handleDispatchAction = async (
-    connection: {
-      transport: DomSyncTransportViewLike<ReactSyncTransportMessage>
-      stream: ReturnType<typeof createWorkerStream>
-      sessionId: string | null
-    },
+    connection: WorkerConnection,
     action_name: string,
     payload: unknown,
     scope_node_id?: string | null,
   ) => {
-    const app = await bootstrapApp()
-    const appModel = app.inited.app_model
+    const appEntry = getConnectionAppEntry(connection)
+    if (!appEntry) {
+      throw new Error('worker connection is not attached to a session key')
+    }
+
+    const appModel = appEntry.app.inited.app_model
     const session = connection.sessionId
-      ? sessionManager.getSessionByStreamId(connection.stream.id)
+      ? appEntry.sessionManager.getSessionByStreamId(connection.stream.id)
       : null
 
     let dispatchTarget = session?.sessionRoot ?? appModel
@@ -362,18 +539,19 @@ export const createWeatherModelRuntime = (options?: {
   }
 
   const getSessionRoot = async (
-    app: WeatherAppRuntime,
+    appEntry: AppEntry,
     sessionId: string,
+    sessionKey: string,
     route?: unknown,
   ) => {
     return new Promise((resolve, reject) => {
-      app.inited.app_model.input(async () => {
+      appEntry.app.inited.app_model.input(async () => {
         try {
           const sessionRoot = await hookSessionRoot(
-            app.inited.app_model as unknown as Parameters<typeof hookSessionRoot>[0],
-            app.inited.app_model.start_page as unknown as Parameters<typeof hookSessionRoot>[1],
+            appEntry.app.inited.app_model as unknown as Parameters<typeof hookSessionRoot>[0],
+            appEntry.app.inited.app_model.start_page as unknown as Parameters<typeof hookSessionRoot>[1],
             {
-              sessionKey: sessionId,
+              sessionKey,
               route: route ?? null,
             } as Parameters<typeof hookSessionRoot>[2],
           )
@@ -387,34 +565,39 @@ export const createWeatherModelRuntime = (options?: {
   }
 
   const bootstrapSession = async (
-    connection: {
-      transport: DomSyncTransportViewLike<ReactSyncTransportMessage>
-      stream: ReturnType<typeof createWorkerStream>
-      sessionId: string | null
-    },
+    connection: WorkerConnection,
     {
       session_id,
+      session_key,
       route,
     }: {
       session_id?: string
+      session_key?: string
       route?: unknown
     } = {},
   ) => {
-    const app = await bootstrapApp()
-    const session = await sessionManager.ensureSession(
-      (nextSessionId) => getSessionRoot(app, nextSessionId, route),
-      session_id,
-    )
+    const nextSessionKey =
+      normalizeSessionKey(session_key) ??
+      normalizeSessionKey(connection.sessionKey) ??
+      createGeneratedSessionKey()
+    const appEntry = await ensureAppEntry(nextSessionKey)
 
-    if (connection.sessionId && connection.sessionId !== session.sessionId) {
-      sessionManager.detachStream(connection.stream.id, () => {})
-      app.runtime.sync_sender.removeSyncStream(connection.stream)
+    if (connection.sessionKey || connection.sessionId) {
+      releaseConnectionBinding(connection)
     }
 
-    connection.sessionId = session.sessionId
-    sessionManager.attachStream(session.sessionId, connection.stream.id)
+    const session = await appEntry.sessionManager.ensureSession(
+      (nextSessionId) =>
+        getSessionRoot(appEntry, nextSessionId, appEntry.sessionKey, route),
+      session_id ?? null,
+    )
 
-    await app.runtime.sync_sender.addSyncStream(
+    connection.sessionKey = appEntry.sessionKey
+    connection.sessionId = session.sessionId
+    appEntry.sessionManager.attachStream(session.sessionId, connection.stream.id)
+    attachStreamToApp(appEntry, connection.stream.id)
+
+    await appEntry.app.runtime.sync_sender.addSyncStream(
       session.sessionRoot,
       connection.stream,
       SESSION_IMPORTANT_REL_PATHS,
@@ -423,22 +606,19 @@ export const createWeatherModelRuntime = (options?: {
     emitForConnection(connection, {
       type: APP_MSG.SESSION_BOOTED,
       session_id: session.sessionId,
+      session_key: appEntry.sessionKey,
       root_node_id: session.sessionRoot._node_id,
     })
 
-    appendLog(connection, `session booted -> ${session.sessionId}`)
+    appendLog(connection, `session booted -> ${session.sessionId} @ ${appEntry.sessionKey}`)
 
-    if (!weatherFetchStarted) {
-      weatherFetchStarted = true
-      fetchWeatherForAllLocations(app, (status, error) => {
-        emitForConnection(connection, {
-          type: APP_MSG.WEATHER_LOAD_STATE,
-          status,
-          error,
-        })
+    if (!appEntry.weatherFetchStarted) {
+      appEntry.weatherFetchStarted = true
+      fetchWeatherForAllLocations(appEntry.app, (status, error) => {
+        broadcastWeatherLoadState(appEntry, status, error)
       })
         .finally(() => {
-          startLiveUpdate(app)
+          startLiveUpdate(appEntry)
         })
         .catch((error) => {
           appendLog(connection, `initial weather fetch failed: ${error}`)
@@ -447,11 +627,7 @@ export const createWeatherModelRuntime = (options?: {
   }
 
   const handleMessage = async (
-    connection: {
-      transport: DomSyncTransportViewLike<ReactSyncTransportMessage>
-      stream: ReturnType<typeof createWorkerStream>
-      sessionId: string | null
-    },
+    connection: WorkerConnection,
     message: ReactSyncTransportMessage,
   ) => {
     switch (message.type) {
@@ -462,19 +638,21 @@ export const createWeatherModelRuntime = (options?: {
       case APP_MSG.CONTROL_BOOTSTRAP_SESSION: {
         await bootstrapSession(connection, {
           session_id: message.session_id,
+          session_key: message.session_key,
           route: message.route,
         })
         return
       }
       case APP_MSG.CONTROL_CLOSE_SESSION: {
-        if (connection.sessionId) {
-          const app = await bootstrapApp()
-          app.runtime.sync_sender.removeSyncStream(connection.stream)
-          sessionManager.destroySession(connection.sessionId)
-          connection.sessionId = null
-        }
-        if (connections.size === 0) {
-          stopLiveUpdate()
+        if (connection.sessionKey || connection.sessionId) {
+          const appEntry = getConnectionAppEntry(connection)
+          const closingSessionId = connection.sessionId
+
+          if (appEntry && closingSessionId) {
+            appEntry.sessionManager.destroySession(closingSessionId)
+          }
+
+          releaseConnectionBinding(connection)
         }
         return
       }
@@ -497,29 +675,37 @@ export const createWeatherModelRuntime = (options?: {
         return
       }
       case APP_MSG.CONTROL_REFRESH_WEATHER: {
-        const app = await bootstrapApp()
-        fetchWeatherForAllLocations(app, (status, error) => {
-          emitForConnection(connection, {
-            type: APP_MSG.WEATHER_LOAD_STATE,
-            status,
-            error,
-          })
+        const appEntry = getConnectionAppEntry(connection)
+        if (!appEntry) {
+          throw new Error('worker connection is not attached to a session key')
+        }
+
+        fetchWeatherForAllLocations(appEntry.app, (status, error) => {
+          broadcastWeatherLoadState(appEntry, status, error)
         }).catch((error) => {
           appendLog(connection, `refresh weather failed: ${error}`)
         })
         return
       }
       case APP_MSG.SYNC_UPDATE_STRUCTURE_USAGE: {
-        const app = await bootstrapApp()
-        app.runtime.sync_sender.updateStructureUsage(
+        const appEntry = getConnectionAppEntry(connection)
+        if (!appEntry) {
+          throw new Error('worker connection is not attached to a session key')
+        }
+
+        appEntry.app.runtime.sync_sender.updateStructureUsage(
           connection.stream.id,
           message.data,
         )
         return
       }
       case APP_MSG.SYNC_REQUIRE_SHAPE: {
-        const app = await bootstrapApp()
-        app.runtime.sync_sender.requireShapeForModel(
+        const appEntry = getConnectionAppEntry(connection)
+        if (!appEntry) {
+          throw new Error('worker connection is not attached to a session key')
+        }
+
+        appEntry.app.runtime.sync_sender.requireShapeForModel(
           connection.stream.id,
           message.data,
         )
@@ -529,18 +715,15 @@ export const createWeatherModelRuntime = (options?: {
   }
 
   const connect = (transport: DomSyncTransportLike<ReactSyncTransportMessage>) => {
-    const connection = {
+    const connection: WorkerConnection = {
       transport,
       stream: createWorkerStream(transport),
       destroyed: false,
       sessionId: null,
+      sessionKey: null,
     }
     connections.add(connection)
-    sessionManager.registerConnection({
-      streamId: connection.stream.id,
-      transport,
-      connectedAt: Date.now(),
-    })
+    connectionsByStreamId.set(connection.stream.id, connection)
 
     const unlisten = transport.listen((message) => {
       Promise.resolve(handleMessage(connection, message)).catch((error) =>
@@ -564,17 +747,9 @@ export const createWeatherModelRuntime = (options?: {
 
         connection.destroyed = true
         unlisten?.()
-        const app = current_app
-        if (app?.runtime?.sync_sender) {
-          app.runtime.sync_sender.removeSyncStream(connection.stream)
-        }
-        sessionManager.detachStream(connection.stream.id, (session) => {
-          appendLog(connection, `session released -> ${session.sessionId}`)
-        })
+        releaseConnectionBinding(connection)
         connections.delete(connection)
-        if (connections.size === 0) {
-          stopLiveUpdate()
-        }
+        connectionsByStreamId.delete(connection.stream.id)
         transport.destroy()
       },
     }
@@ -596,8 +771,12 @@ export const createWeatherModelRuntime = (options?: {
     return value
   }
 
-  const debugDumpAppState = async () => {
-    if (!current_app?.inited?.app_model) {
+  const debugDumpAppState = async (sessionKey?: string | null) => {
+    const appEntry = sessionKey
+      ? appEntriesBySessionKey.get(sessionKey) ?? null
+      : appEntriesBySessionKey.values().next().value ?? null
+
+    if (!appEntry?.app?.inited?.app_model) {
       return null
     }
 
@@ -626,10 +805,10 @@ export const createWeatherModelRuntime = (options?: {
       }
     }
 
-    const appModel = current_app.inited.app_model
+    const appModel = appEntry.app.inited.app_model
     const lined = await appModel.getLinedStructure({}, {})
     const runtimeModels = Object.values(
-      (current_app.runtime.models ?? {}) as Record<string, RuntimeModelLike>,
+      (appEntry.app.runtime.models ?? {}) as Record<string, RuntimeModelLike>,
     )
 
     return {
@@ -640,8 +819,13 @@ export const createWeatherModelRuntime = (options?: {
 
   return {
     connect,
-    bootstrapApp,
+    bootstrapApp: async (sessionKey?: string | null) => {
+      const resolvedSessionKey =
+        normalizeSessionKey(sessionKey) ?? createGeneratedSessionKey()
+      return (await ensureAppEntry(resolvedSessionKey)).app
+    },
     debugDumpAppState,
+    debugListSessionKeys: () => Array.from(appEntriesBySessionKey.keys()).sort(),
   }
 }
 

@@ -22,6 +22,7 @@ export default function App({
         bootedLabel={bootedLabel}
         rootNodeId={snapshot.rootNodeId}
         sessionId={snapshot.sessionId}
+        sessionKey={snapshot.sessionKey}
         weatherLoadStatus={snapshot.weatherLoadStatus}
         weatherLoadError={snapshot.weatherLoadError}
         onRefreshWeather={session.refreshWeather}

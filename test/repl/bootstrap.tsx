@@ -172,9 +172,11 @@ export interface WeatherReplHarness {
 export const createWeatherReplHarness = async ({
   window,
   rootElement,
+  sessionKey = 'default',
 }: {
   window: Window
   rootElement: Element
+  sessionKey?: string
 }): Promise<WeatherReplHarness> => {
   const bridge = createAsyncTransportBridge<ReactSyncTransportMessage>()
   const appRuntime = createWeatherModelRuntime()
@@ -204,7 +206,7 @@ export const createWeatherReplHarness = async ({
 
   const root = createRoot(rootElement)
   root.render(<App session={session as never} />)
-  session.bootstrap()
+  session.bootstrap({ sessionKey })
 
   const harness: WeatherReplHarness = {
     appRoot: AppRoot,
@@ -233,6 +235,7 @@ export const createWeatherReplHarness = async ({
       pageRuntime,
       rootElement,
       session,
+      sessionKey,
       snapshot: () => pageRuntime.getSnapshot(),
       window,
     },
