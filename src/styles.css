@@ -70,7 +70,6 @@ button {
 }
 
 button:hover {
-  transform: translateY(-1px);
   border-color: rgba(121, 213, 255, 0.42);
 }
 
