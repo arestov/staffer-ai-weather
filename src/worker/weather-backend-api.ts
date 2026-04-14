@@ -1,4 +1,4 @@
-import type { LocationSearchResult } from '../app/rels/location-models'
+import type { LocationSearchResult } from '../models/WeatherLocation'
 
 type SearchResponse = {
   query: string
