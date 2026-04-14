@@ -4,11 +4,44 @@ import { SessionRoot } from './SessionRoot'
 import { SelectedLocation, WeatherLocation } from './rels'
 import type { LocationSearchResult } from './rels/location-models'
 import {
+  fetchSavedSearchLocations,
+  removeSavedSearchLocation,
+  saveSavedSearchLocation,
+} from '../worker/weather-backend-api'
+import {
   SELECTED_LOCATION_CREATION_SHAPE,
   WEATHER_LOCATION_BASE_CREATION_SHAPE,
   buildInitialSelectedLocations,
   buildInitialWeatherLocations,
 } from './rels/weatherSeed'
+
+type SavedSearchLocationsSyncStatus = 'idle' | 'loading' | 'syncing' | 'ready' | 'error'
+
+type SavedSearchLocationsSyncRequest =
+  | {
+    requestId: number
+    kind: 'load'
+  }
+  | {
+    requestId: number
+    kind: 'save'
+    place: LocationSearchResult
+  }
+  | {
+    requestId: number
+    kind: 'remove'
+    placeId: string
+  }
+
+type SavedSearchLocationsSyncResponsePayload = {
+  requestId: number
+  places: LocationSearchResult[]
+}
+
+type SavedSearchLocationsSyncFailurePayload = {
+  requestId: number
+  message: string
+}
 
 const isLocationSearchResult = (value: unknown): value is LocationSearchResult => {
   if (!value || typeof value !== 'object') {
@@ -41,6 +74,73 @@ const normalizeLocation = (value: unknown, fallback: string) => {
   return fallback
 }
 
+const toErrorMessage = (error: unknown) => {
+  return error instanceof Error ? error.message : String(error)
+}
+
+const getLocationSearchResults = (value: unknown) => {
+  return Array.isArray(value) ? value.filter(isLocationSearchResult) : []
+}
+
+const getNextSavedSearchLocationsSyncRequestId = (value: unknown) => {
+  return typeof value === 'number' ? value + 1 : 1
+}
+
+const isSavedSearchLocationsSyncRequest = (
+  value: unknown,
+): value is SavedSearchLocationsSyncRequest => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Partial<SavedSearchLocationsSyncRequest>
+
+  if (typeof candidate.requestId !== 'number') {
+    return false
+  }
+
+  if (candidate.kind === 'load') {
+    return true
+  }
+
+  if (candidate.kind === 'save') {
+    return isLocationSearchResult(candidate.place)
+  }
+
+  return candidate.kind === 'remove' && typeof candidate.placeId === 'string'
+}
+
+const isSavedSearchLocationsSyncResponsePayload = (
+  value: unknown,
+): value is SavedSearchLocationsSyncResponsePayload => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Partial<SavedSearchLocationsSyncResponsePayload>
+
+  return (
+    typeof candidate.requestId === 'number' &&
+    Array.isArray(candidate.places) &&
+    candidate.places.every(isLocationSearchResult)
+  )
+}
+
+const isSavedSearchLocationsSyncFailurePayload = (
+  value: unknown,
+): value is SavedSearchLocationsSyncFailurePayload => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Partial<SavedSearchLocationsSyncFailurePayload>
+
+  return (
+    typeof candidate.requestId === 'number' &&
+    typeof candidate.message === 'string'
+  )
+}
+
 const makeRootParentRel = () => [
   'comp',
   ['<<<<'],
@@ -65,6 +165,49 @@ const app_props = mergeDcl({
         ['weatherLoaderSource'] as const,
         (weatherLoaderSource: unknown) => weatherLoaderSource,
       ],
+    },
+    out: {
+      syncSavedSearchLocations: {
+        api: ['self'],
+        trigger: ['savedSearchLocationsSyncRequest'],
+        require: ['savedSearchLocationsSyncRequest'],
+        create_when: {
+          api_inits: true,
+        },
+        is_async: true,
+        fn: [
+          ['savedSearchLocationsSyncRequest'] as const,
+          async (
+            self: {
+              dispatch: (actionName: string, payload?: unknown) => Promise<void> | void
+            },
+            _task: unknown,
+            savedSearchLocationsSyncRequest: unknown,
+          ) => {
+            if (!isSavedSearchLocationsSyncRequest(savedSearchLocationsSyncRequest)) {
+              return
+            }
+
+            try {
+              const places = savedSearchLocationsSyncRequest.kind === 'load'
+                ? await fetchSavedSearchLocations()
+                : savedSearchLocationsSyncRequest.kind === 'save'
+                  ? await saveSavedSearchLocation(savedSearchLocationsSyncRequest.place)
+                  : await removeSavedSearchLocation(savedSearchLocationsSyncRequest.placeId)
+
+              await self.dispatch('applySavedSearchLocationsSyncResult', {
+                requestId: savedSearchLocationsSyncRequest.requestId,
+                places,
+              })
+            } catch (error) {
+              await self.dispatch('failSavedSearchLocationsSyncRequest', {
+                requestId: savedSearchLocationsSyncRequest.requestId,
+                message: toErrorMessage(error),
+              })
+            }
+          },
+        ],
+      },
     },
   },
   rels: {
@@ -95,6 +238,10 @@ const app_props = mergeDcl({
     weatherLoadStatus: ['input', 'ready'],
     weatherLoadError: ['input', null],
     savedSearchLocations: ['input', []],
+    savedSearchLocationsSyncStatus: ['input', 'idle'],
+    savedSearchLocationsSyncError: ['input', null],
+    savedSearchLocationsSyncRequest: ['input', null],
+    activeSavedSearchLocationsSyncRequestId: ['input', 0],
   },
   actions: {
     setWeatherLoadState: {
@@ -177,6 +324,32 @@ const app_props = mergeDcl({
           },
         ],
       },
+      {
+        to: {
+          savedSearchLocationsSyncStatus: ['savedSearchLocationsSyncStatus'],
+          savedSearchLocationsSyncError: ['savedSearchLocationsSyncError'],
+          savedSearchLocationsSyncRequest: ['savedSearchLocationsSyncRequest'],
+          activeSavedSearchLocationsSyncRequestId: ['activeSavedSearchLocationsSyncRequestId'],
+        },
+        fn: [
+          ['activeSavedSearchLocationsSyncRequestId'] as const,
+          (_payload: unknown, activeSavedSearchLocationsSyncRequestId: unknown) => {
+            const requestId = getNextSavedSearchLocationsSyncRequestId(
+              activeSavedSearchLocationsSyncRequestId,
+            )
+
+            return {
+              savedSearchLocationsSyncStatus: 'loading',
+              savedSearchLocationsSyncError: null,
+              savedSearchLocationsSyncRequest: {
+                requestId,
+                kind: 'load',
+              },
+              activeSavedSearchLocationsSyncRequestId: requestId,
+            }
+          },
+        ],
+      },
     ],
     setLocation: {
       to: {
@@ -204,23 +377,40 @@ const app_props = mergeDcl({
     saveLocationSearchResult: {
       to: {
         savedSearchLocations: ['savedSearchLocations'],
+        savedSearchLocationsSyncStatus: ['savedSearchLocationsSyncStatus'],
+        savedSearchLocationsSyncError: ['savedSearchLocationsSyncError'],
+        savedSearchLocationsSyncRequest: ['savedSearchLocationsSyncRequest'],
+        activeSavedSearchLocationsSyncRequestId: ['activeSavedSearchLocationsSyncRequestId'],
       },
       fn: [
-        ['savedSearchLocations'] as const,
-        (payload: unknown, savedSearchLocations: unknown) => {
+        ['savedSearchLocations', 'activeSavedSearchLocationsSyncRequestId'] as const,
+        (
+          payload: unknown,
+          savedSearchLocations: unknown,
+          activeSavedSearchLocationsSyncRequestId: unknown,
+        ) => {
           if (!isLocationSearchResult(payload)) {
             return {}
           }
 
-          const currentSavedLocations = Array.isArray(savedSearchLocations)
-            ? savedSearchLocations.filter(isLocationSearchResult)
-            : []
+          const currentSavedLocations = getLocationSearchResults(savedSearchLocations)
+          const requestId = getNextSavedSearchLocationsSyncRequestId(
+            activeSavedSearchLocationsSyncRequestId,
+          )
 
           return {
             savedSearchLocations: [
               payload,
               ...currentSavedLocations.filter((item) => item.id !== payload.id),
             ],
+            savedSearchLocationsSyncStatus: 'syncing',
+            savedSearchLocationsSyncError: null,
+            savedSearchLocationsSyncRequest: {
+              requestId,
+              kind: 'save',
+              place: payload,
+            },
+            activeSavedSearchLocationsSyncRequestId: requestId,
           }
         },
       ],
@@ -228,10 +418,18 @@ const app_props = mergeDcl({
     removeLocationSearchResult: {
       to: {
         savedSearchLocations: ['savedSearchLocations'],
+        savedSearchLocationsSyncStatus: ['savedSearchLocationsSyncStatus'],
+        savedSearchLocationsSyncError: ['savedSearchLocationsSyncError'],
+        savedSearchLocationsSyncRequest: ['savedSearchLocationsSyncRequest'],
+        activeSavedSearchLocationsSyncRequestId: ['activeSavedSearchLocationsSyncRequestId'],
       },
       fn: [
-        ['savedSearchLocations'] as const,
-        (payload: unknown, savedSearchLocations: unknown) => {
+        ['savedSearchLocations', 'activeSavedSearchLocationsSyncRequestId'] as const,
+        (
+          payload: unknown,
+          savedSearchLocations: unknown,
+          activeSavedSearchLocationsSyncRequestId: unknown,
+        ) => {
           const id = typeof payload === 'string'
             ? payload
             : isLocationSearchResult(payload)
@@ -242,12 +440,81 @@ const app_props = mergeDcl({
             return {}
           }
 
-          const currentSavedLocations = Array.isArray(savedSearchLocations)
-            ? savedSearchLocations.filter(isLocationSearchResult)
-            : []
+          const currentSavedLocations = getLocationSearchResults(savedSearchLocations)
+          const requestId = getNextSavedSearchLocationsSyncRequestId(
+            activeSavedSearchLocationsSyncRequestId,
+          )
 
           return {
             savedSearchLocations: currentSavedLocations.filter((item) => item.id !== id),
+            savedSearchLocationsSyncStatus: 'syncing',
+            savedSearchLocationsSyncError: null,
+            savedSearchLocationsSyncRequest: {
+              requestId,
+              kind: 'remove',
+              placeId: id,
+            },
+            activeSavedSearchLocationsSyncRequestId: requestId,
+          }
+        },
+      ],
+    },
+    applySavedSearchLocationsSyncResult: {
+      to: {
+        savedSearchLocations: ['savedSearchLocations'],
+        savedSearchLocationsSyncStatus: ['savedSearchLocationsSyncStatus'],
+        savedSearchLocationsSyncError: ['savedSearchLocationsSyncError'],
+        savedSearchLocationsSyncRequest: ['savedSearchLocationsSyncRequest'],
+      },
+      fn: [
+        ['$noop', 'activeSavedSearchLocationsSyncRequestId'] as const,
+        (
+          payload: unknown,
+          noop: unknown,
+          activeSavedSearchLocationsSyncRequestId: unknown,
+        ) => {
+          if (
+            !isSavedSearchLocationsSyncResponsePayload(payload) ||
+            typeof activeSavedSearchLocationsSyncRequestId !== 'number' ||
+            payload.requestId !== activeSavedSearchLocationsSyncRequestId
+          ) {
+            return noop
+          }
+
+          return {
+            savedSearchLocations: payload.places,
+            savedSearchLocationsSyncStatus: 'ready',
+            savedSearchLocationsSyncError: null,
+            savedSearchLocationsSyncRequest: null,
+          }
+        },
+      ],
+    },
+    failSavedSearchLocationsSyncRequest: {
+      to: {
+        savedSearchLocationsSyncStatus: ['savedSearchLocationsSyncStatus'],
+        savedSearchLocationsSyncError: ['savedSearchLocationsSyncError'],
+        savedSearchLocationsSyncRequest: ['savedSearchLocationsSyncRequest'],
+      },
+      fn: [
+        ['$noop', 'activeSavedSearchLocationsSyncRequestId'] as const,
+        (
+          payload: unknown,
+          noop: unknown,
+          activeSavedSearchLocationsSyncRequestId: unknown,
+        ) => {
+          if (
+            !isSavedSearchLocationsSyncFailurePayload(payload) ||
+            typeof activeSavedSearchLocationsSyncRequestId !== 'number' ||
+            payload.requestId !== activeSavedSearchLocationsSyncRequestId
+          ) {
+            return noop
+          }
+
+          return {
+            savedSearchLocationsSyncStatus: 'error',
+            savedSearchLocationsSyncError: payload.message,
+            savedSearchLocationsSyncRequest: null,
           }
         },
       ],

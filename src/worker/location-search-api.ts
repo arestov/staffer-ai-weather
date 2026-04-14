@@ -1,18 +1,5 @@
 import type { LocationSearchResult } from '../app/rels/location-models'
-
-type OpenMeteoSearchResultRaw = {
-  id?: number
-  name: string
-  country?: string
-  admin1?: string
-  latitude: number
-  longitude: number
-  timezone?: string
-}
-
-type OpenMeteoSearchResponse = {
-  results?: OpenMeteoSearchResultRaw[]
-}
+import { fetchLocationSearchResultsFromBackend } from './weather-backend-api'
 
 export interface LocationSearchApi {
   source_name: 'locationSearch'
@@ -20,27 +7,7 @@ export interface LocationSearchApi {
   search(query: string): Promise<LocationSearchResult[]>
 }
 
-const OPEN_METEO_GEOCODING_BASE = 'https://geocoding-api.open-meteo.com/v1/search'
 const MIN_LOCATION_SEARCH_QUERY_LENGTH = 3
-
-const formatLocationSubtitle = (raw: OpenMeteoSearchResultRaw) => {
-  return [raw.admin1, raw.country].filter(Boolean).join(', ')
-}
-
-const normalizeLocationSearchResult = (
-  raw: OpenMeteoSearchResultRaw,
-): LocationSearchResult => {
-  return {
-    id: raw.id != null
-      ? String(raw.id)
-      : `${raw.name}:${raw.latitude}:${raw.longitude}`,
-    name: raw.name,
-    subtitle: formatLocationSubtitle(raw),
-    latitude: raw.latitude,
-    longitude: raw.longitude,
-    timezone: raw.timezone ?? null,
-  }
-}
 
 export const fetchLocationSearchResults = async (
   query: string,
@@ -51,23 +18,7 @@ export const fetchLocationSearchResults = async (
     return []
   }
 
-  const params = new URLSearchParams({
-    name: normalizedQuery,
-    count: '8',
-    language: 'en',
-    format: 'json',
-  })
-
-  const response = await fetch(`${OPEN_METEO_GEOCODING_BASE}?${params}`)
-
-  if (!response.ok) {
-    throw new Error(`Open-Meteo geocoding responded with ${response.status}`)
-  }
-
-  const raw = await response.json() as OpenMeteoSearchResponse
-  const results = Array.isArray(raw.results) ? raw.results : []
-
-  return results.map(normalizeLocationSearchResult)
+  return await fetchLocationSearchResultsFromBackend(normalizedQuery)
 }
 
 export const createLocationSearchApi = (): LocationSearchApi => ({
