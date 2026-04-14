@@ -24,8 +24,8 @@
   --surface-panel: rgb(255 255 255 / 0.52);
   --surface-panel-strong: rgb(var(--color-paper-rgb) / 0.95);
   --surface-card: rgb(255 255 255 / 0.58);
-  --surface-card-soft: rgb(var(--color-ink-rgb) / 0.06);
-  --surface-control: rgb(var(--color-paper-rgb) / 0.94);
+  --surface-card-soft: rgb(var(--color-ink-rgb) / 0.04);
+  --surface-control: var(--color-paper);
   --surface-control-muted: rgb(var(--color-ink-rgb) / 0.06);
   --surface-elevated: rgb(var(--color-paper-rgb) / 0.98);
   --surface-popover: rgb(255 255 255 / 0.84);
@@ -33,8 +33,8 @@
   --surface-signal-tint: rgb(var(--color-signal-rgb) / 0.3);
 
   --text-primary: rgb(var(--color-ink-rgb) / 0.96);
-  --text-secondary: rgb(var(--color-soot-rgb) / 0.88);
-  --text-muted: rgb(var(--color-soot-rgb) / 0.66);
+  --text-secondary: #47423d;
+  --text-muted: #6c655c;
   --text-subtle: rgb(var(--color-soot-rgb) / 0.54);
   --text-on-accent: rgb(var(--color-ink-rgb) / 0.92);
   --text-inverse: rgb(var(--color-paper-rgb) / 0.96);
@@ -46,8 +46,8 @@
 
   --feedback-info-bg: rgb(var(--color-sky-wash-rgb) / 0.18);
   --feedback-info-text: rgb(var(--color-soot-rgb) / 0.9);
-  --feedback-success-bg: rgb(var(--color-signal-rgb) / 0.3);
-  --feedback-success-text: rgb(var(--color-ink-rgb) / 0.9);
+  --feedback-success-bg: var(--color-signal);
+  --feedback-success-text: var(--color-ink);
   --feedback-warning-bg: rgb(var(--color-fog-rgb) / 0.88);
   --feedback-warning-text: rgb(var(--color-soot-rgb) / 0.9);
   --feedback-danger-bg: rgb(var(--color-clay-rgb) / 0.18);
@@ -159,7 +159,7 @@ button.secondary {
 
 input {
   width: 100%;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-medium);
   background: var(--surface-control);
   color: var(--text-primary);
   border-radius: 14px;
@@ -377,7 +377,7 @@ h1 {
 
 .location-card {
   width: min(100%, 52rem);
-  border: 2px solid var(--border-medium);
+  border: 1px solid rgb(var(--color-ink-rgb) / 0.1);
   background: var(--surface-card);
   backdrop-filter: blur(22px);
   border-radius: 30px;
@@ -531,6 +531,11 @@ h1 {
   border: 1px solid var(--border-subtle);
   background: rgb(var(--color-ink-rgb) / 0.06);
   min-height: 6.2rem;
+}
+
+.weather-readout--popover .forecast-chip,
+.selected-location-popover__body .forecast-chip {
+  border: none;
 }
 
 .forecast-chip--empty {
@@ -734,8 +739,8 @@ h1 {
 .selected-location-search__sidebar {
   padding: 0.95rem;
   border-radius: 22px;
-  border: 1px solid var(--border-subtle);
-  background: rgb(var(--color-ink-rgb) / 0.04);
+  border: none;
+  background: transparent;
 }
 
 .selected-location-search__header,
@@ -812,7 +817,8 @@ h1 {
   justify-items: start;
   padding: 0.9rem 1rem;
   border-radius: 18px;
-  background: rgb(var(--color-ink-rgb) / 0.06);
+  background: rgb(var(--color-ink-rgb) / 0.05);
+  border: 1px solid rgb(var(--color-ink-rgb) / 0.08);
   text-align: left;
 }
 
@@ -857,7 +863,8 @@ h1 {
   justify-items: start;
   padding: 0.9rem 1rem;
   border-radius: 18px;
-  background: rgb(var(--color-ink-rgb) / 0.06);
+  background: rgb(var(--color-ink-rgb) / 0.05);
+  border: 1px solid rgb(var(--color-ink-rgb) / 0.08);
   text-align: left;
 }
 
@@ -878,9 +885,9 @@ h1 {
 
 .selected-location-popover__edit-trigger,
 .selected-location-search__controls > button:not(.secondary) {
-  background: linear-gradient(180deg, rgb(var(--color-signal-rgb) / 0.94), rgb(var(--color-signal-rgb) / 0.74));
-  border-color: rgb(var(--color-signal-rgb) / 0.42);
-  color: var(--text-on-accent);
+  background: var(--color-signal);
+  border-color: transparent;
+  color: var(--color-ink);
 }
 
 .selected-location-popover__close {
