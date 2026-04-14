@@ -244,6 +244,7 @@ describe('Weather backend integration', () => {
       },
     })
     vi.stubGlobal('fetch', backendHarness.fetch)
+    vi.stubGlobal('__WEATHER_BACKEND_BASE_URL__', backendHarness.baseUrl)
 
     harness = await createWeatherTestHarness()
     const router = await openMainLocationEditPanel(harness)
@@ -274,10 +275,13 @@ describe('Weather backend integration', () => {
 
     await waitFor(
       () => ({
-        backendRequests: backendHarness?.fetch.mock.calls.length ?? 0,
         upstreamRequests: backendHarness?.upstreamSearchFetch.mock.calls.length ?? 0,
+        cacheRequests: (backendHarness?.fetch.mock.calls ?? []).filter(([input]) => {
+          const value = input instanceof Request ? input.url : String(input)
+          return value.includes('/api/locations/search')
+        }).length,
       }),
-      (state) => state.backendRequests >= 2 && state.upstreamRequests === 1,
+      (state) => state.cacheRequests >= 3 && state.upstreamRequests === 1,
       'repeated search did not use the backend cache',
     )
 
@@ -293,6 +297,7 @@ describe('Weather backend integration', () => {
       },
     })
     vi.stubGlobal('fetch', backendHarness.fetch)
+    vi.stubGlobal('__WEATHER_BACKEND_BASE_URL__', backendHarness.baseUrl)
 
     harness = await createWeatherTestHarness()
     const router = await openMainLocationEditPanel(harness)
@@ -312,15 +317,19 @@ describe('Weather backend integration', () => {
     expect(resolvedRouter.attrs.searchResults).toEqual([])
   })
 
-  test('backend search errors surface in the popover state', async () => {
+  test('cache lookup errors fall back to direct upstream search', async () => {
     vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined)
 
     backendHarness = createWeatherBackendTestHarness({
+      cacheLookupFailures: {
+        failtown: 503,
+      },
       searchFixtures: {
-        failtown: { status: 502 },
+        failtown: { results: [berlinResult] },
       },
     })
     vi.stubGlobal('fetch', backendHarness.fetch)
+    vi.stubGlobal('__WEATHER_BACKEND_BASE_URL__', backendHarness.baseUrl)
 
     harness = await createWeatherTestHarness()
     const router = await openMainLocationEditPanel(harness)
@@ -331,13 +340,60 @@ describe('Weather backend integration', () => {
       { _nodeId: router.nodeId ?? '' } as never,
     )
 
-    const failedRouter = await waitFor(
+    const resolvedRouter = await waitFor(
       async () => getPopoverRouter(await getAppState(harness as WeatherTestHarness)),
-      (popoverRouter) => popoverRouter.attrs.searchStatus === 'error',
-      'backend search error did not surface in router state',
+      (popoverRouter) => {
+        const results = Array.isArray(popoverRouter.attrs.searchResults)
+          ? popoverRouter.attrs.searchResults
+          : []
+
+        return popoverRouter.attrs.searchStatus === 'ready' && results.length === 1
+      },
+      'cache lookup failure did not fall back to the direct upstream search',
     )
 
-    expect(failedRouter.attrs.searchError).toBe('Open-Meteo geocoding responded with 502')
+    expect(resolvedRouter.attrs.searchError).toBe(null)
+    expect(backendHarness.upstreamSearchFetch).toHaveBeenCalledTimes(1)
+  })
+
+  test('search works without a configured weather backend url', async () => {
+    vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined)
+
+    backendHarness = createWeatherBackendTestHarness({
+      searchFixtures: {
+        berlin: { results: [berlinResult] },
+      },
+    })
+    vi.stubGlobal('fetch', backendHarness.fetch)
+
+    harness = await createWeatherTestHarness()
+    const router = await openMainLocationEditPanel(harness)
+
+    harness.pageRuntime.dispatchAction(
+      'submitLocationSearch',
+      { query: 'Berlin' },
+      { _nodeId: router.nodeId ?? '' } as never,
+    )
+
+    await waitFor(
+      async () => getPopoverRouter(await getAppState(harness as WeatherTestHarness)),
+      (popoverRouter) => {
+        const results = Array.isArray(popoverRouter.attrs.searchResults)
+          ? popoverRouter.attrs.searchResults
+          : []
+
+        return popoverRouter.attrs.searchStatus === 'ready' && results.length === 1
+      },
+      'search without configured weather backend url did not resolve',
+    )
+
+    const cacheRequests = backendHarness.fetch.mock.calls.filter(([input]) => {
+      const value = input instanceof Request ? input.url : String(input)
+      return value.includes('/api/locations/search')
+    })
+
+    expect(cacheRequests).toHaveLength(0)
+    expect(backendHarness.upstreamSearchFetch).toHaveBeenCalledTimes(1)
   })
 
   test('saved picks load from the backend during bootstrap', async () => {
@@ -346,6 +402,7 @@ describe('Weather backend integration', () => {
     backendHarness = createWeatherBackendTestHarness()
     await backendHarness.seedSavedPlaces([tokyoResult])
     vi.stubGlobal('fetch', backendHarness.fetch)
+    vi.stubGlobal('__WEATHER_BACKEND_BASE_URL__', backendHarness.baseUrl)
 
     harness = await createWeatherTestHarness()
     await harness.whenReady()
@@ -367,6 +424,7 @@ describe('Weather backend integration', () => {
       },
     })
     vi.stubGlobal('fetch', backendHarness.fetch)
+    vi.stubGlobal('__WEATHER_BACKEND_BASE_URL__', backendHarness.baseUrl)
 
     harness = await createWeatherTestHarness()
     const router = await openMainLocationEditPanel(harness)

@@ -2,7 +2,7 @@ import { input as inputAttrs } from 'dkt/dcl/attrs/input.js'
 import { model } from 'dkt/model.js'
 import { Router as RouterCore } from 'dkt-all/models/Router.js'
 import type { LocationSearchResult } from '../rels/location-models'
-import { fetchLocationSearchResults } from '../../worker/location-search-api'
+import type { LocationSearchApi } from '../../worker/location-search-api'
 
 type SearchStatus = 'idle' | 'loading' | 'ready' | 'error'
 
@@ -188,7 +188,18 @@ export const SelectedLocationPopoverRouter = model({
             }
 
             try {
-              const results = await fetchLocationSearchResults(searchRequest.query)
+              const app = (self as {
+                app?: {
+                  getInterface: (interfaceName: string) => unknown
+                }
+              }).app
+              const locationSearch = app?.getInterface('locationSearch') as LocationSearchApi | null
+
+              if (!locationSearch) {
+                throw new Error('Location search interface is not available')
+              }
+
+              const results = await locationSearch.search(searchRequest.query)
 
               await self.dispatch('applyLocationSearchResponse', {
                 requestId: searchRequest.requestId,

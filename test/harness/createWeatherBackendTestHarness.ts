@@ -82,6 +82,14 @@ class FakeDurableObjectNamespace<TEnv>
 
 const normalizeQuery = (query: string) => query.trim().toLowerCase()
 
+const toUrlString = (input: RequestInfo | URL) => {
+  if (input instanceof Request) {
+    return input.url
+  }
+
+  return typeof input === 'string' ? input : input.toString()
+}
+
 const toOpenMeteoPayload = (results: LocationSearchResult[]) => ({
   results: results.map((result) => ({
     name: result.name,
@@ -93,6 +101,7 @@ const toOpenMeteoPayload = (results: LocationSearchResult[]) => ({
 })
 
 export type WeatherBackendTestHarness = {
+  baseUrl: string
   env: WorkerEnv
   fetch: ReturnType<typeof vi.fn>
   seedSavedPlaces(places: LocationSearchResult[]): Promise<void>
@@ -101,8 +110,11 @@ export type WeatherBackendTestHarness = {
 
 export const createWeatherBackendTestHarness = (options?: {
   initialSavedPlaces?: LocationSearchResult[]
+  cacheLookupFailures?: Record<string, number>
   searchFixtures?: Record<string, SearchFixture>
 }) => {
+  const baseUrl = 'http://weather.test'
+  const cacheLookupFailures = options?.cacheLookupFailures ?? {}
   const searchFixtures = options?.searchFixtures ?? {}
   const env = {
     DEFAULT_PLACES_SCOPE: 'default',
@@ -113,7 +125,7 @@ export const createWeatherBackendTestHarness = (options?: {
   } as Partial<WorkerEnv>
 
   const upstreamSearchFetch = vi.fn(async (input: RequestInfo | URL) => {
-    const url = new URL(typeof input === 'string' ? input : input.toString())
+    const url = new URL(toUrlString(input))
     const query = normalizeQuery(url.searchParams.get('name') ?? '')
     const fixture = searchFixtures[query] ?? { results: [] }
 
@@ -124,9 +136,6 @@ export const createWeatherBackendTestHarness = (options?: {
       },
     })
   })
-
-  env.fetchImpl = upstreamSearchFetch
-
   const getEnv = () => env as WorkerEnv
 
   env.SEARCH_CACHE = new FakeDurableObjectNamespace(
@@ -139,25 +148,37 @@ export const createWeatherBackendTestHarness = (options?: {
   )
 
   const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const urlValue = input instanceof Request
-      ? input.url
-      : typeof input === 'string'
-        ? input
-        : input.toString()
+    const urlValue = toUrlString(input)
     const url = new URL(urlValue, 'http://weather.test')
     const request = input instanceof Request
       ? input
       : new Request(url.toString(), init)
 
-    if (!url.pathname.startsWith('/api/')) {
-      return new Response('Not found', { status: 404 })
+    if (url.pathname.startsWith('/api/')) {
+      const query = normalizeQuery(url.searchParams.get('q') ?? '')
+      const cacheFailureStatus = request.method === 'GET' ? cacheLookupFailures[query] : null
+
+      if (cacheFailureStatus) {
+        return new Response(JSON.stringify({ error: `Weather backend responded with ${cacheFailureStatus}` }), {
+          status: cacheFailureStatus,
+          headers: {
+            'content-type': 'application/json',
+          },
+        })
+      }
+
+      return await backendWorker.fetch(request, env as WorkerEnv)
     }
 
-    return await backendWorker.fetch(request, env as WorkerEnv)
+    if (url.origin === 'https://geocoding-api.open-meteo.com') {
+      return await upstreamSearchFetch(request)
+    }
+
+    return new Response('Not found', { status: 404 })
   })
 
   const seedSavedPlaces = async (places: LocationSearchResult[]) => {
-    await fetch('http://weather.test/api/places?scope=default', {
+    await fetch(`${baseUrl}/api/places?scope=default`, {
       method: 'PUT',
       headers: {
         'content-type': 'application/json',
@@ -167,6 +188,7 @@ export const createWeatherBackendTestHarness = (options?: {
   }
 
   const harness: WeatherBackendTestHarness = {
+    baseUrl,
     env: env as WorkerEnv,
     fetch,
     async seedSavedPlaces(places) {

@@ -18,7 +18,23 @@ type SavedPlacesResponse = {
   places: SavedPlaceRecord[]
 }
 
+export interface WeatherBackendApi {
+  source_name: 'weatherBackend'
+  errors_fields: string[]
+  lookupLocationSearchCache(query: string): Promise<SearchResponse>
+  storeLocationSearchCache(query: string, results: LocationSearchResult[]): Promise<void>
+  fetchSavedSearchLocations(scope?: string): Promise<LocationSearchResult[]>
+  saveSavedSearchLocation(
+    place: LocationSearchResult,
+    scope?: string,
+  ): Promise<LocationSearchResult[]>
+  removeSavedSearchLocation(placeId: string, scope?: string): Promise<LocationSearchResult[]>
+}
+
 const DEFAULT_SAVED_PLACES_SCOPE = 'default'
+
+const runtimeEnv =
+  typeof process !== 'undefined' && process?.env ? process.env : undefined
 
 const isLocationSearchResult = (value: unknown): value is LocationSearchResult => {
   if (!value || typeof value !== 'object') {
@@ -44,17 +60,32 @@ const toLocationSearchResults = (value: unknown): LocationSearchResult[] => {
   return value.filter(isLocationSearchResult)
 }
 
-const resolveWeatherBackendBaseUrl = () => {
+export const resolveWeatherBackendBaseUrl = (override?: string | null) => {
+  if (typeof override === 'string' && override.trim()) {
+    return override.trim()
+  }
+
   const globalBaseUrl = (globalThis as { __WEATHER_BACKEND_BASE_URL__?: unknown })
     .__WEATHER_BACKEND_BASE_URL__
 
-  return typeof globalBaseUrl === 'string' ? globalBaseUrl : ''
+  if (typeof globalBaseUrl === 'string' && globalBaseUrl.trim()) {
+    return globalBaseUrl.trim()
+  }
+
+  const envBaseUrl = runtimeEnv?.WEATHER_BACKEND_BASE_URL
+  return typeof envBaseUrl === 'string' && envBaseUrl.trim() ? envBaseUrl.trim() : null
 }
 
-const buildWeatherBackendUrl = (path: string) => {
-  const baseUrl = resolveWeatherBackendBaseUrl()
+const buildWeatherBackendUrl = (baseUrl: string, path: string) => {
+  if (baseUrl === '/') {
+    return path
+  }
 
-  return baseUrl ? new URL(path, baseUrl).toString() : path
+  if (/^https?:\/\//i.test(baseUrl)) {
+    return new URL(path, baseUrl).toString()
+  }
+
+  return `${baseUrl.replace(/\/+$/, '')}${path}`
 }
 
 const readErrorMessage = async (response: Response) => {
@@ -71,10 +102,11 @@ const readErrorMessage = async (response: Response) => {
 }
 
 const requestWeatherBackendJson = async <T,>(
+  baseUrl: string,
   path: string,
   init?: RequestInit,
 ): Promise<T> => {
-  const response = await fetch(buildWeatherBackendUrl(path), init)
+  const response = await fetch(buildWeatherBackendUrl(baseUrl, path), init)
 
   if (!response.ok) {
     throw new Error(await readErrorMessage(response))
@@ -83,58 +115,65 @@ const requestWeatherBackendJson = async <T,>(
   return await response.json() as T
 }
 
-export const fetchLocationSearchResultsFromBackend = async (
-  query: string,
-): Promise<LocationSearchResult[]> => {
-  const params = new URLSearchParams({ q: query.trim() })
-  const payload = await requestWeatherBackendJson<SearchResponse>(
-    `/api/locations/search?${params.toString()}`,
-  )
-
-  return toLocationSearchResults(payload.results)
-}
-
-export const fetchSavedSearchLocations = async (
-  scope = DEFAULT_SAVED_PLACES_SCOPE,
-): Promise<LocationSearchResult[]> => {
-  const params = new URLSearchParams({ scope })
-  const payload = await requestWeatherBackendJson<SavedPlacesResponse>(
-    `/api/places?${params.toString()}`,
-  )
-
-  return toLocationSearchResults(payload.places)
-}
-
-export const saveSavedSearchLocation = async (
-  place: LocationSearchResult,
-  scope = DEFAULT_SAVED_PLACES_SCOPE,
-): Promise<LocationSearchResult[]> => {
-  const params = new URLSearchParams({ scope })
-  const payload = await requestWeatherBackendJson<SavedPlacesResponse>(
-    `/api/places?${params.toString()}`,
-    {
-      method: 'POST',
+export const createWeatherBackendApi = (baseUrl: string): WeatherBackendApi => ({
+  source_name: 'weatherBackend',
+  errors_fields: [],
+  async lookupLocationSearchCache(query) {
+    const params = new URLSearchParams({ q: query.trim() })
+    return await requestWeatherBackendJson<SearchResponse>(
+      baseUrl,
+      `/api/locations/search?${params.toString()}`,
+    )
+  },
+  async storeLocationSearchCache(query, results) {
+    const params = new URLSearchParams({ q: query.trim() })
+    const response = await fetch(buildWeatherBackendUrl(baseUrl, `/api/locations/search?${params.toString()}`), {
+      method: 'PUT',
       headers: {
         'content-type': 'application/json',
       },
-      body: JSON.stringify(place),
-    },
-  )
+      body: JSON.stringify({ results }),
+    })
 
-  return toLocationSearchResults(payload.places)
-}
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response))
+    }
+  },
+  async fetchSavedSearchLocations(scope = DEFAULT_SAVED_PLACES_SCOPE) {
+    const params = new URLSearchParams({ scope })
+    const payload = await requestWeatherBackendJson<SavedPlacesResponse>(
+      baseUrl,
+      `/api/places?${params.toString()}`,
+    )
 
-export const removeSavedSearchLocation = async (
-  placeId: string,
-  scope = DEFAULT_SAVED_PLACES_SCOPE,
-): Promise<LocationSearchResult[]> => {
-  const params = new URLSearchParams({ scope })
-  const payload = await requestWeatherBackendJson<SavedPlacesResponse>(
-    `/api/places/${encodeURIComponent(placeId)}?${params.toString()}`,
-    {
-      method: 'DELETE',
-    },
-  )
+    return toLocationSearchResults(payload.places)
+  },
+  async saveSavedSearchLocation(place, scope = DEFAULT_SAVED_PLACES_SCOPE) {
+    const params = new URLSearchParams({ scope })
+    const payload = await requestWeatherBackendJson<SavedPlacesResponse>(
+      baseUrl,
+      `/api/places?${params.toString()}`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(place),
+      },
+    )
 
-  return toLocationSearchResults(payload.places)
-}
+    return toLocationSearchResults(payload.places)
+  },
+  async removeSavedSearchLocation(placeId, scope = DEFAULT_SAVED_PLACES_SCOPE) {
+    const params = new URLSearchParams({ scope })
+    const payload = await requestWeatherBackendJson<SavedPlacesResponse>(
+      baseUrl,
+      `/api/places/${encodeURIComponent(placeId)}?${params.toString()}`,
+      {
+        method: 'DELETE',
+      },
+    )
+
+    return toLocationSearchResults(payload.places)
+  },
+})

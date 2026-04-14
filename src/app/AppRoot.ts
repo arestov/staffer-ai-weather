@@ -3,11 +3,7 @@ import { merge as mergeDcl } from 'dkt/dcl/merge.js'
 import { SessionRoot } from './SessionRoot'
 import { SelectedLocation, WeatherLocation } from './rels'
 import type { LocationSearchResult } from './rels/location-models'
-import {
-  fetchSavedSearchLocations,
-  removeSavedSearchLocation,
-  saveSavedSearchLocation,
-} from '../worker/weather-backend-api'
+import type { WeatherBackendApi } from '../worker/weather-backend-api'
 import {
   SELECTED_LOCATION_CREATION_SHAPE,
   WEATHER_LOCATION_BASE_CREATION_SHAPE,
@@ -165,35 +161,49 @@ const app_props = mergeDcl({
         ['weatherLoaderSource'] as const,
         (weatherLoaderSource: unknown) => weatherLoaderSource,
       ],
+      weatherBackend: [
+        ['_node_id'] as const,
+        ['weatherBackendSource'] as const,
+        (weatherBackendSource: unknown) => weatherBackendSource,
+      ],
     },
     out: {
       syncSavedSearchLocations: {
         api: ['self'],
         trigger: ['savedSearchLocationsSyncRequest'],
-        require: ['savedSearchLocationsSyncRequest'],
+        require: ['savedSearchLocationsSyncRequest', 'savedSearchLocations'],
         create_when: {
           api_inits: true,
         },
         is_async: true,
         fn: [
-          ['savedSearchLocationsSyncRequest'] as const,
+          ['savedSearchLocationsSyncRequest', 'savedSearchLocations'] as const,
           async (
             self: {
               dispatch: (actionName: string, payload?: unknown) => Promise<void> | void
+              getInterface: (interfaceName: string) => unknown
             },
             _task: unknown,
             savedSearchLocationsSyncRequest: unknown,
+            savedSearchLocations: unknown,
           ) => {
             if (!isSavedSearchLocationsSyncRequest(savedSearchLocationsSyncRequest)) {
               return
             }
 
+            const weatherBackend = (
+              self.getInterface('weatherBackend') ??
+              self.getInterface('weatherBackendSource')
+            ) as WeatherBackendApi | null
+
             try {
-              const places = savedSearchLocationsSyncRequest.kind === 'load'
-                ? await fetchSavedSearchLocations()
-                : savedSearchLocationsSyncRequest.kind === 'save'
-                  ? await saveSavedSearchLocation(savedSearchLocationsSyncRequest.place)
-                  : await removeSavedSearchLocation(savedSearchLocationsSyncRequest.placeId)
+              const places = weatherBackend
+                ? savedSearchLocationsSyncRequest.kind === 'load'
+                  ? await weatherBackend.fetchSavedSearchLocations()
+                  : savedSearchLocationsSyncRequest.kind === 'save'
+                    ? await weatherBackend.saveSavedSearchLocation(savedSearchLocationsSyncRequest.place)
+                    : await weatherBackend.removeSavedSearchLocation(savedSearchLocationsSyncRequest.placeId)
+                : getLocationSearchResults(savedSearchLocations)
 
               await self.dispatch('applySavedSearchLocationsSyncResult', {
                 requestId: savedSearchLocationsSyncRequest.requestId,

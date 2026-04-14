@@ -17,8 +17,18 @@ export const createWeatherAppSession = (): WeatherAppSession => {
     throw new Error('SharedWorker is required in this browser')
   }
 
+  const workerUrl = new URL('../worker/shared-worker.ts', import.meta.url)
+  const weatherBackendBaseUrl = typeof import.meta.env.VITE_WEATHER_BACKEND_URL === 'string' &&
+    import.meta.env.VITE_WEATHER_BACKEND_URL.trim()
+    ? import.meta.env.VITE_WEATHER_BACKEND_URL.trim()
+    : null
+
+  if (weatherBackendBaseUrl) {
+    workerUrl.searchParams.set('weatherBackendBaseUrl', weatherBackendBaseUrl)
+  }
+
   const worker = new SharedWorker(
-    new URL('../worker/shared-worker.ts', import.meta.url),
+    workerUrl,
     {
       type: 'module',
       name: 'weather-shared-worker',

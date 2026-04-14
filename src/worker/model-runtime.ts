@@ -13,6 +13,11 @@ import { AppRoot } from '../app/AppRoot'
 import { createSessionManager } from './session-manager'
 import { createLocationSearchApi } from './location-search-api'
 import { createWeatherLoaderApi, fetchWeatherFromOpenMeteo } from './weather-api'
+import {
+  createWeatherBackendApi,
+  resolveWeatherBackendBaseUrl,
+  type WeatherBackendApi,
+} from './weather-backend-api'
 
 type RuntimeModelLike = {
   _node_id?: string | null
@@ -50,6 +55,7 @@ type WeatherRuntimeLike = {
       }
       locationSearchSource: ReturnType<typeof createLocationSearchApi>
       weatherLoaderSource: ReturnType<typeof createWeatherLoaderApi>
+      weatherBackendSource?: WeatherBackendApi
     }
   }) => Promise<{
     app_model: RuntimeModelLike
@@ -167,7 +173,9 @@ const createWorkerStream = (
   },
 })
 
-export const createWeatherModelRuntime = () => {
+export const createWeatherModelRuntime = (options?: {
+  weatherBackendBaseUrl?: string | null
+}) => {
   let current_app: WeatherAppRuntime | null = null
   let booting = false
   let liveUpdateTimer: ReturnType<typeof setTimeout> | null = null
@@ -268,6 +276,12 @@ export const createWeatherModelRuntime = () => {
         }
       },
     }) as unknown as WeatherRuntimeLike
+    const weatherBackendBaseUrl = resolveWeatherBackendBaseUrl(
+      options?.weatherBackendBaseUrl,
+    )
+    const weatherBackendSource = weatherBackendBaseUrl
+      ? createWeatherBackendApi(weatherBackendBaseUrl)
+      : null
     const inited = await runtime.start({
       App: AppRoot,
       interfaces: {
@@ -276,8 +290,11 @@ export const createWeatherModelRuntime = () => {
           considerOwnerAsImportant() {},
           stopRequests() {},
         },
-        locationSearchSource: createLocationSearchApi(),
+        locationSearchSource: createLocationSearchApi({
+          weatherBackend: weatherBackendSource,
+        }),
         weatherLoaderSource: createWeatherLoaderApi(),
+        ...(weatherBackendSource ? { weatherBackendSource } : {}),
       },
     })
 
