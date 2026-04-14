@@ -1,6 +1,6 @@
 import { ScopeContext } from '../../dkt-react-sync/context/ScopeContext'
 import { useReactScopeRuntime } from '../../dkt-react-sync/hooks/useReactScopeRuntime'
-import { useShape } from '../hooks/useShape'
+import { useShape } from '../../dkt-react-sync/hooks/useShape'
 import { getRelShape } from '../shape/autoShapes'
 import { useScope } from '../../dkt-react-sync/hooks/useScope'
 import { useSyncExternalStore } from 'react'
@@ -47,6 +47,7 @@ export const Many = ({
     </>
   )
 }
+
 
 
 

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useShape } from '../hooks/useShape'
+import { useShape } from '../../dkt-react-sync/hooks/useShape'
 import type { DefinedReactShape } from './defineShape'
 
 export const MountedShape = ({
@@ -13,3 +13,4 @@ export const MountedShape = ({
 
   return <>{children}</>
 }
+

@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { getAttrsShape } from '../../react-sync/shape/autoShapes'
 import { useReactScopeRuntime } from '../../dkt-react-sync/hooks/useReactScopeRuntime'
-import { useShape } from '../../react-sync/hooks/useShape'
+import { useShape } from './useShape'
 import { useScope } from '../../dkt-react-sync/hooks/useScope'
 
 const normalizeFields = (fields: readonly string[]) =>
@@ -26,6 +26,7 @@ export const useAttrs = (fields: readonly string[]) => {
     () => runtime.readAttrs(resolvedScope, normalizedFields),
   )
 }
+
 
 
 
