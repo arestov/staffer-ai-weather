@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react'
-import type { LocationSearchResult } from '../app/rels/location-models'
+import type { LocationSearchResult } from '../models/WeatherLocation'
 
 type SelectedLocationSearchPanelProps = {
   isEditingLocation: boolean
@@ -217,3 +217,4 @@ export function SelectedLocationSearchPanel({
     </section>
   )
 }
+
