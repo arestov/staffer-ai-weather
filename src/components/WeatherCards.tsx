@@ -1,7 +1,7 @@
-import { One } from '../../react-sync/components/One'
-import { Many } from '../../react-sync/components/Many'
-import { defineShape, shapeOf } from '../../react-sync/shape/defineShape'
-import { useAttrs } from '../../react-sync/hooks/useAttrs'
+import { One } from '../react-sync/components/One'
+import { Many } from '../react-sync/components/Many'
+import { defineShape, shapeOf } from '../react-sync/shape/defineShape'
+import { useAttrs } from '../react-sync/hooks/useAttrs'
 
 const LOCATION_PLACEHOLDER_KEYS = ['north', 'center', 'south'] as const
 const FORECAST_PLACEHOLDER_KEYS = ['now', 'soon', 'later'] as const

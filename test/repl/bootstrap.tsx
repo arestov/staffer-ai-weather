@@ -1,5 +1,5 @@
 import { createRoot, type Root } from 'react-dom/client'
-import App from '../../src/App'
+import App from '../../src/components/App'
 import { AppRoot } from '../../src/app/AppRoot'
 import { createPageSyncReceiverRuntime } from '../../src/page/createPageSyncReceiverRuntime'
 import type { ReactSyncTransportMessage } from '../../src/shared/messageTypes'

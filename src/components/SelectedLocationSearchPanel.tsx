@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react'
-import type { LocationSearchResult } from '../rels/location-models'
+import type { LocationSearchResult } from '../app/rels/location-models'
 
 type SelectedLocationSearchPanelProps = {
   isEditingLocation: boolean

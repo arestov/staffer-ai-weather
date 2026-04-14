@@ -1,8 +1,8 @@
-import { RootScope } from './react-sync/scope/RootScope'
-import type { WeatherAppSession } from './page/createWeatherAppSession'
-import { useSyncRoot } from './page/react/useSyncRoot'
-import { AppHeader } from './app/components/AppHeader'
-import { DEFAULT_FORECAST_LIMIT, WeatherGraph } from './app/components/WeatherGraph'
+import { RootScope } from '../react-sync/scope/RootScope'
+import type { WeatherAppSession } from '../page/createWeatherAppSession'
+import { useSyncRoot } from '../page/react/useSyncRoot'
+import { AppHeader } from './AppHeader'
+import { DEFAULT_FORECAST_LIMIT, WeatherGraph } from './WeatherGraph'
 
 export default function App({
   session,
