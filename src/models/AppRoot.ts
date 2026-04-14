@@ -5,6 +5,7 @@ import { SelectedLocation } from './SelectedLocation'
 import { WeatherLocation } from './WeatherLocation'
 import type { LocationSearchResult } from './WeatherLocation'
 import type { WeatherBackendApi } from '../worker/weather-backend-api'
+import type { GeoLocationApi } from '../worker/geo-location-api'
 import {
   SELECTED_LOCATION_CREATION_SHAPE,
   WEATHER_LOCATION_BASE_CREATION_SHAPE,
@@ -167,6 +168,11 @@ const app_props = mergeDcl({
         ['weatherBackendSource'] as const,
         (weatherBackendSource: unknown) => weatherBackendSource,
       ],
+      geoLocation: [
+        ['_node_id'] as const,
+        ['geoLocationSource'] as const,
+        (geoLocationSource: unknown) => geoLocationSource,
+      ],
     },
     out: {
       syncSavedSearchLocations: {
@@ -219,6 +225,46 @@ const app_props = mergeDcl({
           },
         ],
       },
+      autoDetectMainLocation: {
+        api: ['self'],
+        trigger: ['autoGeoStatus'],
+        require: ['autoGeoStatus'],
+        create_when: {
+          api_inits: true,
+        },
+        is_async: true,
+        fn: [
+          ['autoGeoStatus'] as const,
+          async (
+            self: {
+              dispatch: (actionName: string, payload?: unknown) => Promise<void> | void
+              getInterface: (interfaceName: string) => unknown
+            },
+            _task: unknown,
+            autoGeoStatus: unknown,
+          ) => {
+            if (autoGeoStatus !== 'pending') {
+              return
+            }
+
+            const geoLocation = (
+              self.getInterface('geoLocation') ??
+              self.getInterface('geoLocationSource')
+            ) as GeoLocationApi | null
+
+            if (!geoLocation) {
+              return
+            }
+
+            try {
+              const result = await geoLocation.detectLocation()
+              await self.dispatch('applyAutoDetectedLocation', result)
+            } catch (error) {
+              await self.dispatch('failAutoGeoDetection', toErrorMessage(error))
+            }
+          },
+        ],
+      },
     },
   },
   rels: {
@@ -253,6 +299,8 @@ const app_props = mergeDcl({
     savedSearchLocationsSyncError: ['input', null],
     savedSearchLocationsSyncRequest: ['input', null],
     activeSavedSearchLocationsSyncRequestId: ['input', 0],
+    autoGeoStatus: ['input', 'idle'],
+    autoGeoError: ['input', null],
   },
   actions: {
     setWeatherLoadState: {
@@ -360,6 +408,16 @@ const app_props = mergeDcl({
             }
           },
         ],
+      },
+      {
+        to: {
+          autoGeoStatus: ['autoGeoStatus'],
+          autoGeoError: ['autoGeoError'],
+        },
+        fn: () => ({
+          autoGeoStatus: 'pending',
+          autoGeoError: null,
+        }),
       },
     ],
     setLocation: {
@@ -551,9 +609,35 @@ const app_props = mergeDcl({
         },
       ],
     },
+    applyAutoDetectedLocation: {
+      to: {
+        autoGeoStatus: ['autoGeoStatus'],
+        autoGeoError: ['autoGeoError'],
+        applyAutoLocation: ['<< mainLocation', { action: 'applyAutoLocation', inline_subwalker: true }],
+      },
+      fn: (payload: unknown) => {
+        if (!isLocationSearchResult(payload)) {
+          return {}
+        }
+
+        return {
+          autoGeoStatus: 'done',
+          autoGeoError: null,
+          applyAutoLocation: payload,
+        }
+      },
+    },
+    failAutoGeoDetection: {
+      to: {
+        autoGeoStatus: ['autoGeoStatus'],
+        autoGeoError: ['autoGeoError'],
+      },
+      fn: (payload: unknown) => ({
+        autoGeoStatus: 'error',
+        autoGeoError: typeof payload === 'string' ? payload : toErrorMessage(payload),
+      }),
+    },
   },
 })
 
 export const AppRoot = appRoot(app_props, app_props.init)
-
-

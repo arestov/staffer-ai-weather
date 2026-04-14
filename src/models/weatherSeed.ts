@@ -5,7 +5,10 @@ const INITIAL_LOCATIONS = [
   { name: 'Lisbon', latitude: 38.7223, longitude: -9.1393, timezone: 'Europe/Lisbon' },
 ]
 
-export const buildSelectedLocationRecord = (weatherLocation: unknown) => ({
+export const buildSelectedLocationRecord = (weatherLocation: unknown, isAutoSelected = false) => ({
+  attrs: {
+    isAutoSelected,
+  },
   rels: {
     weatherLocation,
   },
@@ -30,7 +33,7 @@ export const buildInitialSelectedLocations = (weatherLocations: unknown[]) => {
     weatherLocations
 
   return [
-    buildSelectedLocationRecord(mainWeather),
+    buildSelectedLocationRecord(mainWeather, true),
     buildSelectedLocationRecord(berlinWeather),
     buildSelectedLocationRecord(portlandWeather),
     buildSelectedLocationRecord(lisbonWeather),
@@ -42,6 +45,7 @@ export const WEATHER_LOCATION_BASE_CREATION_SHAPE = {
 }
 
 export const SELECTED_LOCATION_CREATION_SHAPE = {
+  attrs: ['isAutoSelected'],
   rels: {
     weatherLocation: {},
   },

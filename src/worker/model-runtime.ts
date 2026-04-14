@@ -13,6 +13,7 @@ import { AppRoot } from '../models/AppRoot'
 import { createSessionManager } from './session-manager'
 import { createLocationSearchApi } from './location-search-api'
 import { createWeatherLoaderApi, fetchWeatherFromOpenMeteo } from './weather-api'
+import { createGeoLocationApi } from './geo-location-api'
 import {
   createScopedWeatherBackendApi,
   createWeatherBackendApi,
@@ -57,6 +58,7 @@ type WeatherRuntimeLike = {
       locationSearchSource: ReturnType<typeof createLocationSearchApi>
       weatherLoaderSource: ReturnType<typeof createWeatherLoaderApi>
       weatherBackendSource?: WeatherBackendApi
+      geoLocationSource?: ReturnType<typeof createGeoLocationApi>
     }
   }) => Promise<{
     app_model: RuntimeModelLike
@@ -430,6 +432,7 @@ export const createWeatherModelRuntime = (options?: {
           }),
           weatherLoaderSource: createWeatherLoaderApi(),
           ...(scopedWeatherBackend ? { weatherBackendSource: scopedWeatherBackend } : {}),
+          geoLocationSource: createGeoLocationApi(),
         },
       })
 
