@@ -883,18 +883,32 @@ h1 {
   background: var(--surface-sky-tint);
 }
 
-.selected-location-popover__edit-trigger,
+button.selected-location-popover__edit-trigger,
 .selected-location-search__controls > button:not(.secondary) {
   background: var(--color-signal);
   border-color: transparent;
   color: var(--color-ink);
+  box-shadow: none;
 }
 
-.selected-location-popover__close {
+button.selected-location-popover__edit-trigger:hover,
+.selected-location-search__controls > button:not(.secondary):hover {
+  background: var(--color-signal);
+  border-color: transparent;
+  box-shadow: 0 10px 24px rgb(var(--color-signal-rgb) / 0.28);
+}
+
+button.selected-location-popover__close {
   background: var(--color-ink);
   border-color: transparent;
   color: var(--color-paper);
   box-shadow: none;
+}
+
+button.selected-location-popover__close:hover {
+  background: var(--color-ink);
+  border-color: transparent;
+  box-shadow: 0 10px 24px rgb(var(--color-ink-rgb) / 0.18);
 }
 
 .graph-fallback {
