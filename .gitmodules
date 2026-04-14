@@ -1,0 +1,3 @@
+[submodule "weather-backend"]
+	path = weather-backend
+	url = https://github.com/arestov/staffer-ai-weather-backend.git
