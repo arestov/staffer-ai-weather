@@ -1,6 +1,6 @@
 import { RootScope } from '../dkt-react-sync/scope/RootScope'
 import type { WeatherAppSession } from '../page/createWeatherAppSession'
-import { useSyncRoot } from '../page/react/useSyncRoot'
+import { useSyncRoot } from '../dkt-react-sync/hooks/useSyncRoot'
 import { AppHeader } from './AppHeader'
 import { DEFAULT_FORECAST_LIMIT, WeatherGraph } from './WeatherGraph'
 
@@ -33,4 +33,5 @@ export default function App({
     </main>
   )
 }
+
 

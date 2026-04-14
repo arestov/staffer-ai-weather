@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import type { PageSyncRuntime } from '../../dkt-react-sync/runtime/PageSyncRuntime'
+import type { PageSyncRuntime } from '../runtime/PageSyncRuntime'
 
 export const useModelAttrs = (
   runtime: PageSyncRuntime,
@@ -10,3 +10,4 @@ export const useModelAttrs = (
     () => runtime.getRootAttrs(attrNames),
     () => runtime.getRootAttrs(attrNames),
   )
+

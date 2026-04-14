@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import type { PageSyncRuntime } from '../../dkt-react-sync/runtime/PageSyncRuntime'
+import type { PageSyncRuntime } from '../runtime/PageSyncRuntime'
 
 export const useSyncRoot = (runtime: PageSyncRuntime) =>
   useSyncExternalStore(
@@ -7,3 +7,4 @@ export const useSyncRoot = (runtime: PageSyncRuntime) =>
     runtime.getSnapshot,
     runtime.getSnapshot,
   )
+
