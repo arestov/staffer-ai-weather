@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { ReactScopeRuntimeContext } from '../../dkt-react-sync/context/ReactScopeRuntimeContext'
-import { ScopeContext } from '../context/ScopeContext'
+import { ScopeContext } from '../../dkt-react-sync/context/ScopeContext'
 import type { ReactScopeRuntime } from '../runtime/ReactScopeRuntime'
 
 export const RootScope = ({
@@ -22,4 +22,5 @@ export const RootScope = ({
     </ReactScopeRuntimeContext.Provider>
   )
 }
+
 

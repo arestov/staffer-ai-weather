@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { ScopeContext } from '../context/ScopeContext'
+import { ScopeContext } from '../../dkt-react-sync/context/ScopeContext'
 import { useReactScopeRuntime } from '../hooks/useReactScopeRuntime'
 import { useShape } from '../hooks/useShape'
 import { getRelShape } from '../shape/autoShapes'
@@ -32,3 +32,4 @@ export const One = ({
 
   return <ScopeContext.Provider value={childScope}>{children}</ScopeContext.Provider>
 }
+
