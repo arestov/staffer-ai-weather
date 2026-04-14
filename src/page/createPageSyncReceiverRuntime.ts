@@ -7,7 +7,7 @@ import {
   ShapeRegistry,
   type ShapeRegistryRuntime,
   type ReactTransportShape,
-} from '../react-sync/shape/ShapeRegistry'
+} from '../dkt-react-sync/shape/ShapeRegistry'
 import { APP_MSG, RUNTIME_LOG_SCOPE } from '../shared/messageTypes'
 import type { ReactSyncTransportMessage } from '../shared/messageTypes'
 import { createSyncStore, type SyncStore } from './createSyncStore'
@@ -341,5 +341,6 @@ export const createPageSyncReceiverRuntime = ({
     },
   }
 }
+
 
 
