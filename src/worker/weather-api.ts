@@ -1,4 +1,4 @@
-import type { ApplyWeatherPayload } from '../app/rels/location-models'
+import type { ApplyWeatherPayload } from '../models/WeatherLocation'
 
 export interface WeatherLoaderApi {
   source_name: 'weatherLoader'
@@ -106,3 +106,4 @@ export const createWeatherLoaderApi = (): WeatherLoaderApi => ({
     return fetchWeatherFromOpenMeteo(latitude, longitude)
   },
 })
+
