@@ -153,18 +153,13 @@ export function SelectedLocationPopoverLayer({
     const showWithSource = (
       node: HTMLElement,
       triggerButton: HTMLButtonElement | null,
-      shouldRefresh = false,
     ) => {
       if (typeof node.showPopover !== 'function') {
         return
       }
 
-      if (isOpen(node) && !shouldRefresh) {
+      if (isOpen(node)) {
         return
-      }
-
-      if (isOpen(node) && shouldRefresh && typeof node.hidePopover === 'function') {
-        node.hidePopover()
       }
 
       try {
@@ -181,7 +176,12 @@ export function SelectedLocationPopoverLayer({
       ) as HTMLButtonElement | null
 
       showWithSource(popoverNode, triggerButton)
-      showWithSource(arrowNode, triggerButton, true)
+      // The arrow element is keyed by currentNodeId (see JSX below), so React
+      // remounts the DOM node when switching locations. This forces the browser
+      // to resolve position-anchor from scratch — required because Firefox
+      // caches the resolved anchor target and never recalculates it, even after
+      // a hide/show cycle or requestAnimationFrame yield.
+      showWithSource(arrowNode, triggerButton)
       return
     }
 
@@ -281,7 +281,18 @@ export function SelectedLocationPopoverLayer({
         ) : null}
       </section>
 
+      {/* The arrow is a separate popover element because CSS anchor positioning
+          does not work for elements nested inside another anchor-positioned
+          popover — a known browser implementation bug (as of 2025). Nesting the
+          arrow inside the main popover causes it to lose its anchor reference.
+
+          The arrow is keyed by currentNodeId to force a full DOM remount when
+          switching locations. Firefox caches the resolved position-anchor target
+          and does not recalculate it — not even after hide()/show() or a rAF
+          yield. Destroying and recreating the element is the only reliable way
+          to make Firefox pick up the new anchor. */}
       <section
+        key={currentNodeId ?? undefined}
         ref={arrowPopoverRef}
         id={SELECTED_LOCATION_POPOVER_ARROW_ID}
         popover="manual"
