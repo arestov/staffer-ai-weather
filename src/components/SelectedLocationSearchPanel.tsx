@@ -1,4 +1,4 @@
-import { useId, type FormEvent } from 'react'
+import { memo, useId, type FormEvent } from 'react'
 import type { LocationSearchResult } from '../models/WeatherLocation'
 
 type SelectedLocationSearchPanelProps = {
@@ -20,7 +20,7 @@ type SelectedLocationSearchPanelProps = {
   onRemoveSavedResult: (resultId: string) => void
 }
 
-export function SelectedLocationSearchPanel({
+export const SelectedLocationSearchPanel = memo(function SelectedLocationSearchPanel({
   isEditingLocation,
   searchQuery,
   searchStatus,
@@ -261,5 +261,5 @@ export function SelectedLocationSearchPanel({
       </div>
     </section>
   )
-}
+})
 

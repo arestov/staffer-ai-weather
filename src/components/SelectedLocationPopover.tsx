@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, type FormEvent } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { One } from '../dkt-react-sync/components/One'
 import { ScopeContext } from '../dkt-react-sync/context/ScopeContext'
@@ -354,23 +354,26 @@ function SelectedLocationPopover({
     }
   }
 
-  const handleQueryChange = (query: string) => {
-    clearSearchDebounce()
-    dispatch('updateLocationSearchQuery', query)
+  const handleQueryChange = useCallback(
+    (query: string) => {
+      clearSearchDebounce()
+      dispatch('updateLocationSearchQuery', query)
 
-    const normalizedQuery = query.trim()
+      const normalizedQuery = query.trim()
 
-    if (normalizedQuery.length < 3) {
-      return
-    }
+      if (normalizedQuery.length < 3) {
+        return
+      }
 
-    searchDebounceRef.current = setTimeout(() => {
-      searchDebounceRef.current = null
-      dispatch('submitLocationSearch', {
-        query: normalizedQuery,
-      })
-    }, 300)
-  }
+      searchDebounceRef.current = setTimeout(() => {
+        searchDebounceRef.current = null
+        dispatch('submitLocationSearch', {
+          query: normalizedQuery,
+        })
+      }, 300)
+    },
+    [dispatch],
+  )
 
   useLayoutEffect(() => {
     if (typeof window === 'undefined') {
@@ -399,34 +402,43 @@ function SelectedLocationPopover({
     }
   }, [selectedLocationId])
 
-  const handleSubmitSearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+  const handleSubmitSearch = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+      clearSearchDebounce()
+      dispatch('submitLocationSearch', {
+        query: searchQuery,
+      })
+    },
+    [dispatch, searchQuery],
+  )
+
+  const handleRetrySearch = useCallback(() => {
     clearSearchDebounce()
     dispatch('submitLocationSearch', {
       query: searchQuery,
     })
-  }
+  }, [dispatch, searchQuery])
 
-  const handleRetrySearch = () => {
-    clearSearchDebounce()
-    dispatch('submitLocationSearch', {
-      query: searchQuery,
-    })
-  }
+  const handleSelectLocation = useCallback(
+    (result: LocationSearchResult) => {
+      clearSearchDebounce()
+      dispatch('saveLocationSearchResult', result)
+      dispatch('selectLocationSearchResult', result)
+      onClose()
+    },
+    [dispatch, onClose],
+  )
 
-  const handleSelectLocation = (result: LocationSearchResult) => {
-    clearSearchDebounce()
-    dispatch('saveLocationSearchResult', result)
-    dispatch('selectLocationSearchResult', result)
-    onClose()
-  }
+  const forgetSearchLocation = useCallback(
+    (resultId: string) => {
+      clearSearchDebounce()
+      dispatch('removeLocationSearchResult', resultId)
+    },
+    [dispatch],
+  )
 
-  const forgetSearchLocation = (resultId: string) => {
-    clearSearchDebounce()
-    dispatch('removeLocationSearchResult', resultId)
-  }
-
-  const handleUseCurrentLocation = async () => {
+  const handleUseCurrentLocation = useCallback(async () => {
     clearSearchDebounce()
 
     try {
@@ -446,7 +458,17 @@ function SelectedLocationPopover({
 
       dispatch('requestCurrentLocationFallback')
     }
-  }
+  }, [dispatch])
+
+  const handleStartEdit = useCallback(
+    (seedQuery: string) => dispatch('startLocationEditing', { seedQuery }),
+    [dispatch],
+  )
+
+  const handleCancelEditing = useCallback(() => {
+    clearSearchDebounce()
+    dispatch('cancelLocationEditing')
+  }, [dispatch])
 
   return (
     <div
@@ -461,7 +483,7 @@ function SelectedLocationPopover({
       <ScopeContext.Provider value={selectedLocationScope}>
         <SelectedLocationPopoverHeader
           isEditingLocation={isEditingLocation}
-          onStartEdit={(seedQuery) => dispatch('startLocationEditing', { seedQuery })}
+          onStartEdit={handleStartEdit}
           onClose={onClose}
         />
 
@@ -472,7 +494,7 @@ function SelectedLocationPopover({
 
         {!isEditingLocation ? (
           <SelectedLocationPopoverSearchTrigger
-            onStartEdit={(seedQuery) => dispatch('startLocationEditing', { seedQuery })}
+            onStartEdit={handleStartEdit}
           />
         ) : null}
       </ScopeContext.Provider>
@@ -490,10 +512,7 @@ function SelectedLocationPopover({
         onRetrySearch={handleRetrySearch}
         onQueryChange={handleQueryChange}
         onUseCurrentLocation={handleUseCurrentLocation}
-        onCancel={() => {
-          clearSearchDebounce()
-          dispatch('cancelLocationEditing')
-        }}
+        onCancel={handleCancelEditing}
         onSelectResult={handleSelectLocation}
         onSelectSavedResult={handleSelectLocation}
         onRemoveSavedResult={forgetSearchLocation}
@@ -530,7 +549,7 @@ function SelectedLocationPopoverSearchTrigger({
   )
 }
 
-function SelectedLocationPopoverHeader({
+const SelectedLocationPopoverHeader = memo(function SelectedLocationPopoverHeader({
   isEditingLocation,
   onStartEdit,
   onClose,
@@ -569,7 +588,7 @@ function SelectedLocationPopoverHeader({
       </button>
     </div>
   )
-}
+})
 
 function SelectedLocationPopoverWeatherSection({
   isEditingLocation,

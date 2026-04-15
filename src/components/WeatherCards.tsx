@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { One } from '../dkt-react-sync/components/One'
 import { Many } from '../dkt-react-sync/components/Many'
 import { defineShape, shapeOf } from '../dkt-react-sync/shape/defineShape'
@@ -133,7 +134,7 @@ export const ForecastCard = shapeOf(function ForecastCard() {
   )
 }, ForecastShape)
 
-export function WeatherReadoutFallback() {
+export const WeatherReadoutFallback = memo(function WeatherReadoutFallback() {
   return (
     <div className="weather-readout weather-readout--location weather-readout--placeholder">
       <span className="sr-only">Loading weather information.</span>
@@ -152,7 +153,7 @@ export function WeatherReadoutFallback() {
       </div>
     </div>
   )
-}
+})
 
 export function ForecastEmpty({ count }: { count: number }) {
   const keys = FORECAST_PLACEHOLDER_KEYS.slice(0, Math.max(0, count))
@@ -174,7 +175,7 @@ export function ForecastEmpty({ count }: { count: number }) {
   )
 }
 
-export function ForecastPanelsFallback({ forecastLimit = DEFAULT_FORECAST_LIMIT }: { forecastLimit?: number }) {
+export const ForecastPanelsFallback = memo(function ForecastPanelsFallback({ forecastLimit = DEFAULT_FORECAST_LIMIT }: { forecastLimit?: number }) {
   return (
     <div className="forecast-panels">
       <div>
@@ -191,7 +192,7 @@ export function ForecastPanelsFallback({ forecastLimit = DEFAULT_FORECAST_LIMIT 
       </div>
     </div>
   )
-}
+})
 
 export function LocationFallback({
   featured = false,
