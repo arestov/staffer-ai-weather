@@ -410,6 +410,17 @@ describe('Weather backend integration', () => {
     await harness.whenReady()
     await waitForWeatherLoaded(harness)
 
+    const appState = await getAppState(harness)
+    const appRoot = getAppRoot(appState)
+
+    expect(appRoot.attrs.weatherUpdatedSummary).toEqual(
+      expect.objectContaining({
+        dateTime: '2026-04-13T12:00:00.000Z',
+        shortText: expect.stringMatching(/^⟳ /),
+        title: expect.any(String),
+      }),
+    )
+
     await waitFor(
       async () => getSavedSearchLocations(await getAppState(harness as WeatherTestHarness)),
       (savedSearchLocations) => savedSearchLocations.some((item) => item.id === tokyoResult.id),

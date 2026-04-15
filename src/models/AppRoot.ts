@@ -84,6 +84,85 @@ const getNextSavedSearchLocationsSyncRequestId = (value: unknown) => {
   return typeof value === 'number' ? value + 1 : 1
 }
 
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+const formatUpdatedAt = (value: string | null): { short: string; full: string } | null => {
+  if (!value) {
+    return null
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return { short: value, full: value }
+  }
+
+  return {
+    short: `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`,
+    full: date.toLocaleString(),
+  }
+}
+
+const toSeconds = (value: unknown): string => {
+  return typeof value === 'string' ? value.replace(/\.\d+Z$/, 'Z') : ''
+}
+
+const buildWeatherUpdatedSummary = (
+  weatherFetchedAtSource: unknown,
+  namesSource: unknown,
+): { dateTime: string | null; shortText: string; title: string } | null => {
+  const weatherFetchedAtValues = Array.isArray(weatherFetchedAtSource) ? weatherFetchedAtSource : []
+  const names = Array.isArray(namesSource) ? namesSource : []
+
+  if (!weatherFetchedAtValues.length) {
+    return null
+  }
+
+  const mainTime = typeof weatherFetchedAtValues[0] === 'string' ? weatherFetchedAtValues[0] : null
+  const mainFmt = formatUpdatedAt(mainTime)
+
+  if (!mainFmt) {
+    return null
+  }
+
+  const mainSeconds = toSeconds(mainTime)
+  const allSame = weatherFetchedAtValues.every((value) => toSeconds(value) === mainSeconds)
+
+  if (allSame) {
+    return {
+      dateTime: mainTime,
+      shortText: `⟳ ${mainFmt.short}`,
+      title: `Updated: ${mainFmt.full}`,
+    }
+  }
+
+  const diffParts: string[] = []
+  const fullParts: string[] = []
+
+  for (let index = 0; index < weatherFetchedAtValues.length; index += 1) {
+    const time = typeof weatherFetchedAtValues[index] === 'string' ? weatherFetchedAtValues[index] : null
+    const fmt = formatUpdatedAt(time)
+
+    if (!fmt) {
+      continue
+    }
+
+    const nameValue = names[index]
+    const name = typeof nameValue === 'string' && nameValue ? nameValue : '?'
+
+    fullParts.push(`${name}: ${fmt.full}`)
+
+    if (toSeconds(time) !== mainSeconds) {
+      diffParts.push(`${name} ${fmt.short}`)
+    }
+  }
+
+  return {
+    dateTime: mainTime,
+    shortText: `⟳ ${mainFmt.short}${diffParts.length > 0 ? ` · ${diffParts.join(', ')}` : ''}`,
+    title: fullParts.join('\n'),
+  }
+}
+
 const isSavedSearchLocationsSyncRequest = (
   value: unknown,
 ): value is SavedSearchLocationsSyncRequest => {
@@ -292,6 +371,11 @@ const app_props = mergeDcl({
     temperatureText: ['input', '-- \u00b0C'],
     summary: ['input', 'Waiting for backend weather data'],
     updatedAt: ['input', null],
+    weatherUpdatedSummary: [
+      'comp',
+      ['< @all:weatherFetchedAt < weatherLocation', '< @all:name < weatherLocation'],
+      buildWeatherUpdatedSummary,
+    ],
     weatherLoadStatus: ['input', 'ready'],
     weatherLoadError: ['input', null],
     savedSearchLocations: ['input', []],
