@@ -48,6 +48,7 @@ const backend = spawnNpm(['--prefix', 'weather-backend', 'run', 'dev'])
 
 const frontend = spawnNpm(['run', 'dev'], {
   VITE_WEATHER_BACKEND_URL: backendUrl,
+  VITE_P2P_SIGNAL_URL: backendUrl.replace(/^http/, 'ws'),
 })
 
 let shuttingDown = false

@@ -27,6 +27,7 @@ type MockBridge = {
   /** Read captured events (callbacks given at creation) */
   events: {
     onBecomeServer: () => void
+    onBecomeClient: () => void
     onRemotePeerConnected: (remotePeerId: string) => {
       receive(msg: ReactSyncTransportMessage): void
       destroy(): void
@@ -82,6 +83,8 @@ const { createWorkerP2PBridge } = vi.hoisted(() => {
           role = newRole
           if (newRole === 'server') {
             config.events.onBecomeServer()
+          } else if (newRole === 'client') {
+            config.events.onBecomeClient()
           }
         },
         events: config.events,

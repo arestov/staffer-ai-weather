@@ -195,6 +195,12 @@ export const createP2PSessionAdapter = (
         wireAllPages()
       },
 
+      onBecomeClient() {
+        resolveRoleDecided?.('client')
+        resolveRoleDecided = null
+        wireAllPages()
+      },
+
       onRemotePeerConnected(remotePeerId: string) {
         if (!localRuntime) {
           return { receive() {}, destroy() {} }

@@ -14,6 +14,9 @@ export interface WorkerP2PBridgeEvents {
   /** Called when this worker should start the local model-runtime (became server). */
   onBecomeServer(): void
 
+  /** Called when this worker becomes a client (remote peer is the server). */
+  onBecomeClient(): void
+
   /** Called when a remote peer's DataChannel opens (server mode).
    *  Returns a transport-like object that PeerRoom feeds messages into. */
   onRemotePeerConnected(remotePeerId: string): {
@@ -74,6 +77,9 @@ export const createWorkerP2PBridge = (
   const knownMembers = new Map<string, { peerId: string; joinedAt: number; role: string }>()
   const remoteTransports = new Map<string, { receive(msg: ReactSyncTransportMessage): void; destroy(): void }>()
 
+  /** Messages queued while client DataChannel to server isn't open yet. */
+  const pendingToServer: ReactSyncTransportMessage[] = []
+
   let electionTimer: ReturnType<typeof setTimeout> | null = null
   /** True once the DO assigns a leader — disables local election. */
   let leaderAssignedByServer = false
@@ -92,6 +98,14 @@ export const createWorkerP2PBridge = (
       if (role === 'server') {
         const transport = config.events.onRemotePeerConnected(remotePeerId)
         remoteTransports.set(remotePeerId, transport)
+      }
+
+      // Flush queued client→server messages once DC to server opens
+      if (role === 'client' && remotePeerId === serverPeerId && pendingToServer.length > 0) {
+        for (const msg of pendingToServer) {
+          dc.send(JSON.stringify(msg))
+        }
+        pendingToServer.length = 0
       }
     }
 
@@ -231,6 +245,8 @@ export const createWorkerP2PBridge = (
   const becomeClient = async (targetId: string) => {
     role = 'client'
     serverPeerId = targetId
+
+    config.events.onBecomeClient()
 
     const pc = createPC(targetId, true)
     const offer = await pc.createOffer()
@@ -411,6 +427,8 @@ export const createWorkerP2PBridge = (
       const dc = dataChannels.get(serverPeerId)
       if (dc?.readyState === 'open') {
         dc.send(JSON.stringify(message))
+      } else {
+        pendingToServer.push(message)
       }
     },
 
