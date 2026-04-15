@@ -4,12 +4,10 @@ import { useLottieWeatherIcon } from '../lottie/useLottieWeatherIcon'
 export function WeatherConditionIcon({
   weatherCode,
   isDay,
-  size = 48,
   className,
 }: {
   weatherCode: number | null | undefined
   isDay: boolean | null | undefined
-  size?: number
   className?: string
 }) {
   const iconName = weatherCodeToMeteocon(weatherCode, isDay)
@@ -18,19 +16,17 @@ export function WeatherConditionIcon({
     return null
   }
 
-  return <WeatherConditionIconInner key={iconName} iconName={iconName} size={size} className={className} />
+  return <WeatherConditionIconInner key={iconName} iconName={iconName} className={className} />
 }
 
 function WeatherConditionIconInner({
   iconName,
-  size,
   className,
 }: {
   iconName: string
-  size: number
   className?: string
 }) {
-  const containerRef = useLottieWeatherIcon(iconName, size)
+  const containerRef = useLottieWeatherIcon(iconName)
 
   return (
     <div

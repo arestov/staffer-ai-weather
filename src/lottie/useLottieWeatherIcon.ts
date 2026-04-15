@@ -44,7 +44,9 @@ const getLottieModule = (): Promise<LottieModule> | null => {
  * @param size - CSS pixel size of the icon
  * @returns ref to attach to a container element (div)
  */
-export function useLottieWeatherIcon(iconName: string | null, size: number) {
+const DEFAULT_ICON_SIZE = 48
+
+export function useLottieWeatherIcon(iconName: string | null) {
   const containerRef = useRef<HTMLDivElement>(null)
   const animRef = useRef<LottieAnimation | null>(null)
 
@@ -53,6 +55,10 @@ export function useLottieWeatherIcon(iconName: string | null, size: number) {
     if (!container || !iconName) {
       return
     }
+
+    const size = Number(
+      getComputedStyle(container).getPropertyValue('--weather-icon-size'),
+    ) || DEFAULT_ICON_SIZE
 
     const lottiePromise = getLottieModule()
     if (!lottiePromise) {
@@ -115,7 +121,7 @@ export function useLottieWeatherIcon(iconName: string | null, size: number) {
       spinner.remove()
       canvas.remove()
     }
-  }, [iconName, size])
+  }, [iconName])
 
   return containerRef
 }
