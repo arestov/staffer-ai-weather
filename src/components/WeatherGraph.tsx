@@ -187,8 +187,13 @@ function WeatherUpdateTimestamp() {
     return null
   }
 
-  // Check if all locations share the same time
-  const allSame = allLocations.every((loc) => loc.weatherFetchedAt === mainTime)
+  // Truncate to seconds for comparison (ISO strings may differ in milliseconds)
+  const toSeconds = (iso: unknown): string =>
+    typeof iso === 'string' ? iso.replace(/\.\d+Z$/, 'Z') : ''
+
+  // Check if all locations share the same time (seconds precision)
+  const mainSec = toSeconds(mainTime)
+  const allSame = allLocations.every((loc) => toSeconds(loc.weatherFetchedAt) === mainSec)
 
   if (allSame) {
     return (
@@ -215,7 +220,7 @@ function WeatherUpdateTimestamp() {
   // Short text: main time + note about differing ones
   const diffNames: string[] = []
   for (let i = 1; i < allLocations.length; i++) {
-    if (allLocations[i].weatherFetchedAt !== mainTime) {
+    if (toSeconds(allLocations[i].weatherFetchedAt) !== mainSec) {
       const name = typeof allLocations[i].name === 'string' && allLocations[i].name ? allLocations[i].name as string : '?'
       const fmt = formatUpdatedAt(allLocations[i].weatherFetchedAt as string | null)
       if (fmt) {
