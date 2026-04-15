@@ -131,6 +131,144 @@ const toErrorMessage = (error: unknown) => {
   return error instanceof Error ? error.message : String(error)
 }
 
+const asFiniteNumber = (value: unknown): number | null => {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+const formatTemperatureOrFallback = (value: unknown) => {
+  const temperature = asFiniteNumber(value)
+
+  return temperature === null ? '-- \u00b0C' : formatTemperature(temperature)
+}
+
+const formatTemperaturePairOrFallback = (minValue: unknown, maxValue: unknown) => {
+  const minTemperature = asFiniteNumber(minValue)
+  const maxTemperature = asFiniteNumber(maxValue)
+
+  if (minTemperature === null && maxTemperature === null) {
+    return '-- \u00b0C'
+  }
+
+  return `${minTemperature === null ? '-- \u00b0C' : formatTemperature(minTemperature)} / ${maxTemperature === null ? '-- \u00b0C' : formatTemperature(maxTemperature)}`
+}
+
+const formatRange = (temperatures: number[]) => {
+  return temperatures.length
+    ? `${Math.round(Math.min(...temperatures))}\u2013${Math.round(Math.max(...temperatures))}`
+    : null
+}
+
+const buildHourlySparkline = (
+  temperaturesSource: unknown,
+  timesSource: unknown,
+  weatherCodesSource: unknown,
+) => {
+  const temperaturesInput = Array.isArray(temperaturesSource) ? temperaturesSource : []
+  const times = Array.isArray(timesSource) ? timesSource : []
+  const weatherCodes = Array.isArray(weatherCodesSource) ? weatherCodesSource : []
+
+  if (!temperaturesInput.length) {
+    return null
+  }
+
+  const temperatures = temperaturesInput
+    .map((temperature) => asFiniteNumber(temperature))
+    .filter((temperature): temperature is number => temperature !== null)
+
+  if (!temperatures.length) {
+    return null
+  }
+
+  const firstTime = times[0]
+  const lastTime = times[times.length - 1]
+  const firstTemperature = temperaturesInput[0]
+  const lastTemperature = temperaturesInput[temperaturesInput.length - 1]
+
+  return {
+    temperatures,
+    minC: Math.min(...temperatures),
+    maxC: Math.max(...temperatures),
+    count: temperatures.length,
+    firstLabel: typeof firstTime === 'string' ? formatHourlyLabel(firstTime) : '',
+    lastLabel: typeof lastTime === 'string' ? formatHourlyLabel(lastTime) : '',
+    firstTemp: formatTemperatureOrFallback(firstTemperature),
+    lastTemp: formatTemperatureOrFallback(lastTemperature),
+    weatherCodes: weatherCodes.map((weatherCode) => {
+      return typeof weatherCode === 'number' ? weatherCode : null
+    }),
+    weatherSummaries: weatherCodes.map((weatherCode) => {
+      return weatherCodeToSummary(typeof weatherCode === 'number' ? weatherCode : null, true)
+    }),
+  }
+}
+
+const buildDailySparkline = (
+  maxTemperaturesSource: unknown,
+  minTemperaturesSource: unknown,
+  datesSource: unknown,
+  weatherCodesSource: unknown,
+) => {
+  const maxTemperaturesInput = Array.isArray(maxTemperaturesSource) ? maxTemperaturesSource : []
+  const minTemperaturesInput = Array.isArray(minTemperaturesSource) ? minTemperaturesSource : []
+  const dates = Array.isArray(datesSource) ? datesSource : []
+  const weatherCodes = Array.isArray(weatherCodesSource) ? weatherCodesSource : []
+
+  if (!dates.length) {
+    return null
+  }
+
+  const temperatures: number[] = []
+  const opacities: number[] = []
+  const dayTemperatures: number[] = []
+  const nightTemperatures: number[] = []
+
+  for (let index = 0; index < dates.length; index += 1) {
+    const maxTemperature = asFiniteNumber(maxTemperaturesInput[index])
+    const minTemperature = asFiniteNumber(minTemperaturesInput[index])
+
+    if (maxTemperature !== null) {
+      temperatures.push(maxTemperature)
+      opacities.push(1)
+      dayTemperatures.push(maxTemperature)
+    }
+
+    if (minTemperature !== null) {
+      temperatures.push(minTemperature)
+      opacities.push(0.35)
+      nightTemperatures.push(minTemperature)
+    }
+  }
+
+  if (!temperatures.length) {
+    return null
+  }
+
+  const firstDate = dates[0]
+  const lastDate = dates[dates.length - 1]
+  const firstMinTemperature = minTemperaturesInput[0]
+  const firstMaxTemperature = maxTemperaturesInput[0]
+  const lastMinTemperature = minTemperaturesInput[minTemperaturesInput.length - 1]
+  const lastMaxTemperature = maxTemperaturesInput[maxTemperaturesInput.length - 1]
+
+  return {
+    temperatures,
+    opacities,
+    count: dates.length,
+    firstLabel: typeof firstDate === 'string' ? formatDailyLabel(firstDate) : '',
+    lastLabel: typeof lastDate === 'string' ? formatDailyLabel(lastDate) : '',
+    firstTemp: formatTemperaturePairOrFallback(firstMinTemperature, firstMaxTemperature),
+    lastTemp: formatTemperaturePairOrFallback(lastMinTemperature, lastMaxTemperature),
+    dayRange: formatRange(dayTemperatures),
+    nightRange: formatRange(nightTemperatures),
+    weatherCodes: weatherCodes.map((weatherCode) => {
+      return typeof weatherCode === 'number' ? weatherCode : null
+    }),
+    weatherSummaries: weatherCodes.map((weatherCode) => {
+      return weatherCodeToSummary(typeof weatherCode === 'number' ? weatherCode : null, true)
+    }),
+  }
+}
+
 export const WeatherLocation = model({
   model_name: 'weather_location',
   attrs: {
@@ -142,8 +280,25 @@ export const WeatherLocation = model({
     lastError: ['input', null],
     weatherFetchedAt: ['input', null],
     weatherLoadRequest: ['input', null],
-    hourlySparkline: ['input', null],
-    dailySparkline: ['input', null],
+    hourlySparkline: [
+      'comp',
+      [
+        '< @all:temperatureC < hourlyForecastSeries',
+        '< @all:time < hourlyForecastSeries',
+        '< @all:weatherCode < hourlyForecastSeries',
+      ],
+      buildHourlySparkline,
+    ],
+    dailySparkline: [
+      'comp',
+      [
+        '< @all:temperatureMaxC < dailyForecastSeries',
+        '< @all:temperatureMinC < dailyForecastSeries',
+        '< @all:date < dailyForecastSeries',
+        '< @all:weatherCode < dailyForecastSeries',
+      ],
+      buildDailySparkline,
+    ],
   },
   rels: {
     currentWeather: ['model', CurrentWeather],
@@ -166,8 +321,6 @@ export const WeatherLocation = model({
         loadStatus: ['loadStatus'],
         lastError: ['lastError'],
         weatherFetchedAt: ['weatherFetchedAt'],
-        hourlySparkline: ['hourlySparkline'],
-        dailySparkline: ['dailySparkline'],
         currentWeather: [
           '<< currentWeather',
           {
@@ -199,73 +352,10 @@ export const WeatherLocation = model({
           const name = typeof locationName === 'string' ? locationName : ''
           const c = payload.current
 
-          const hourlyTemps = payload.hourly
-            .map((h) => h.temperatureC)
-            .filter((t) => Number.isFinite(t))
-          const dailyInterleaved: number[] = []
-          const dailyOpacities: number[] = []
-          const dayTemps: number[] = []
-          const nightTemps: number[] = []
-          for (const d of payload.daily) {
-            if (Number.isFinite(d.temperatureMaxC)) {
-              dailyInterleaved.push(d.temperatureMaxC)
-              dailyOpacities.push(1)
-              dayTemps.push(d.temperatureMaxC)
-            }
-            if (Number.isFinite(d.temperatureMinC)) {
-              dailyInterleaved.push(d.temperatureMinC)
-              dailyOpacities.push(0.35)
-              nightTemps.push(d.temperatureMinC)
-            }
-          }
-
-          const firstHourly = payload.hourly[0]
-          const lastHourly = payload.hourly[payload.hourly.length - 1]
-          const firstDaily = payload.daily[0]
-          const lastDaily = payload.daily[payload.daily.length - 1]
-
-          const fmtRange = (temps: number[]) =>
-            temps.length
-              ? `${Math.round(Math.min(...temps))}\u2013${Math.round(Math.max(...temps))}`
-              : null
-
           return {
             loadStatus: 'ready',
             lastError: null,
             weatherFetchedAt: payload.fetchedAt,
-            hourlySparkline: hourlyTemps.length
-              ? {
-                  temperatures: hourlyTemps,
-                  minC: Math.min(...hourlyTemps),
-                  maxC: Math.max(...hourlyTemps),
-                  count: hourlyTemps.length,
-                  firstLabel: firstHourly ? formatHourlyLabel(firstHourly.time) : '',
-                  lastLabel: lastHourly ? formatHourlyLabel(lastHourly.time) : '',
-                  firstTemp: firstHourly ? formatTemperature(firstHourly.temperatureC) : '-- \u00b0C',
-                  lastTemp: lastHourly ? formatTemperature(lastHourly.temperatureC) : '-- \u00b0C',
-                  weatherCodes: payload.hourly.map((h) => h.weatherCode ?? null),
-                  weatherSummaries: payload.hourly.map((h) => weatherCodeToSummary(h.weatherCode, true)),
-                }
-              : null,
-            dailySparkline: dailyInterleaved.length
-              ? {
-                  temperatures: dailyInterleaved,
-                  opacities: dailyOpacities,
-                  count: payload.daily.length,
-                  firstLabel: firstDaily ? formatDailyLabel(firstDaily.date) : '',
-                  lastLabel: lastDaily ? formatDailyLabel(lastDaily.date) : '',
-                  firstTemp: firstDaily
-                    ? `${formatTemperature(firstDaily.temperatureMinC)} / ${formatTemperature(firstDaily.temperatureMaxC)}`
-                    : '-- \u00b0C',
-                  lastTemp: lastDaily
-                    ? `${formatTemperature(lastDaily.temperatureMinC)} / ${formatTemperature(lastDaily.temperatureMaxC)}`
-                    : '-- \u00b0C',
-                  dayRange: fmtRange(dayTemps),
-                  nightRange: fmtRange(nightTemps),
-                  weatherCodes: payload.daily.map((d) => d.weatherCode ?? null),
-                  weatherSummaries: payload.daily.map((d) => weatherCodeToSummary(d.weatherCode, true)),
-                }
-              : null,
             currentWeather: {
               attrs: {
                 location: name,
