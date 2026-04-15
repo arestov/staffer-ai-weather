@@ -30,20 +30,27 @@ const getLottieModule = (): Promise<LottieModule> | null => {
 }
 
 /**
- * Renders a Lottie weather icon to a canvas via lottie-web's canvas worker.
- * The internal worker is a module-level singleton — it persists across
- * React mount/unmount cycles (satisfying the "no early worker death" requirement).
+ * Renders a Lottie weather icon via lottie-web's canvas worker build.
  *
- * @param iconName - meteocons icon name (e.g. "clear-day"), or null to show nothing
- * @returns ref to attach to a <canvas> element
+ * The lottie_canvas_worker build calls canvas.transferControlToOffscreen()
+ * which can only be performed once per canvas element. To handle React
+ * re-renders and icon changes, we create a fresh <canvas> imperatively
+ * each time and append it into a container div managed by React.
+ *
+ * The internal web worker is a module-level singleton that persists across
+ * mount/unmount cycles.
+ *
+ * @param iconName - meteocons icon name (e.g. "clear-day"), or null for nothing
+ * @param size - CSS pixel size of the icon
+ * @returns ref to attach to a container element (div)
  */
-export function useLottieWeatherIcon(iconName: string | null) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+export function useLottieWeatherIcon(iconName: string | null, size: number) {
+  const containerRef = useRef<HTMLDivElement>(null)
   const animRef = useRef<LottieAnimation | null>(null)
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas || !iconName) {
+    const container = containerRef.current
+    if (!container || !iconName) {
       return
     }
 
@@ -58,6 +65,16 @@ export function useLottieWeatherIcon(iconName: string | null) {
     }
 
     let cancelled = false
+    const dpr = typeof devicePixelRatio !== 'undefined' ? devicePixelRatio : 1
+
+    // Create a fresh canvas so transferControlToOffscreen() always works
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(size * dpr)
+    canvas.height = Math.round(size * dpr)
+    canvas.style.width = `${size}px`
+    canvas.style.height = `${size}px`
+    canvas.style.display = 'block'
+    container.appendChild(canvas)
 
     Promise.all([lottiePromise, iconDataPromise])
       .then(([lottie, animationData]) => {
@@ -77,7 +94,7 @@ export function useLottieWeatherIcon(iconName: string | null) {
         })
       })
       .catch(() => {
-        // Silently fail if lottie worker is unavailable (e.g. SSR, test environment)
+        // Silently fail if lottie worker is unavailable
       })
 
     return () => {
@@ -86,8 +103,9 @@ export function useLottieWeatherIcon(iconName: string | null) {
         animRef.current.destroy()
         animRef.current = null
       }
+      canvas.remove()
     }
-  }, [iconName])
+  }, [iconName, size])
 
-  return canvasRef
+  return containerRef
 }

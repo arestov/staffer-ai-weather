@@ -425,8 +425,8 @@ h1 {
 
 .weather-readout__value-row {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  align-items: flex-start;
+  gap: 0.6rem;
 }
 
 .weather-readout__value {
@@ -438,12 +438,42 @@ h1 {
   letter-spacing: -0.06em;
 }
 
+.weather-readout__icon-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding-top: 0.15em;
+  flex-shrink: 0;
+}
+
 .weather-condition-icon {
   flex-shrink: 0;
   filter: grayscale(1) contrast(1.6);
   opacity: 0.85;
   width: clamp(2.8rem, 7vw, 4.8rem);
   height: clamp(2.8rem, 7vw, 4.8rem);
+}
+
+.weather-readout__icon-summary {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  text-align: center;
+  max-width: 7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.location-card--featured .weather-condition-icon {
+  width: clamp(4rem, 10vw, 6.4rem);
+  height: clamp(4rem, 10vw, 6.4rem);
+}
+
+.location-card--featured .weather-readout__icon-summary {
+  font-size: 0.9rem;
+  max-width: 9rem;
 }
 
 .weather-readout__summary {
@@ -853,8 +883,13 @@ h1 {
 }
 
 .weather-readout--popover .weather-condition-icon {
-  width: clamp(2rem, 4vw, 3rem);
-  height: clamp(2rem, 4vw, 3rem);
+  width: clamp(2.4rem, 5vw, 3.4rem);
+  height: clamp(2.4rem, 5vw, 3.4rem);
+}
+
+.weather-readout--popover .weather-readout__icon-summary {
+  font-size: 0.72rem;
+  max-width: 6rem;
 }
 
 .weather-readout--popover .weather-readout__summary {

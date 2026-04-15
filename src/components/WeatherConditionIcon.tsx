@@ -30,17 +30,13 @@ function WeatherConditionIconInner({
   size: number
   className?: string
 }) {
-  const canvasRef = useLottieWeatherIcon(iconName)
+  const containerRef = useLottieWeatherIcon(iconName, size)
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={size * (typeof devicePixelRatio !== 'undefined' ? devicePixelRatio : 1)}
-      height={size * (typeof devicePixelRatio !== 'undefined' ? devicePixelRatio : 1)}
+    <div
+      ref={containerRef}
       className={className ?? 'weather-condition-icon'}
-      style={{ width: size, height: size }}
-      tabIndex={-1}
-      aria-hidden
+      aria-hidden="true"
     />
   )
 }
