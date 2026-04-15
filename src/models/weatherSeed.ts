@@ -1,8 +1,8 @@
 const INITIAL_LOCATIONS = [
   { name: 'Reykjavik', latitude: 64.1466, longitude: -21.9426, timezone: 'Atlantic/Reykjavik' },
-  { name: 'Berlin', latitude: 52.52, longitude: 13.405, timezone: 'Europe/Berlin' },
-  { name: 'Portland', latitude: 45.5152, longitude: -122.6784, timezone: 'America/Los_Angeles' },
-  { name: 'Lisbon', latitude: 38.7223, longitude: -9.1393, timezone: 'Europe/Lisbon' },
+  { name: 'Singapore', latitude: 1.3521, longitude: 103.8198, timezone: 'Asia/Singapore' },
+  { name: 'Vancouver', latitude: 49.2827, longitude: -123.1207, timezone: 'America/Vancouver' },
+  { name: 'Cape Town', latitude: -33.9249, longitude: 18.4241, timezone: 'Africa/Johannesburg' },
 ]
 
 export const buildSelectedLocationRecord = (weatherLocation: unknown, isAutoSelected = false) => ({
@@ -29,14 +29,14 @@ export const buildInitialSelectedLocations = (weatherLocations: unknown[]) => {
     throw new Error('weatherLocation should resolve to list')
   }
 
-  const [mainWeather, berlinWeather, portlandWeather, lisbonWeather] =
+  const [mainWeather, singaporeWeather, vancouverWeather, capeTownWeather] =
     weatherLocations
 
   return [
     buildSelectedLocationRecord(mainWeather, true),
-    buildSelectedLocationRecord(berlinWeather),
-    buildSelectedLocationRecord(portlandWeather),
-    buildSelectedLocationRecord(lisbonWeather),
+    buildSelectedLocationRecord(singaporeWeather),
+    buildSelectedLocationRecord(vancouverWeather),
+    buildSelectedLocationRecord(capeTownWeather),
   ]
 }
 
