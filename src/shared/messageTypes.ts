@@ -17,6 +17,8 @@ export const APP_MSG = {
   SYNC_RPC: 'sync:rpc',
   SYNC_UPDATE_STRUCTURE_USAGE: 'sync:update-structure-usage',
   SYNC_REQUIRE_SHAPE: 'sync:require-shape',
+
+  P2P_SESSION_LOST: 'p2p:session-lost',
 } as const
 
 export const RUNTIME_LOG_SCOPE = Object.freeze({
@@ -115,6 +117,11 @@ export type ReactSyncSyncRequireShapeMessage = {
   data: unknown
 }
 
+export type ReactSyncP2PSessionLostMessage = {
+  type: typeof APP_MSG.P2P_SESSION_LOST
+  reason: 'server-gone' | 'failover'
+}
+
 export type ReactSyncTransportMessage =
   | ReactSyncControlBootstrapModelMessage
   | ReactSyncControlBootstrapSessionMessage
@@ -132,3 +139,4 @@ export type ReactSyncTransportMessage =
   | ReactSyncSyncRpcMessage
   | ReactSyncSyncUpdateStructureUsageMessage
   | ReactSyncSyncRequireShapeMessage
+  | ReactSyncP2PSessionLostMessage

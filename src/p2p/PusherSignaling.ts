@@ -1,65 +1,106 @@
-import type {
-  PeerIdentity,
-  SignalMessage,
-} from './types'
-
-export type PresenceMember = {
-  id: string
-  info: PeerIdentity
-}
+/**
+ * Pusher signaling using a **public** channel (no backend auth required).
+ *
+ * Membership is self-managed: peers announce themselves with `hello` messages
+ * and are considered gone when a `bye` or `server-leaving` message arrives,
+ * or when no hello is seen within heartbeatTimeoutMs.
+ *
+ * Channel: `weather-signal-<roomId>` (public, no `presence-` or `private-` prefix).
+ *
+ * Events on channel:
+ *   - `hello`   : { peerId, joinedAt }  — sent on join + periodic heartbeat
+ *   - `bye`     : { peerId }            — sent on graceful leave
+ *   - `signal`  : SignalMessage          — WebRTC signaling payloads
+ */
+import type { SignalMessage } from './types'
 
 export interface PusherSignalingEvents {
-  onMemberAdded(member: PresenceMember): void
-  onMemberRemoved(member: PresenceMember): void
+  onMemberJoined(peerId: string, joinedAt: number): void
+  onMemberLeft(peerId: string): void
   onSignal(message: SignalMessage): void
-  onSubscribed(members: Map<string, PresenceMember>): void
+  onConnected(): void
   onError(error: unknown): void
 }
 
 type PusherLike = {
   subscribe(channelName: string): PusherChannelLike
   unsubscribe(channelName: string): void
-  disconnect(): void
+  connection: {
+    bind(event: string, callback: (...args: unknown[]) => void): void
+    unbind(event: string, callback?: (...args: unknown[]) => void): void
+  }
 }
 
 type PusherChannelLike = {
   bind(event: string, callback: (...args: unknown[]) => void): void
-  unbind(event: string, callback?: (...args: unknown[]) => void): void
+  unbind_all(): void
   trigger(event: string, data: unknown): boolean
-  members?: {
-    each(callback: (member: { id: string; info: unknown }) => void): void
-  }
+}
+
+export interface PusherSignalingConfig {
+  pusher: PusherLike
+  roomId: string
+  peerId: string
+  joinedAt: number
+  heartbeatIntervalMs?: number
+  heartbeatTimeoutMs?: number
 }
 
 export interface PusherSignaling {
   sendSignal(message: SignalMessage): void
-  getMembers(): Map<string, PresenceMember>
+  sendBye(): void
   destroy(): void
 }
 
+const DEFAULT_HEARTBEAT_INTERVAL_MS = 5_000
+const DEFAULT_HEARTBEAT_TIMEOUT_MS = 15_000
+
 export const createPusherSignaling = (
-  pusher: PusherLike,
-  roomId: string,
-  identity: PeerIdentity,
+  config: PusherSignalingConfig,
   events: PusherSignalingEvents,
 ): PusherSignaling => {
-  const channelName = `presence-weather-${roomId}`
+  const {
+    pusher,
+    roomId,
+    peerId,
+    joinedAt,
+    heartbeatIntervalMs = DEFAULT_HEARTBEAT_INTERVAL_MS,
+    heartbeatTimeoutMs = DEFAULT_HEARTBEAT_TIMEOUT_MS,
+  } = config
+  const channelName = `weather-signal-${roomId}`
   const channel = pusher.subscribe(channelName)
-  const members = new Map<string, PresenceMember>()
   let destroyed = false
+
+  // ── Self-managed membership ──────────────────────────────────
+
+  const lastSeen = new Map<string, number>() // peerId → Date.now() of last hello
+
+  const sendHello = () => {
+    if (destroyed) return
+    channel.trigger('client-hello', { peerId, joinedAt })
+  }
+
+  // Periodic heartbeat
+  const heartbeatTimer = setInterval(sendHello, heartbeatIntervalMs)
+
+  // Sweep peers that missed heartbeat
+  const sweepTimer = setInterval(() => {
+    if (destroyed) return
+    const now = Date.now()
+    for (const [remotePeerId, ts] of lastSeen) {
+      if (now - ts > heartbeatTimeoutMs) {
+        lastSeen.delete(remotePeerId)
+        events.onMemberLeft(remotePeerId)
+      }
+    }
+  }, heartbeatTimeoutMs / 2)
+
+  // ── Channel events ───────────────────────────────────────────
 
   channel.bind('pusher:subscription_succeeded', (() => {
     if (destroyed) return
-
-    channel.members?.each((raw: { id: string; info: unknown }) => {
-      const member: PresenceMember = {
-        id: raw.id,
-        info: raw.info as PeerIdentity,
-      }
-      members.set(member.id, member)
-    })
-
-    events.onSubscribed(new Map(members))
+    sendHello()
+    events.onConnected()
   }) as (...args: unknown[]) => void)
 
   channel.bind('pusher:subscription_error', ((error: unknown) => {
@@ -67,35 +108,36 @@ export const createPusherSignaling = (
     events.onError(error)
   }) as (...args: unknown[]) => void)
 
-  channel.bind('pusher:member_added', ((raw: { id: string; info: unknown }) => {
+  channel.bind('client-hello', ((data: unknown) => {
     if (destroyed) return
-    const member: PresenceMember = {
-      id: raw.id,
-      info: raw.info as PeerIdentity,
+    const msg = data as { peerId: string; joinedAt: number }
+    if (msg.peerId === peerId) return // own echo (Pusher doesn't deliver own triggers on public, but guard)
+    const isNew = !lastSeen.has(msg.peerId)
+    lastSeen.set(msg.peerId, Date.now())
+    if (isNew) {
+      events.onMemberJoined(msg.peerId, msg.joinedAt)
+      // Reply so the newcomer knows about us
+      sendHello()
     }
-    members.set(member.id, member)
-    events.onMemberAdded(member)
   }) as (...args: unknown[]) => void)
 
-  channel.bind('pusher:member_removed', ((raw: { id: string; info: unknown }) => {
+  channel.bind('client-bye', ((data: unknown) => {
     if (destroyed) return
-    const member: PresenceMember = {
-      id: raw.id,
-      info: raw.info as PeerIdentity,
+    const msg = data as { peerId: string }
+    if (msg.peerId === peerId) return
+    if (lastSeen.has(msg.peerId)) {
+      lastSeen.delete(msg.peerId)
+      events.onMemberLeft(msg.peerId)
     }
-    members.delete(member.id)
-    events.onMemberRemoved(member)
   }) as (...args: unknown[]) => void)
 
-  channel.bind('client-signal', (data: unknown) => {
+  channel.bind('client-signal', ((data: unknown) => {
     if (destroyed) return
     const msg = data as SignalMessage
-    // Ignore own messages
-    if (msg.fromPeerId === identity.peerId) return
-    // If targeted to another peer, skip
-    if (msg.toPeerId && msg.toPeerId !== identity.peerId) return
+    if (msg.fromPeerId === peerId) return
+    if (msg.toPeerId && msg.toPeerId !== peerId) return
     events.onSignal(msg)
-  })
+  }) as (...args: unknown[]) => void)
 
   return {
     sendSignal(message: SignalMessage) {
@@ -103,14 +145,17 @@ export const createPusherSignaling = (
       channel.trigger('client-signal', message)
     },
 
-    getMembers() {
-      return new Map(members)
+    sendBye() {
+      if (destroyed) return
+      channel.trigger('client-bye', { peerId })
     },
 
     destroy() {
       if (destroyed) return
       destroyed = true
-      channel.unbind('client-signal')
+      clearInterval(heartbeatTimer)
+      clearInterval(sweepTimer)
+      channel.unbind_all()
       pusher.unsubscribe(channelName)
     },
   }

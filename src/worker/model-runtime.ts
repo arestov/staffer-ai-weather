@@ -21,6 +21,11 @@ import {
   type WeatherBackendApi,
 } from './weather-backend-api'
 import { createP2PSessionAdapter, type P2PSessionAdapter } from '../p2p'
+import {
+  createWsSignalingFactory,
+  createPusherSignalingFactory,
+  type BridgeSignalingFactory,
+} from '../p2p/BridgeSignaling'
 
 type RuntimeModelLike = {
   _node_id?: string | null
@@ -224,8 +229,13 @@ const createGeneratedSessionKey = () => {
 export const createWeatherModelRuntime = (options?: {
   weatherBackendBaseUrl?: string | null
   p2pSignalUrl?: string | null
+  pusherKey?: string | null
+  pusherCluster?: string | null
 }) => {
   const p2pSignalUrl = options?.p2pSignalUrl ?? null
+  const pusherKey = options?.pusherKey ?? null
+  const pusherCluster = options?.pusherCluster ?? null
+  const p2pEnabled = Boolean(p2pSignalUrl || (pusherKey && pusherCluster))
   const p2pAdaptersBySessionKey = new Map<string, P2PSessionAdapter>()
   const weatherBackendBaseUrl = resolveWeatherBackendBaseUrl(
     options?.weatherBackendBaseUrl,
@@ -585,9 +595,16 @@ export const createWeatherModelRuntime = (options?: {
     let adapter = p2pAdaptersBySessionKey.get(sessionKey)
     if (adapter) return adapter
 
+    let signalingFactory: BridgeSignalingFactory
+    if (pusherKey && pusherCluster) {
+      signalingFactory = createPusherSignalingFactory(pusherKey, pusherCluster)
+    } else {
+      signalingFactory = createWsSignalingFactory(p2pSignalUrl!)
+    }
+
     adapter = createP2PSessionAdapter({
       sessionKey,
-      signalUrl: p2pSignalUrl!,
+      createSignaling: signalingFactory,
     })
     // connect is defined later in this closure but is available at call time
     adapter.setRuntime({ connect })
@@ -640,7 +657,7 @@ export const createWeatherModelRuntime = (options?: {
       createGeneratedSessionKey()
 
     // ── P2P: check if we should relay to a remote server ──────
-    if (p2pSignalUrl) {
+    if (p2pEnabled) {
       const adapter = ensureP2PAdapter(nextSessionKey)
 
       if (adapter.role === 'undecided') {
@@ -664,7 +681,7 @@ export const createWeatherModelRuntime = (options?: {
     const appEntry = await ensureAppEntry(nextSessionKey)
 
     // Store P2P adapter reference on the AppEntry (server mode)
-    if (p2pSignalUrl && !appEntry.p2pAdapter) {
+    if (p2pEnabled && !appEntry.p2pAdapter) {
       appEntry.p2pAdapter = p2pAdaptersBySessionKey.get(nextSessionKey) ?? null
     }
 

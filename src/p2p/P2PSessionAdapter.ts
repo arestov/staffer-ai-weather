@@ -11,12 +11,13 @@
  *   through the P2P bridge's DataChannel to the remote server worker.
  */
 import type { DomSyncTransportLike } from 'dkt/dom-sync/transport.js'
-import type { ReactSyncTransportMessage } from '../shared/messageTypes'
+import { APP_MSG, type ReactSyncTransportMessage } from '../shared/messageTypes'
 import {
   createWorkerP2PBridge,
   type WorkerP2PBridge,
   type WorkerP2PBridgeConfig,
 } from './WorkerP2PBridge'
+import type { BridgeSignalingFactory } from './BridgeSignaling'
 
 type RuntimeConnector = {
   connect(transport: DomSyncTransportLike<ReactSyncTransportMessage>): {
@@ -27,8 +28,8 @@ type RuntimeConnector = {
 export interface P2PSessionAdapterConfig {
   /** Session key = room ID for P2P signaling */
   sessionKey: string
-  /** WebSocket signaling URL */
-  signalUrl: string
+  /** Signaling factory (WS or Pusher) */
+  createSignaling: BridgeSignalingFactory
 }
 
 export interface P2PSessionAdapter {
@@ -185,7 +186,7 @@ export const createP2PSessionAdapter = (
 
   const bridgeConfig: WorkerP2PBridgeConfig = {
     roomId: config.sessionKey,
-    signalUrl: config.signalUrl,
+    createSignaling: config.createSignaling,
     events: {
       onBecomeServer() {
         resolveRoleDecided?.('server')
@@ -229,7 +230,14 @@ export const createP2PSessionAdapter = (
       },
 
       onFailover() {
-        // Was client, now server. onBecomeServer handles wiring.
+        // Was client, now server after remote server disappeared.
+        // Notify all page transports so they reset their sync graph and re-bootstrap.
+        for (const [transport] of pageEntries) {
+          transport.send({
+            type: APP_MSG.P2P_SESSION_LOST,
+            reason: 'failover',
+          })
+        }
       },
 
       onError(error: unknown) {

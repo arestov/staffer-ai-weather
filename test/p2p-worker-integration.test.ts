@@ -52,7 +52,7 @@ const { createWorkerP2PBridge } = vi.hoisted(() => {
   return {
     createWorkerP2PBridge: vi.fn((config: {
       roomId: string
-      signalUrl: string
+      createSignaling: unknown
       events: MockBridge['events']
     }) => {
       let role: BridgeRole = 'undecided'
@@ -257,7 +257,7 @@ describe('P2P worker integration', () => {
     expect(createWorkerP2PBridge).toHaveBeenCalledWith(
       expect.objectContaining({
         roomId: 'test-server',
-        signalUrl: 'ws://127.0.0.1:8790',
+        createSignaling: expect.any(Function),
       }),
     )
 

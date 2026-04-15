@@ -6,6 +6,7 @@
  *   client: model-runtime does NOT run, page messages are relayed to server via DataChannel
  */
 import type { ReactSyncTransportMessage } from '../shared/messageTypes'
+import type { BridgeSignaling, BridgeSignalingFactory } from './BridgeSignaling'
 
 export type P2PBridgeRole = 'server' | 'client' | 'undecided'
 
@@ -51,13 +52,12 @@ export interface WorkerP2PBridge {
 
 export interface WorkerP2PBridgeConfig {
   roomId: string
-  signalUrl: string
+  createSignaling: BridgeSignalingFactory
   events: WorkerP2PBridgeEvents
 }
 
 /**
- * Creates a WorkerP2PBridge using WebSocket signaling.
- * This is the real implementation for use in SharedWorker.
+ * Creates a WorkerP2PBridge using a pluggable signaling layer.
  */
 export const createWorkerP2PBridge = (
   config: WorkerP2PBridgeConfig,
@@ -65,6 +65,7 @@ export const createWorkerP2PBridge = (
   let role: P2PBridgeRole = 'undecided'
   let serverPeerId: string | null = null
   let destroyed = false
+  let signalingConnected = false
   const peerId = crypto.randomUUID()
   const joinedAt = Date.now()
 
@@ -74,8 +75,6 @@ export const createWorkerP2PBridge = (
   const remoteTransports = new Map<string, { receive(msg: ReactSyncTransportMessage): void; destroy(): void }>()
 
   let electionTimer: ReturnType<typeof setTimeout> | null = null
-  // biome-ignore lint: WebSocket used at module level in worker context
-  let ws: WebSocket | null = null
 
   const rtcConfig: RTCConfiguration = {
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
@@ -153,7 +152,7 @@ export const createWorkerP2PBridge = (
 
     pc.onicecandidate = (ev) => {
       if (!ev.candidate) return
-      sendSignal({
+      signaling?.sendSignal({
         kind: 'ice-candidate',
         roomId: config.roomId,
         fromPeerId: peerId,
@@ -212,7 +211,7 @@ export const createWorkerP2PBridge = (
     role = 'server'
     serverPeerId = peerId
 
-    sendSignal({
+    signaling?.sendSignal({
       kind: 'role-announce',
       roomId: config.roomId,
       fromPeerId: peerId,
@@ -235,7 +234,7 @@ export const createWorkerP2PBridge = (
     const offer = await pc.createOffer()
     await pc.setLocalDescription(offer)
 
-    sendSignal({
+    signaling?.sendSignal({
       kind: 'offer',
       roomId: config.roomId,
       fromPeerId: peerId,
@@ -251,14 +250,9 @@ export const createWorkerP2PBridge = (
     scheduleElection()
   }
 
-  // ── Signaling ─────────────────────────────────────────────────
+  // ── Signaling (via BridgeSignaling abstraction) ───────────────
 
-  const sendSignal = (data: unknown) => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return
-    ws.send(JSON.stringify({ action: 'signal', data }))
-  }
-
-  const handleWsSignal = async (msg: {
+  const handleSignal = async (msg: {
     kind: string
     fromPeerId: string
     toPeerId?: string
@@ -284,7 +278,7 @@ export const createWorkerP2PBridge = (
         const answer = await pc.createAnswer()
         await pc.setLocalDescription(answer)
 
-        sendSignal({
+        signaling?.sendSignal({
           kind: 'answer',
           roomId: config.roomId,
           fromPeerId: peerId,
@@ -320,70 +314,72 @@ export const createWorkerP2PBridge = (
     }
   }
 
-  // ── Init WS ───────────────────────────────────────────────────
+  // ── Init signaling ────────────────────────────────────────────
 
-  ws = new WebSocket(config.signalUrl)
-
-  ws.onopen = () => {
-    ws!.send(JSON.stringify({
-      action: 'join',
-      roomId: config.roomId,
-      peerId,
-      joinedAt,
-    }))
-  }
-
-  ws.onmessage = (ev) => {
-    let msg: { action: string; [key: string]: unknown }
-    try { msg = JSON.parse(ev.data as string) } catch { return }
-
-    switch (msg.action) {
-      case 'members': {
-        const members = msg.members as Array<{ peerId: string; joinedAt: number }>
-        for (const m of members) {
-          knownMembers.set(m.peerId, { ...m, role: 'undecided' })
-        }
-        scheduleElection()
-        break
-      }
-
-      case 'member-joined': {
-        const peerId = msg.peerId as string
-        knownMembers.set(peerId, { peerId, joinedAt: msg.joinedAt as number, role: 'undecided' })
+  let signaling: BridgeSignaling | null = config.createSignaling({
+    roomId: config.roomId,
+    peerId,
+    joinedAt,
+    events: {
+      onMemberJoined(remotePeerId, remoteJoinedAt) {
+        if (destroyed) return
+        knownMembers.set(remotePeerId, { peerId: remotePeerId, joinedAt: remoteJoinedAt, role: 'undecided' })
         if (role === 'undecided') scheduleElection()
-        break
-      }
+        if (role === 'server') {
+          // Announce server role so newcomer knows who the server is
+          signaling?.sendSignal({
+            kind: 'role-announce',
+            roomId: config.roomId,
+            fromPeerId: peerId,
+            role: 'server',
+            joinedAt,
+            ts: Date.now(),
+          })
+        }
+      },
 
-      case 'member-left': {
-        const leftPeerId = msg.peerId as string
-        knownMembers.delete(leftPeerId)
-        const pc = peerConnections.get(leftPeerId)
-        if (pc) { pc.close(); peerConnections.delete(leftPeerId) }
-        dataChannels.delete(leftPeerId)
+      onMemberLeft(remotePeerId) {
+        if (destroyed) return
+        knownMembers.delete(remotePeerId)
+        const pc = peerConnections.get(remotePeerId)
+        if (pc) { pc.close(); peerConnections.delete(remotePeerId) }
+        dataChannels.delete(remotePeerId)
 
-        if (leftPeerId === serverPeerId) {
+        if (remotePeerId === serverPeerId) {
           handleServerGone()
         }
 
         // Clean up remote transport
-        const transport = remoteTransports.get(leftPeerId)
+        const transport = remoteTransports.get(remotePeerId)
         if (transport) {
           transport.destroy()
-          remoteTransports.delete(leftPeerId)
+          remoteTransports.delete(remotePeerId)
         }
-        break
-      }
+      },
 
-      case 'signal': {
-        handleWsSignal(msg.data as { kind: string; fromPeerId: string; toPeerId?: string; [key: string]: unknown })
-        break
-      }
-    }
-  }
+      onSignal(msg) {
+        if (destroyed) return
+        handleSignal(msg as { kind: string; fromPeerId: string; toPeerId?: string; [key: string]: unknown })
+      },
 
-  ws.onerror = () => {
-    config.events.onError(new Error('WebSocket signaling error'))
-  }
+      onConnected() {
+        if (destroyed) return
+        signalingConnected = true
+        // Initial election — may resolve immediately if we're alone
+        scheduleElection()
+      },
+
+      onError(error) {
+        if (destroyed) return
+        // If signaling never connected, fall back to solo server mode
+        if (!signalingConnected && role === 'undecided') {
+          becomeServer()
+          return
+        }
+        config.events.onError(error)
+      },
+    },
+  })
 
   // ── Public interface ──────────────────────────────────────────
 
@@ -421,13 +417,15 @@ export const createWorkerP2PBridge = (
       if (electionTimer) { clearTimeout(electionTimer); electionTimer = null }
 
       if (role === 'server') {
-        sendSignal({
+        signaling?.sendSignal({
           kind: 'server-leaving',
           roomId: config.roomId,
           fromPeerId: peerId,
           ts: Date.now(),
         })
       }
+
+      signaling?.sendBye?.()
 
       for (const [, transport] of remoteTransports) transport.destroy()
       remoteTransports.clear()
@@ -436,8 +434,8 @@ export const createWorkerP2PBridge = (
       peerConnections.clear()
       dataChannels.clear()
 
-      ws?.close()
-      ws = null
+      signaling?.destroy()
+      signaling = null
     },
   }
 }

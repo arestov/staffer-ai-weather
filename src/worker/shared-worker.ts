@@ -11,10 +11,14 @@ const readSearchParam = (name: string) => {
 
 const weatherBackendBaseUrl = readSearchParam('weatherBackendBaseUrl')
 const p2pSignalUrl = readSearchParam('p2pSignalUrl')
+const pusherKey = readSearchParam('pusherKey')
+const pusherCluster = readSearchParam('pusherCluster')
 
 const runtime = createWeatherModelRuntime({
   weatherBackendBaseUrl,
   p2pSignalUrl,
+  pusherKey,
+  pusherCluster,
 })
 
 self.addEventListener('connect', (event: Event) => {

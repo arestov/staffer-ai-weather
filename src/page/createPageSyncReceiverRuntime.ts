@@ -311,6 +311,30 @@ export const createPageSyncReceiverRuntime = ({
         handleSyncMessage(message)
         return
       }
+      case APP_MSG.P2P_SESSION_LOST: {
+        emitLog(`P2P session lost (${message.reason}), re-bootstrapping`)
+        const current = store.getSnapshot()
+        syncReceiver.resetGraph()
+        shapeRegistry.destroy()
+        rootAttrsCache.clear()
+        const sessionKey = current.sessionKey
+        store.setSnapshot(
+          createSnapshotWithVersion(current, {
+            booted: false,
+            ready: false,
+            rootNodeId: null,
+            sessionId: null,
+            weatherLoadStatus: 'ready',
+            weatherLoadError: null,
+          }),
+        )
+        // Re-bootstrap to get a fresh session from the (now-local) server
+        emit({
+          type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
+          ...(sessionKey ? { session_key: sessionKey } : {}),
+        })
+        return
+      }
     }
   }
 
