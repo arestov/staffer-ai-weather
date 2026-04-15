@@ -1,27 +1,15 @@
-import { useManyAttrs } from '../dkt-react-sync/hooks/useManyAttrs'
+import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
 import { WeatherConditionIcon } from './WeatherConditionIcon'
 
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
 
-const num = (v: unknown): number | null =>
-  typeof v === 'number' && Number.isFinite(v) ? v : null
-
-const str = (v: unknown): string => (typeof v === 'string' ? v : '')
-
 /** Render temperature text with °C unit at half font-size. */
 function renderTemp(text: string): React.ReactNode {
   const idx = text.lastIndexOf('°C')
   if (idx === -1) return text
   return <>{text.slice(0, idx)}<span className="temp-unit">°C</span>{text.slice(idx + 2)}</>
-}
-
-const formatTimeLabel = (iso: unknown): string => {
-  const s = str(iso)
-  if (!s) return '--:--'
-  const t = s.includes('T') ? s.split('T')[1] : s
-  return t ? t.slice(0, 5) : '--:--'
 }
 
 const renderDailyTitleDetail = ({
@@ -242,54 +230,53 @@ function SparklineDashes({
 // public section components
 // ---------------------------------------------------------------------------
 
-const HOURLY_ATTRS = [
-  'time',
-  'temperatureC',
-  'label',
-  'temperatureText',
-  'summary',
-  'precipitationProbability',
-  'windSpeed10m',
-  'weatherCode',
-] as const
+// ---------------------------------------------------------------------------
+// sparkline data types (pre-computed in WeatherLocation model)
+// ---------------------------------------------------------------------------
 
-const DAILY_ATTRS = [
-  'date',
-  'temperatureMaxC',
-  'temperatureMinC',
-  'label',
-  'temperatureText',
-  'summary',
-  'sunrise',
-  'sunset',
-  'weatherCode',
-] as const
+type HourlySparklineData = {
+  temperatures: number[]
+  minC: number
+  maxC: number
+  count: number
+  firstLabel: string
+  lastLabel: string
+  firstTemp: string
+  lastTemp: string
+  weatherCodes: (number | null)[]
+  weatherSummaries: string[]
+}
+
+type DailySparklineData = {
+  temperatures: number[]
+  opacities: number[]
+  count: number
+  firstLabel: string
+  lastLabel: string
+  firstTemp: string
+  lastTemp: string
+  dayRange: string | null
+  nightRange: string | null
+  weatherCodes: (number | null)[]
+  weatherSummaries: string[]
+}
+
+const isHourlySparkline = (v: unknown): v is HourlySparklineData =>
+  v != null && typeof v === 'object' && Array.isArray((v as HourlySparklineData).temperatures)
+
+const isDailySparkline = (v: unknown): v is DailySparklineData =>
+  v != null && typeof v === 'object' && Array.isArray((v as DailySparklineData).temperatures)
 
 export function HourlySparklineSection() {
-  const data = useManyAttrs('hourlyForecastSeries', HOURLY_ATTRS)
+  const attrs = useAttrs(['hourlySparkline'])
+  const data = isHourlySparkline(attrs.hourlySparkline) ? attrs.hourlySparkline : null
 
-  if (!data.length) return null
+  if (!data || !data.temperatures.length) return null
 
-  const first = data[0]
-  const last = data[data.length - 1]
-  const temperatures = data
-    .map((d) => num(d.temperatureC))
-    .filter((t): t is number => t !== null)
+  const { temperatures, minC, maxC, count, firstLabel, lastLabel, firstTemp, lastTemp, weatherCodes, weatherSummaries } = data
 
-  if (!temperatures.length) return null
-
-  const firstTime = str(first.label) || formatTimeLabel(first.time)
-  const lastTime = str(last.label) || formatTimeLabel(last.time)
-  const firstTemp = str(first.temperatureText) || '-- °C'
-  const lastTemp = str(last.temperatureText) || '-- °C'
-
-  const minT = Math.min(...temperatures)
-  const maxT = Math.max(...temperatures)
-  const iconTrackItems = dedupeWeatherCodes(
-    data.map((d) => typeof d.weatherCode === 'number' ? d.weatherCode : null),
-    data.map((d) => str(d.summary)),
-  )
-  const titleDetail = <>{data.length}h · {Math.round(minT)}–{Math.round(maxT)} <span className="temp-unit">°C</span></>
+  const iconTrackItems = dedupeWeatherCodes(weatherCodes, weatherSummaries)
+  const titleDetail = <>{count}h · {Math.round(minC)}–{Math.round(maxC)} <span className="temp-unit">°C</span></>
 
   return (
     <div className="sparkline-section">
@@ -300,66 +287,37 @@ export function HourlySparklineSection() {
       <div className="sparkline-panel">
         <div className="sparkline-endpoints">
           <span className="sparkline-endpoint">
-            <span className="sparkline-endpoint__time">{firstTime}</span>
+            <span className="sparkline-endpoint__time">{firstLabel}</span>
             <span className="sparkline-endpoint__temp">{renderTemp(firstTemp)}</span>
           </span>
           <span className="sparkline-endpoint sparkline-endpoint--end">
-            <span className="sparkline-endpoint__time">{lastTime}</span>
+            <span className="sparkline-endpoint__time">{lastLabel}</span>
             <span className="sparkline-endpoint__temp">{renderTemp(lastTemp)}</span>
           </span>
         </div>
         <SparklineDashes temperatures={temperatures} label="Hourly temperature sparkline" />
       </div>
-      <SparklineIconTrack items={iconTrackItems} count={temperatures.length} />
+      <SparklineIconTrack items={iconTrackItems} count={count} />
     </div>
   )
 }
 
 export function DailySparklineSection() {
-  const data = useManyAttrs('dailyForecastSeries', DAILY_ATTRS)
+  const attrs = useAttrs(['dailySparkline'])
+  const data = isDailySparkline(attrs.dailySparkline) ? attrs.dailySparkline : null
 
-  if (!data.length) return null
+  if (!data || !data.temperatures.length) return null
 
-  // Interleave day/night temperatures into a single sequence:
-  // [day1_max, day1_min, day2_max, day2_min, ...]
-  // Night dashes are rendered at lower opacity.
-  const interleaved: { temp: number; opacity?: number }[] = []
-  for (const d of data) {
-    const maxC = num(d.temperatureMaxC)
-    const minC = num(d.temperatureMinC)
-    if (maxC !== null) interleaved.push({ temp: maxC })
-    if (minC !== null) interleaved.push({ temp: minC, opacity: 0.35 })
-  }
+  const { temperatures, opacities, count, firstLabel, lastLabel, firstTemp, lastTemp, dayRange, nightRange, weatherCodes, weatherSummaries } = data
 
-  if (!interleaved.length) return null
-
-  const first = data[0]
-  const last = data[data.length - 1]
-  const firstLabel = str(first.label) || '---'
-  const lastLabel = str(last.label) || '---'
-  const firstTemp = str(first.temperatureText) || '-- °C'
-  const lastTemp = str(last.temperatureText) || '-- °C'
-
-  const allTemps = interleaved.map((p) => p.temp)
-  const dayTemps = data.map((d) => num(d.temperatureMaxC)).filter((t): t is number => t !== null)
-  const nightTemps = data.map((d) => num(d.temperatureMinC)).filter((t): t is number => t !== null)
-  const iconTrackItems = dedupeWeatherCodes(
-    data.map((d) => typeof d.weatherCode === 'number' ? d.weatherCode : null),
-    data.map((d) => str(d.summary)),
-    (i) => i * 2,
-  )
-  const dayRange = dayTemps.length
-    ? `${Math.round(Math.min(...dayTemps))}–${Math.round(Math.max(...dayTemps))}`
-    : null
-  const nightRange = nightTemps.length
-    ? `${Math.round(Math.min(...nightTemps))}–${Math.round(Math.max(...nightTemps))}`
-    : null
+  const iconTrackItems = dedupeWeatherCodes(weatherCodes, weatherSummaries, (i) => i * 2)
+  const titleDetail = renderDailyTitleDetail({ dayCount: count, dayRange, nightRange })
 
   return (
     <div className="sparkline-section">
       <h3 className="sparkline-title">
         <span className="sparkline-title__heading">Daily</span>
-        <span className="sparkline-title__detail">{renderDailyTitleDetail({ dayCount: data.length, dayRange, nightRange })}</span>
+        <span className="sparkline-title__detail">{titleDetail}</span>
       </h3>
       <div className="sparkline-panel">
         <div className="sparkline-endpoints">
@@ -377,12 +335,12 @@ export function DailySparklineSection() {
           </span>
         </div>
         <SparklineDashes
-          temperatures={allTemps}
-          opacities={interleaved.map((p) => p.opacity ?? 1)}
+          temperatures={temperatures}
+          opacities={opacities}
           label="Daily temperature sparkline"
         />
       </div>
-      <SparklineIconTrack items={iconTrackItems} count={interleaved.length} />
+      <SparklineIconTrack items={iconTrackItems} count={temperatures.length} />
     </div>
   )
 }

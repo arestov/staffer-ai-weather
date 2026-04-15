@@ -146,6 +146,8 @@ export const WeatherLocation = model({
     lastError: ['input', null],
     weatherFetchedAt: ['input', null],
     weatherLoadRequest: ['input', null],
+    hourlySparkline: ['input', null],
+    dailySparkline: ['input', null],
   },
   rels: {
     currentWeather: ['model', CurrentWeather],
@@ -168,6 +170,8 @@ export const WeatherLocation = model({
         loadStatus: ['loadStatus'],
         lastError: ['lastError'],
         weatherFetchedAt: ['weatherFetchedAt'],
+        hourlySparkline: ['hourlySparkline'],
+        dailySparkline: ['dailySparkline'],
         currentWeather: [
           '<< currentWeather',
           {
@@ -199,10 +203,73 @@ export const WeatherLocation = model({
           const name = typeof locationName === 'string' ? locationName : ''
           const c = payload.current
 
+          const hourlyTemps = payload.hourly
+            .map((h) => h.temperatureC)
+            .filter((t) => Number.isFinite(t))
+          const dailyInterleaved: number[] = []
+          const dailyOpacities: number[] = []
+          const dayTemps: number[] = []
+          const nightTemps: number[] = []
+          for (const d of payload.daily) {
+            if (Number.isFinite(d.temperatureMaxC)) {
+              dailyInterleaved.push(d.temperatureMaxC)
+              dailyOpacities.push(1)
+              dayTemps.push(d.temperatureMaxC)
+            }
+            if (Number.isFinite(d.temperatureMinC)) {
+              dailyInterleaved.push(d.temperatureMinC)
+              dailyOpacities.push(0.35)
+              nightTemps.push(d.temperatureMinC)
+            }
+          }
+
+          const firstHourly = payload.hourly[0]
+          const lastHourly = payload.hourly[payload.hourly.length - 1]
+          const firstDaily = payload.daily[0]
+          const lastDaily = payload.daily[payload.daily.length - 1]
+
+          const fmtRange = (temps: number[]) =>
+            temps.length
+              ? `${Math.round(Math.min(...temps))}\u2013${Math.round(Math.max(...temps))}`
+              : null
+
           return {
             loadStatus: 'ready',
             lastError: null,
             weatherFetchedAt: payload.fetchedAt,
+            hourlySparkline: hourlyTemps.length
+              ? {
+                  temperatures: hourlyTemps,
+                  minC: Math.min(...hourlyTemps),
+                  maxC: Math.max(...hourlyTemps),
+                  count: hourlyTemps.length,
+                  firstLabel: firstHourly ? formatHourlyLabel(firstHourly.time) : '',
+                  lastLabel: lastHourly ? formatHourlyLabel(lastHourly.time) : '',
+                  firstTemp: firstHourly ? formatTemperature(firstHourly.temperatureC) : '-- \u00b0C',
+                  lastTemp: lastHourly ? formatTemperature(lastHourly.temperatureC) : '-- \u00b0C',
+                  weatherCodes: payload.hourly.map((h) => h.weatherCode ?? null),
+                  weatherSummaries: payload.hourly.map((h) => weatherCodeToSummary(h.weatherCode, true)),
+                }
+              : null,
+            dailySparkline: dailyInterleaved.length
+              ? {
+                  temperatures: dailyInterleaved,
+                  opacities: dailyOpacities,
+                  count: payload.daily.length,
+                  firstLabel: firstDaily ? formatDailyLabel(firstDaily.date) : '',
+                  lastLabel: lastDaily ? formatDailyLabel(lastDaily.date) : '',
+                  firstTemp: firstDaily
+                    ? `${formatTemperature(firstDaily.temperatureMinC)} / ${formatTemperature(firstDaily.temperatureMaxC)}`
+                    : '-- \u00b0C',
+                  lastTemp: lastDaily
+                    ? `${formatTemperature(lastDaily.temperatureMinC)} / ${formatTemperature(lastDaily.temperatureMaxC)}`
+                    : '-- \u00b0C',
+                  dayRange: fmtRange(dayTemps),
+                  nightRange: fmtRange(nightTemps),
+                  weatherCodes: payload.daily.map((d) => d.weatherCode ?? null),
+                  weatherSummaries: payload.daily.map((d) => weatherCodeToSummary(d.weatherCode, true)),
+                }
+              : null,
             currentWeather: {
               attrs: {
                 location: name,
@@ -268,6 +335,8 @@ export const WeatherLocation = model({
         lastError: ['lastError'],
         weatherFetchedAt: ['weatherFetchedAt'],
         weatherLoadRequest: ['weatherLoadRequest'],
+        hourlySparkline: ['hourlySparkline'],
+        dailySparkline: ['dailySparkline'],
         currentWeather: ['<< currentWeather', { method: 'set_one' }],
         hourlyForecastSeries: ['<< hourlyForecastSeries', { method: 'set_many' }],
         dailyForecastSeries: ['<< dailyForecastSeries', { method: 'set_many' }],
@@ -294,6 +363,8 @@ export const WeatherLocation = model({
               latitude: payload.latitude,
               longitude: payload.longitude,
             },
+            hourlySparkline: null,
+            dailySparkline: null,
             currentWeather: null,
             hourlyForecastSeries: [],
             dailyForecastSeries: [],
