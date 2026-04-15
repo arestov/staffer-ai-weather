@@ -116,7 +116,7 @@ export function SelectedLocationSearchPanel({
                 data-location-search-current-location
               >
                 <strong>Use current location</strong>
-                <span>Ask browser permission, then replace this slot using live coordinates.</span>
+                <span>Provide location permission</span>
               </button>
             </li>
           </ul>

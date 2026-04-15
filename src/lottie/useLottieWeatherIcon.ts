@@ -56,9 +56,10 @@ export function useLottieWeatherIcon(iconName: string | null) {
       return
     }
 
-    const size = Number(
-      getComputedStyle(container).getPropertyValue('--weather-icon-size'),
-    ) || DEFAULT_ICON_SIZE
+    const computed = getComputedStyle(container)
+    const cssSize = Number(computed.getPropertyValue('--weather-icon-size'))
+    const size = cssSize || container.clientWidth || DEFAULT_ICON_SIZE
+    const speed = Number(computed.getPropertyValue('--weather-icon-speed')) || 1
 
     const lottiePromise = getLottieModule()
     if (!lottiePromise) {
@@ -99,7 +100,7 @@ export function useLottieWeatherIcon(iconName: string | null) {
         spinner.remove()
         container.appendChild(canvas)
 
-        animRef.current = lottie.loadAnimation({
+        const anim = lottie.loadAnimation({
           renderer: 'canvas',
           animationData,
           loop: true,
@@ -109,6 +110,17 @@ export function useLottieWeatherIcon(iconName: string | null) {
             clearCanvas: true,
           },
         })
+        // In the canvas_worker build, loadAnimation() sends the `load`
+        // message to the worker asynchronously (microtask).  Calling
+        // setSpeed() synchronously posts the message *before* `load`,
+        // so the worker silently drops it.  Deferring to DOMLoaded
+        // guarantees the animation exists in the worker.
+        if (speed !== 1) {
+          anim.addEventListener('DOMLoaded', () => {
+            if (!cancelled) anim.setSpeed(speed)
+          })
+        }
+        animRef.current = anim
       })
       .catch(() => {})
 

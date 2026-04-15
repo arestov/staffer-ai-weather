@@ -1,4 +1,5 @@
 import { useManyAttrs } from '../dkt-react-sync/hooks/useManyAttrs'
+import { WeatherConditionIcon } from './WeatherConditionIcon'
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -8,6 +9,13 @@ const num = (v: unknown): number | null =>
   typeof v === 'number' && Number.isFinite(v) ? v : null
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '')
+
+/** Render temperature text with °C unit at half font-size. */
+function renderTemp(text: string): React.ReactNode {
+  const idx = text.lastIndexOf('°C')
+  if (idx === -1) return text
+  return <>{text.slice(0, idx)}<span className="temp-unit">°C</span>{text.slice(idx + 2)}</>
+}
 
 const formatTimeLabel = (iso: unknown): string => {
   const s = str(iso)
@@ -32,7 +40,7 @@ const renderDailyTitleDetail = ({
         <>
           <span> · </span>
           <span className="sparkline-title__detail-part sparkline-title__detail-part--day">
-            {`☀ ${dayRange} °C`}
+            ☀ {dayRange} <span className="temp-unit">°C</span>
           </span>
         </>
       ) : null}
@@ -40,7 +48,7 @@ const renderDailyTitleDetail = ({
         <>
           <span> · </span>
           <span className="sparkline-title__detail-part sparkline-title__detail-part--night">
-            {`☾ ${nightRange} °C`}
+            ☾ {nightRange} <span className="temp-unit">°C</span>
           </span>
         </>
       ) : null}
@@ -55,14 +63,15 @@ const renderDailyTemperatureText = (text: string) => {
     return text
   }
 
+  // Model gives "min / max" i.e. "night / day" — render day first
   return (
     <>
-      <span className="sparkline-endpoint__temp-part sparkline-endpoint__temp-part--night">
-        {parts[0]}
+      <span className="sparkline-endpoint__temp-part sparkline-endpoint__temp-part--day">
+        {renderTemp(parts[1])}
       </span>
       <span className="sparkline-endpoint__temp-divider"> / </span>
-      <span className="sparkline-endpoint__temp-part sparkline-endpoint__temp-part--day">
-        {parts[1]}
+      <span className="sparkline-endpoint__temp-part sparkline-endpoint__temp-part--night">
+        {renderTemp(parts[0])}
       </span>
     </>
   )
@@ -100,6 +109,24 @@ function dedupeLabels(
   return items
 }
 
+/** Build deduplicated weather-code list: only keep codes that differ from the previous. */
+function dedupeWeatherCodes(
+  codes: (number | null)[],
+  summaries: string[],
+  columnIndex?: (i: number) => number,
+): { col: number; weatherCode: number; summary: string }[] {
+  const items: { col: number; weatherCode: number; summary: string }[] = []
+  let prev: number | null = null
+  for (let i = 0; i < codes.length; i++) {
+    const code = codes[i]
+    if (code !== null && code !== prev) {
+      items.push({ col: columnIndex ? columnIndex(i) : i, weatherCode: code, summary: summaries[i] || '' })
+    }
+    if (code !== null) prev = code
+  }
+  return items
+}
+
 /** Text sparkline: labels absolutely positioned to match SVG dash positions. */
 function SparklineTextTrack({
   items,
@@ -124,6 +151,39 @@ function SparklineTextTrack({
           >
             {text}
           </span>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Icon sparkline: small animated weather icons positioned to match SVG dash positions. */
+function SparklineIconTrack({
+  items,
+  count,
+}: {
+  items: { col: number; weatherCode: number; summary: string }[]
+  count: number
+}) {
+  if (!items.length) return null
+
+  const dashW = (VB_WIDTH - (count - 1) * DASH_GAP) / count
+  const stepPct = (dashW + DASH_GAP) / VB_WIDTH * 100
+  const gapPct = DASH_GAP / VB_WIDTH * 100
+
+  return (
+    <div className="sparkline-icon-track">
+      {items.map(({ col, weatherCode, summary }) => {
+        const leftPct = (col * (dashW + DASH_GAP)) / VB_WIDTH * 100
+        return (
+          <div
+            key={col}
+            className="sparkline-icon-track__icon"
+            style={{ left: `${leftPct}%`, width: `${stepPct}%`, '--sparkline-gap': `${gapPct}%` } as React.CSSProperties}
+            title={summary}
+          >
+            <WeatherConditionIcon weatherCode={weatherCode} isDay={true} />
+          </div>
         )
       })}
     </div>
@@ -188,6 +248,7 @@ const HOURLY_ATTRS = [
   'summary',
   'precipitationProbability',
   'windSpeed10m',
+  'weatherCode',
 ] as const
 
 const DAILY_ATTRS = [
@@ -199,6 +260,7 @@ const DAILY_ATTRS = [
   'summary',
   'sunrise',
   'sunset',
+  'weatherCode',
 ] as const
 
 export function HourlySparklineSection() {
@@ -221,11 +283,11 @@ export function HourlySparklineSection() {
 
   const minT = Math.min(...temperatures)
   const maxT = Math.max(...temperatures)
-  const textTrackItems = dedupeLabels(data.map((d) => str(d.summary)))
-  const titleDetail = [
-    `${data.length}h`,
-    `${Math.round(minT)}–${Math.round(maxT)} °C`,
-  ].join(' · ')
+  const iconTrackItems = dedupeWeatherCodes(
+    data.map((d) => typeof d.weatherCode === 'number' ? d.weatherCode : null),
+    data.map((d) => str(d.summary)),
+  )
+  const titleDetail = <>{data.length}h · {Math.round(minT)}–{Math.round(maxT)} <span className="temp-unit">°C</span></>
 
   return (
     <div className="sparkline-section">
@@ -237,16 +299,16 @@ export function HourlySparklineSection() {
         <div className="sparkline-endpoints">
           <span className="sparkline-endpoint">
             <span className="sparkline-endpoint__time">{firstTime}</span>
-            <span className="sparkline-endpoint__temp">{firstTemp}</span>
+            <span className="sparkline-endpoint__temp">{renderTemp(firstTemp)}</span>
           </span>
           <span className="sparkline-endpoint sparkline-endpoint--end">
             <span className="sparkline-endpoint__time">{lastTime}</span>
-            <span className="sparkline-endpoint__temp">{lastTemp}</span>
+            <span className="sparkline-endpoint__temp">{renderTemp(lastTemp)}</span>
           </span>
         </div>
         <SparklineDashes temperatures={temperatures} label="Hourly temperature sparkline" />
       </div>
-      <SparklineTextTrack items={textTrackItems} count={temperatures.length} />
+      <SparklineIconTrack items={iconTrackItems} count={temperatures.length} />
     </div>
   )
 }
@@ -279,7 +341,8 @@ export function DailySparklineSection() {
   const allTemps = interleaved.map((p) => p.temp)
   const dayTemps = data.map((d) => num(d.temperatureMaxC)).filter((t): t is number => t !== null)
   const nightTemps = data.map((d) => num(d.temperatureMinC)).filter((t): t is number => t !== null)
-  const textTrackItems = dedupeLabels(
+  const iconTrackItems = dedupeWeatherCodes(
+    data.map((d) => typeof d.weatherCode === 'number' ? d.weatherCode : null),
     data.map((d) => str(d.summary)),
     (i) => i * 2,
   )
@@ -317,7 +380,7 @@ export function DailySparklineSection() {
           label="Daily temperature sparkline"
         />
       </div>
-      <SparklineTextTrack items={textTrackItems} count={interleaved.length} />
+      <SparklineIconTrack items={iconTrackItems} count={interleaved.length} />
     </div>
   )
 }

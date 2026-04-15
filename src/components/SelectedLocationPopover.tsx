@@ -454,6 +454,12 @@ function SelectedLocationPopover({
           isEditingLocation={isEditingLocation}
           onRefreshWeather={onRefreshWeather}
         />
+
+        {!isEditingLocation ? (
+          <SelectedLocationPopoverSearchTrigger
+            onStartEdit={(seedQuery) => dispatch('startLocationEditing', { seedQuery })}
+          />
+        ) : null}
       </ScopeContext.Provider>
 
       <SelectedLocationSearchPanel
@@ -481,6 +487,34 @@ function SelectedLocationPopover({
   )
 }
 
+function SelectedLocationPopoverSearchTrigger({
+  onStartEdit,
+}: {
+  onStartEdit: (seedQuery: string) => void
+}) {
+  const attrs = useAttrs(['location', 'name'])
+  const seedQuery =
+    typeof attrs.location === 'string' && attrs.location
+      ? attrs.location
+      : typeof attrs.name === 'string'
+        ? attrs.name
+        : ''
+
+  return (
+    <div className="selected-location-popover__footer">
+      <button
+        className="secondary selected-location-popover__edit-trigger"
+        type="button"
+        onClick={() => onStartEdit(seedQuery)}
+        data-location-edit-trigger
+        data-popover-focus
+      >
+        Search Another Location
+      </button>
+    </div>
+  )
+}
+
 function SelectedLocationPopoverHeader({
   isEditingLocation,
   onStartEdit,
@@ -501,21 +535,11 @@ function SelectedLocationPopoverHeader({
   return (
     <div className="selected-location-popover__header">
       <div className="selected-location-popover__header-content">
-        {!isEditingLocation ? (
-          <button
-            className="secondary selected-location-popover__edit-trigger"
-            type="button"
-            onClick={() => onStartEdit(seedQuery)}
-            data-location-edit-trigger
-            data-popover-focus
-          >
-            Search Another Location
-          </button>
-        ) : (
+        {isEditingLocation ? (
           <p className="selected-location-popover__header-note">
             Pick a replacement below to update this location card.
           </p>
-        )}
+        ) : null}
       </div>
 
       <button

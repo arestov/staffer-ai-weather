@@ -8,6 +8,13 @@ import {
 } from './WeatherSparkline'
 import { WeatherConditionIcon } from './WeatherConditionIcon'
 
+/** Render temperature text with °C unit at half font-size. */
+function renderTemp(text: string): React.ReactNode {
+  const idx = text.lastIndexOf('°C')
+  if (idx === -1) return text
+  return <>{text.slice(0, idx)}<span className="temp-unit">°C</span>{text.slice(idx + 2)}</>
+}
+
 const LOCATION_PLACEHOLDER_KEYS = ['north', 'center', 'south'] as const
 const FORECAST_PLACEHOLDER_KEYS = ['now', 'soon', 'later'] as const
 
@@ -71,7 +78,7 @@ export const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
     <>
       <div className="weather-readout__label">{location}</div>
       <div className="weather-readout__value-row">
-        <div className="weather-readout__value">{temperatureText}</div>
+        <div className="weather-readout__value">{renderTemp(temperatureText)}</div>
         <div className="weather-readout__icon-col">
           <WeatherConditionIcon weatherCode={weatherCode} isDay={isDay} />
           {summary ? <p className="weather-readout__icon-summary">{summary}</p> : null}
@@ -100,7 +107,7 @@ export function WeatherReadoutError({
   return (
     <div className="weather-readout weather-readout--location weather-readout--error" role="alert">
       <div className="weather-readout__label">Weather unavailable</div>
-      <div className="weather-readout__value weather-readout__value--placeholder">-- °C</div>
+      <div className="weather-readout__value weather-readout__value--placeholder">-- <span className="temp-unit">°C</span></div>
       <p className="weather-readout__summary">{message}</p>
       <div className="weather-readout__meta">
         <span className="status-pill status-pill--error">error</span>
@@ -120,7 +127,7 @@ export const ForecastCard = shapeOf(function ForecastCard() {
   return (
     <li className="forecast-chip">
       <span className="forecast-chip__label">{String(attrs.label || '')}</span>
-      <strong>{String(attrs.temperatureText || '-- \u00b0C')}</strong>
+      <strong>{renderTemp(String(attrs.temperatureText || '-- \u00b0C'))}</strong>
       <p>{String(attrs.summary || '')}</p>
     </li>
   )
