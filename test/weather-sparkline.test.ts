@@ -148,6 +148,7 @@ describe('Weather sparkline sections', () => {
     expect(dailyDetail?.textContent).toContain('☀')
     expect(dailyDetail?.textContent).toContain('☾')
     expect(dailyDetail?.textContent).toContain('°C')
+    expect(dailyDetail?.querySelector('.sparkline-title__detail-part--night')).not.toBeNull()
 
     const dailySvg = dailySection.querySelector('.sparkline-svg')
     expect(dailySvg).not.toBeNull()

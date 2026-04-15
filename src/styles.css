@@ -549,9 +549,20 @@ h1 {
   font-weight: 400;
   font-size: 0.66rem;
   letter-spacing: 0.06em;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.15em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.sparkline-title__detail-part--night {
+  opacity: 0.55;
+}
+
+.sparkline-title__detail-part--day {
+  opacity: 1;
 }
 
 .sparkline-panel {

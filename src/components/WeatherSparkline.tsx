@@ -16,6 +16,38 @@ const formatTimeLabel = (iso: unknown): string => {
   return t ? t.slice(0, 5) : '--:--'
 }
 
+const renderDailyTitleDetail = ({
+  dayCount,
+  dayRange,
+  nightRange,
+}: {
+  dayCount: number
+  dayRange: string | null
+  nightRange: string | null
+}) => {
+  return (
+    <>
+      <span>{`${dayCount}d`}</span>
+      {dayRange ? (
+        <>
+          <span> · </span>
+          <span className="sparkline-title__detail-part sparkline-title__detail-part--day">
+            {`☀ ${dayRange} °C`}
+          </span>
+        </>
+      ) : null}
+      {nightRange ? (
+        <>
+          <span> · </span>
+          <span className="sparkline-title__detail-part sparkline-title__detail-part--night">
+            {`☾ ${nightRange} °C`}
+          </span>
+        </>
+      ) : null}
+    </>
+  )
+}
+
 const renderDailyTemperatureText = (text: string) => {
   const parts = text.split(' / ')
 
@@ -257,17 +289,12 @@ export function DailySparklineSection() {
   const nightRange = nightTemps.length
     ? `${Math.round(Math.min(...nightTemps))}–${Math.round(Math.max(...nightTemps))}`
     : null
-  const titleDetail = [
-    `${data.length}d`,
-    dayRange ? `☀ ${dayRange} °C` : null,
-    nightRange ? `☾ ${nightRange} °C` : null,
-  ].filter(Boolean).join(' · ')
 
   return (
     <div className="sparkline-section">
       <h3 className="sparkline-title">
         <span className="sparkline-title__heading">Daily</span>
-        <span className="sparkline-title__detail">{titleDetail}</span>
+        <span className="sparkline-title__detail">{renderDailyTitleDetail({ dayCount: data.length, dayRange, nightRange })}</span>
       </h3>
       <div className="sparkline-panel">
         <div className="sparkline-endpoints">
