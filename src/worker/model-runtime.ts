@@ -20,6 +20,7 @@ import {
   resolveWeatherBackendBaseUrl,
   type WeatherBackendApi,
 } from './weather-backend-api'
+import { createP2PSessionAdapter, type P2PSessionAdapter } from '../p2p'
 
 type RuntimeModelLike = {
   _node_id?: string | null
@@ -80,6 +81,10 @@ type WorkerConnection = {
   destroyed: boolean
   sessionId: string | null
   sessionKey: string | null
+  /** Stored so P2P relay switch can tear down the message listener. */
+  _unlisten: (() => void) | null
+  /** When true, this connection is relayed through P2P — local handlers skip it. */
+  _p2pRelayed: boolean
 }
 
 type AppEntry = {
@@ -90,6 +95,7 @@ type AppEntry = {
   liveUpdateTimer: ReturnType<typeof setTimeout> | null
   weatherFetchStarted: boolean
   status: 'active' | 'closing'
+  p2pAdapter: P2PSessionAdapter | null
 }
 
 const SESSION_IMPORTANT_REL_PATHS = Object.freeze([
@@ -217,7 +223,10 @@ const createGeneratedSessionKey = () => {
 
 export const createWeatherModelRuntime = (options?: {
   weatherBackendBaseUrl?: string | null
+  p2pSignalUrl?: string | null
 }) => {
+  const p2pSignalUrl = options?.p2pSignalUrl ?? null
+  const p2pAdaptersBySessionKey = new Map<string, P2PSessionAdapter>()
   const weatherBackendBaseUrl = resolveWeatherBackendBaseUrl(
     options?.weatherBackendBaseUrl,
   )
@@ -447,6 +456,7 @@ export const createWeatherModelRuntime = (options?: {
         liveUpdateTimer: null,
         weatherFetchStarted: false,
         status: 'active',
+        p2pAdapter: null,
       }
 
       appEntriesBySessionKey.set(sessionKey, appEntry)
@@ -567,6 +577,49 @@ export const createWeatherModelRuntime = (options?: {
     })
   }
 
+  // ── P2P helpers ────────────────────────────────────────────
+
+  const ensureP2PAdapter = (sessionKey: string): P2PSessionAdapter => {
+    let adapter = p2pAdaptersBySessionKey.get(sessionKey)
+    if (adapter) return adapter
+
+    adapter = createP2PSessionAdapter({
+      sessionKey,
+      signalUrl: p2pSignalUrl!,
+    })
+    // connect is defined later in this closure but is available at call time
+    adapter.setRuntime({ connect })
+    p2pAdaptersBySessionKey.set(sessionKey, adapter)
+    return adapter
+  }
+
+  const switchToP2PRelay = (
+    connection: WorkerConnection,
+    adapter: P2PSessionAdapter,
+    originalMessage: ReactSyncTransportMessage,
+  ) => {
+    // Stop local message handling
+    connection._unlisten?.()
+    connection._unlisten = null
+    connection._p2pRelayed = true
+    connection.destroyed = true
+
+    // Detach from any existing session
+    if (connection.sessionKey || connection.sessionId) {
+      releaseConnectionBinding(connection)
+    }
+
+    // Remove from local tracking
+    connections.delete(connection)
+    connectionsByStreamId.delete(connection.stream.id)
+
+    // Hand transport to P2P adapter (it handles relay to/from remote server)
+    adapter.connectPage(connection.transport)
+
+    // Forward the initial bootstrap message that triggered this switch
+    adapter.sendToServer(originalMessage)
+  }
+
   const bootstrapSession = async (
     connection: WorkerConnection,
     {
@@ -583,7 +636,35 @@ export const createWeatherModelRuntime = (options?: {
       normalizeSessionKey(session_key) ??
       normalizeSessionKey(connection.sessionKey) ??
       createGeneratedSessionKey()
+
+    // ── P2P: check if we should relay to a remote server ──────
+    if (p2pSignalUrl) {
+      const adapter = ensureP2PAdapter(nextSessionKey)
+
+      if (adapter.role === 'undecided') {
+        await adapter.whenRoleDecided()
+      }
+
+      if (adapter.role === 'client') {
+        // Remote server owns the model-runtime for this session key.
+        // Switch this page connection to relay mode.
+        const bootstrapMsg: ReactSyncTransportMessage = {
+          type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
+          session_id: session_id ?? undefined,
+          session_key: nextSessionKey,
+          route: route ?? undefined,
+        } as ReactSyncTransportMessage
+        switchToP2PRelay(connection, adapter, bootstrapMsg)
+        return
+      }
+    }
+
     const appEntry = await ensureAppEntry(nextSessionKey)
+
+    // Store P2P adapter reference on the AppEntry (server mode)
+    if (p2pSignalUrl && !appEntry.p2pAdapter) {
+      appEntry.p2pAdapter = p2pAdaptersBySessionKey.get(nextSessionKey) ?? null
+    }
 
     if (connection.sessionKey || connection.sessionId) {
       releaseConnectionBinding(connection)
@@ -724,6 +805,8 @@ export const createWeatherModelRuntime = (options?: {
       destroyed: false,
       sessionId: null,
       sessionKey: null,
+      _unlisten: null,
+      _p2pRelayed: false,
     }
     connections.add(connection)
     connectionsByStreamId.set(connection.stream.id, connection)
@@ -733,6 +816,7 @@ export const createWeatherModelRuntime = (options?: {
         emitError(connection, error),
       )
     })
+    connection._unlisten = unlisten
 
     if (shouldEmitRuntimeLogs) {
       transport.send({
@@ -749,7 +833,8 @@ export const createWeatherModelRuntime = (options?: {
         }
 
         connection.destroyed = true
-        unlisten?.()
+        connection._unlisten?.()
+        connection._unlisten = null
         releaseConnectionBinding(connection)
         connections.delete(connection)
         connectionsByStreamId.delete(connection.stream.id)

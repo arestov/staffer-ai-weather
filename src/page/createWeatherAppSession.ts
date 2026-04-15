@@ -32,6 +32,15 @@ export const createWeatherAppSession = (): WeatherAppSession => {
     workerUrl.searchParams.set('weatherBackendBaseUrl', weatherBackendBaseUrl)
   }
 
+  const p2pSignalUrl = typeof import.meta.env.VITE_P2P_SIGNAL_URL === 'string' &&
+    import.meta.env.VITE_P2P_SIGNAL_URL.trim()
+    ? import.meta.env.VITE_P2P_SIGNAL_URL.trim()
+    : null
+
+  if (p2pSignalUrl) {
+    workerUrl.searchParams.set('p2pSignalUrl', p2pSignalUrl)
+  }
+
   const worker = new SharedWorker(
     workerUrl,
     {

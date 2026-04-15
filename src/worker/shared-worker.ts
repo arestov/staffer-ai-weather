@@ -2,17 +2,20 @@ import { createPortTransport } from '../shared/createPortTransport'
 import type { ReactSyncTransportMessage } from '../shared/messageTypes'
 import { createWeatherModelRuntime } from './model-runtime'
 
-const weatherBackendBaseUrl = (() => {
+const readSearchParam = (name: string) => {
   const href = typeof self.location?.href === 'string' ? self.location.href : ''
-  if (!href) {
-    return null
-  }
-
-  const value = new URL(href).searchParams.get('weatherBackendBaseUrl')
+  if (!href) return null
+  const value = new URL(href).searchParams.get(name)
   return typeof value === 'string' && value.trim() ? value.trim() : null
-})()
+}
 
-const runtime = createWeatherModelRuntime({ weatherBackendBaseUrl })
+const weatherBackendBaseUrl = readSearchParam('weatherBackendBaseUrl')
+const p2pSignalUrl = readSearchParam('p2pSignalUrl')
+
+const runtime = createWeatherModelRuntime({
+  weatherBackendBaseUrl,
+  p2pSignalUrl,
+})
 
 self.addEventListener('connect', (event: Event) => {
   const connectEvent = event as MessageEvent & { ports: MessagePort[] }
