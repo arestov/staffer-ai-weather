@@ -369,6 +369,8 @@ export const createWeatherModelRuntime = (options?: {
         }
 
         stopLiveUpdate(appEntry)
+        appEntry.p2pAdapter?.destroy()
+        p2pAdaptersBySessionKey.delete(sessionKey)
         appEntriesBySessionKey.delete(sessionKey)
       }, APP_CLEANUP_DELAY_MS),
     )
