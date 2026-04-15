@@ -2,6 +2,10 @@ import { One } from '../dkt-react-sync/components/One'
 import { Many } from '../dkt-react-sync/components/Many'
 import { defineShape, shapeOf } from '../dkt-react-sync/shape/defineShape'
 import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
+import {
+  HourlySparklineSection,
+  DailySparklineSection,
+} from './WeatherSparkline'
 
 const LOCATION_PLACEHOLDER_KEYS = ['north', 'center', 'south'] as const
 const FORECAST_PLACEHOLDER_KEYS = ['now', 'soon', 'later'] as const
@@ -204,29 +208,8 @@ export function LocationCardsFallback({ count }: { count: number }) {
 export function PopoverForecastColumns() {
   return (
     <div className="selected-location-popover__forecasts">
-      <div>
-        <h3 className="mini-section-label">Hourly forecast</h3>
-        <ul className="forecast-list forecast-list--popover" aria-label="Hourly forecast">
-          <Many
-            rel="hourlyForecastSeries"
-            item={ForecastCard}
-            empty={<ForecastEmpty count={POPOVER_FORECAST_LIMIT} />}
-            limit={POPOVER_FORECAST_LIMIT}
-          />
-        </ul>
-      </div>
-
-      <div>
-        <h3 className="mini-section-label">Daily forecast</h3>
-        <ul className="forecast-list forecast-list--popover" aria-label="Daily forecast">
-          <Many
-            rel="dailyForecastSeries"
-            item={ForecastCard}
-            empty={<ForecastEmpty count={POPOVER_FORECAST_LIMIT} />}
-            limit={POPOVER_FORECAST_LIMIT}
-          />
-        </ul>
-      </div>
+      <HourlySparklineSection />
+      <DailySparklineSection />
     </div>
   )
 }

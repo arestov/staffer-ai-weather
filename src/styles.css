@@ -513,6 +513,85 @@ h1 {
   min-height: 14rem;
 }
 
+/* --- Sparkline sections (Tufte-style) --- */
+
+.sparkline-section {
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
+}
+
+.sparkline-title {
+  display: flex;
+  gap: 0.6em;
+  align-items: baseline;
+  margin: 0;
+}
+
+.sparkline-title__heading {
+  color: var(--text-muted);
+  font-family: var(--font-family-label);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-size: 0.72rem;
+  flex-shrink: 0;
+}
+
+.sparkline-title__detail {
+  color: var(--text-secondary);
+  font-family: var(--font-family-label);
+  font-weight: 400;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sparkline-panel {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.sparkline-endpoints {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.sparkline-endpoint {
+  display: flex;
+  gap: 0.4em;
+  align-items: baseline;
+}
+
+.sparkline-endpoint--end {
+  text-align: right;
+}
+
+.sparkline-endpoint__time {
+  color: var(--text-muted);
+  font-family: var(--font-family-label);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.sparkline-endpoint__temp {
+  color: var(--text-primary);
+  font-family: var(--font-family-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.sparkline-svg {
+  display: block;
+  width: 100%;
+  height: 1.75rem;
+  color: var(--text-primary);
+}
+
 .forecast-list {
   display: flex;
   gap: 0.75rem;

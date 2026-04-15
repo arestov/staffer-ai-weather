@@ -13,14 +13,13 @@ import {
   CurrentWeatherCard,
   DEFAULT_ADDITIONAL_LOCATION_COUNT,
   DEFAULT_FORECAST_LIMIT,
-  ForecastCard,
-  ForecastEmpty,
   ForecastPanelsFallback,
   LocationCardsFallback,
   LocationFallback,
   WeatherReadoutError,
   WeatherReadoutFallback,
 } from './WeatherCards'
+import { HourlySparklineSection, DailySparklineSection } from './WeatherSparkline'
 
 export { DEFAULT_FORECAST_LIMIT }
 
@@ -139,32 +138,10 @@ const WeatherLocationInner = ({
               </One>
 
               {featured ? (
-                <>
-                  <div className="forecast-panels">
-                    <div>
-                      <h2 className="mini-section-label">Hourly forecast</h2>
-                      <ul className="forecast-list" aria-label="Hourly forecast">
-                        <Many
-                          rel="hourlyForecastSeries"
-                          item={ForecastCard}
-                          empty={<ForecastEmpty count={forecastLimit ?? DEFAULT_FORECAST_LIMIT} />}
-                          limit={forecastLimit}
-                        />
-                      </ul>
-                    </div>
-                    <div>
-                      <h2 className="mini-section-label">Daily forecast</h2>
-                      <ul className="forecast-list" aria-label="Daily forecast">
-                        <Many
-                          rel="dailyForecastSeries"
-                          item={ForecastCard}
-                          empty={<ForecastEmpty count={forecastLimit ?? DEFAULT_FORECAST_LIMIT} />}
-                          limit={forecastLimit}
-                        />
-                      </ul>
-                    </div>
-                  </div>
-                </>
+                <div className="forecast-panels">
+                  <HourlySparklineSection />
+                  <DailySparklineSection />
+                </div>
               ) : null}
             </div>
           </One>
