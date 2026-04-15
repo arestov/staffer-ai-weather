@@ -7,6 +7,7 @@ import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
 import type { ReactSyncScopeHandle } from '../dkt-react-sync/scope/ScopeHandle'
 import { useNamedSessionRouter } from '../dkt-react-sync/hooks/useNamedSessionRouter'
 import type { LocationSearchResult } from '../models/WeatherLocation'
+import { readBooleanAttr, readNullableStringAttr, readStringAttr } from '../shared/attrReaders'
 import { SelectedLocationSearchPanel } from './SelectedLocationSearchPanel'
 import {
   CurrentWeatherCard,
@@ -336,16 +337,14 @@ function SelectedLocationPopover({
     'currentLocationStatus',
     'currentLocationError',
   ])
-  const isEditingLocation = Boolean(routerAttrs.isEditingLocation)
-  const searchQuery = typeof routerAttrs.searchQuery === 'string' ? routerAttrs.searchQuery : ''
-  const searchStatus = typeof routerAttrs.searchStatus === 'string' ? routerAttrs.searchStatus : 'idle'
-  const searchError = typeof routerAttrs.searchError === 'string' ? routerAttrs.searchError : null
+  const isEditingLocation = readBooleanAttr(routerAttrs.isEditingLocation)
+  const searchQuery = readStringAttr(routerAttrs.searchQuery)
+  const searchStatus = readStringAttr(routerAttrs.searchStatus, 'idle')
+  const searchError = readNullableStringAttr(routerAttrs.searchError)
   const searchResults = toLocationSearchResults(routerAttrs.searchResults)
   const savedSearchLocations = toLocationSearchResults(routerAttrs.savedSearchLocations)
-  const currentLocationStatus =
-    typeof routerAttrs.currentLocationStatus === 'string' ? routerAttrs.currentLocationStatus : 'idle'
-  const currentLocationError =
-    typeof routerAttrs.currentLocationError === 'string' ? routerAttrs.currentLocationError : null
+  const currentLocationStatus = readStringAttr(routerAttrs.currentLocationStatus, 'idle')
+  const currentLocationError = readNullableStringAttr(routerAttrs.currentLocationError)
 
   const clearSearchDebounce = () => {
     if (searchDebounceRef.current != null) {
@@ -527,12 +526,7 @@ function SelectedLocationPopoverSearchTrigger({
   onStartEdit: (seedQuery: string) => void
 }) {
   const attrs = useAttrs(['location', 'name'])
-  const seedQuery =
-    typeof attrs.location === 'string' && attrs.location
-      ? attrs.location
-      : typeof attrs.name === 'string'
-        ? attrs.name
-        : ''
+  const seedQuery = readStringAttr(attrs.location) || readStringAttr(attrs.name)
 
   return (
     <div className="selected-location-popover__footer">
@@ -559,12 +553,7 @@ const SelectedLocationPopoverHeader = memo(function SelectedLocationPopoverHeade
   onClose: () => void
 }) {
   const headerAttrs = useAttrs(['location', 'name'])
-  const seedQuery =
-    typeof headerAttrs.location === 'string' && headerAttrs.location
-      ? headerAttrs.location
-      : typeof headerAttrs.name === 'string'
-        ? headerAttrs.name
-        : ''
+  const seedQuery = readStringAttr(headerAttrs.location) || readStringAttr(headerAttrs.name)
 
   return (
     <div className="selected-location-popover__header">
@@ -615,8 +604,8 @@ function SelectedLocationPopoverWeatherSectionInner({
   onRefreshWeather: () => void
 }) {
   const weatherLocationAttrs = useAttrs(['loadStatus', 'lastError'])
-  const loadStatus = typeof weatherLocationAttrs.loadStatus === 'string' ? weatherLocationAttrs.loadStatus : 'idle'
-  const lastError = typeof weatherLocationAttrs.lastError === 'string' ? weatherLocationAttrs.lastError : null
+  const loadStatus = readStringAttr(weatherLocationAttrs.loadStatus, 'idle')
+  const lastError = readNullableStringAttr(weatherLocationAttrs.lastError)
   const weatherLoadError = loadStatus === 'error' && lastError ? lastError : null
 
   return (

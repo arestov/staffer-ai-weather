@@ -3,6 +3,7 @@ import { One } from '../dkt-react-sync/components/One'
 import { Many } from '../dkt-react-sync/components/Many'
 import { defineShape, shapeOf } from '../dkt-react-sync/shape/defineShape'
 import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
+import { readStringAttr } from '../shared/attrReaders'
 import {
   HourlySparklineSection,
   DailySparklineSection,
@@ -65,7 +66,7 @@ export const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
 }) {
   const attrs = useAttrs(['location', 'status', 'temperatureText', 'summary', 'weatherCode', 'isDay'])
 
-  const rawLocation = typeof attrs.location === 'string' ? attrs.location.trim() : ''
+  const rawLocation = readStringAttr(attrs.location).trim()
   const location = rawLocation || '[by coordinates]'
   const status = String(loadStatus || attrs.status || 'booting')
   const temperatureText = String(attrs.temperatureText || '-- \u00b0C')
