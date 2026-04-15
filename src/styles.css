@@ -423,6 +423,12 @@ h1 {
   margin-bottom: 0.55rem;
 }
 
+.weather-readout__value-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .weather-readout__value {
   color: var(--text-primary);
   font-family: var(--font-family-display);
@@ -430,6 +436,14 @@ h1 {
   line-height: 0.87;
   font-weight: 600;
   letter-spacing: -0.06em;
+}
+
+.weather-condition-icon {
+  flex-shrink: 0;
+  filter: grayscale(1) contrast(1.6);
+  opacity: 0.85;
+  width: clamp(2.8rem, 7vw, 4.8rem);
+  height: clamp(2.8rem, 7vw, 4.8rem);
 }
 
 .weather-readout__summary {
@@ -836,6 +850,11 @@ h1 {
 
 .weather-readout--popover .weather-readout__value {
   font-size: clamp(2.2rem, 5vw, 3.4rem);
+}
+
+.weather-readout--popover .weather-condition-icon {
+  width: clamp(2rem, 4vw, 3rem);
+  height: clamp(2rem, 4vw, 3rem);
 }
 
 .weather-readout--popover .weather-readout__summary {

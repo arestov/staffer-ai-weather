@@ -19,6 +19,8 @@
     "test:playwright:session-key": "node ./test/repl/playwright-session-key-run.mjs"
   },
   "dependencies": {
+    "@meteocons/lottie": "^0.1.0",
+    "lottie-web": "^5.13.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

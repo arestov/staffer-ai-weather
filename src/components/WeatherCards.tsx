@@ -6,6 +6,7 @@ import {
   HourlySparklineSection,
   DailySparklineSection,
 } from './WeatherSparkline'
+import { WeatherConditionIcon } from './WeatherConditionIcon'
 
 const LOCATION_PLACEHOLDER_KEYS = ['north', 'center', 'south'] as const
 const FORECAST_PLACEHOLDER_KEYS = ['now', 'soon', 'later'] as const
@@ -28,7 +29,7 @@ const formatUpdatedAt = (value: string | null) => {
 }
 
 const CurrentWeatherShape = defineShape({
-  attrs: ['location', 'status', 'temperatureText', 'summary', 'updatedAt'],
+  attrs: ['location', 'status', 'temperatureText', 'summary', 'updatedAt', 'weatherCode', 'isDay'],
 })
 
 const ForecastShape = defineShape({
@@ -44,7 +45,7 @@ export const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
   loadNote?: string | null
   onRetry?: () => void
 }) {
-  const attrs = useAttrs(['location', 'status', 'temperatureText', 'summary', 'updatedAt'])
+  const attrs = useAttrs(['location', 'status', 'temperatureText', 'summary', 'updatedAt', 'weatherCode', 'isDay'])
 
   const rawLocation = typeof attrs.location === 'string' ? attrs.location.trim() : ''
   const location = rawLocation || '[by coordinates]'
@@ -53,11 +54,16 @@ export const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
   const summary = String(attrs.summary || '')
   const updatedAt = (attrs.updatedAt as string | null) ?? null
   const statusNote = loadNote ?? (updatedAt ? `Updated ${formatUpdatedAt(updatedAt)}` : null)
+  const weatherCode = typeof attrs.weatherCode === 'number' ? attrs.weatherCode : null
+  const isDay = typeof attrs.isDay === 'boolean' ? attrs.isDay : null
 
   return (
     <>
       <div className="weather-readout__label">{location}</div>
-      <div className="weather-readout__value">{temperatureText}</div>
+      <div className="weather-readout__value-row">
+        <div className="weather-readout__value">{temperatureText}</div>
+        <WeatherConditionIcon weatherCode={weatherCode} isDay={isDay} />
+      </div>
       <p className="weather-readout__summary">{summary}</p>
       <div className="weather-readout__meta">
         <span className={`status-pill status-pill--${status}`}>{status}</span>
