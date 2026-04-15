@@ -83,8 +83,11 @@ const main = async () => {
 
     console.log(JSON.stringify({ selector: '::before', computed: arrowMetrics }, null, 2))
   } finally {
-    await page.close()
-    await browser.close()
+    try {
+      await browser.close()
+    } catch (error) {
+      console.warn('[playwright-repl] failed to close browser', error)
+    }
   }
 }
 

@@ -318,8 +318,11 @@ const main = async () => {
     console.log(output)
     console.log(`\nResults written to: ${outPath}`)
   } finally {
-    await page.close()
-    await browser.close()
+    try {
+      await browser.close()
+    } catch (error) {
+      console.warn('[playwright-repl] failed to close browser', error)
+    }
   }
 }
 

@@ -100,10 +100,11 @@ const main = async () => {
       ),
     )
   } finally {
-    await pageA.close()
-    await pageB.close()
-    await context.close()
-    await browser.close()
+    try {
+      await browser.close()
+    } catch (error) {
+      console.warn('[playwright-repl] failed to close browser', error)
+    }
   }
 }
 

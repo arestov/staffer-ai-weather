@@ -108,8 +108,11 @@ const main = async () => {
     console.log('[playwright-repl] popover', JSON.stringify(data, null, 2))
     console.log('[playwright-repl] screenshot', screenshotPath)
   } finally {
-    await page.close()
-    await browser.close()
+    try {
+      await browser.close()
+    } catch (error) {
+      console.warn('[playwright-repl] failed to close browser', error)
+    }
   }
 }
 
