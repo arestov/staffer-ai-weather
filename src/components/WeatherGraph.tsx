@@ -1,6 +1,7 @@
 import { One } from '../dkt-react-sync/components/One'
 import { Many } from '../dkt-react-sync/components/Many'
 import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
+import { useManyAttrs } from '../dkt-react-sync/hooks/useManyAttrs'
 import { useScope } from '../dkt-react-sync/hooks/useScope'
 import { useNamedSessionRouter } from '../dkt-react-sync/hooks/useNamedSessionRouter'
 import {
@@ -18,6 +19,7 @@ import {
   LocationFallback,
   WeatherReadoutError,
   WeatherReadoutFallback,
+  formatUpdatedAt,
 } from './WeatherCards'
 import { HourlySparklineSection, DailySparklineSection } from './WeatherSparkline'
 
@@ -33,6 +35,7 @@ export function WeatherGraph({
   return (
     <>
       <One rel="pioneer" fallback={<GraphFallback />}>
+        <WeatherUpdateTimestamp />
         <section className="main-stage">
           <One rel="mainLocation" fallback={<LocationFallback featured forecastLimit={forecastLimit} />}>
             <FeaturedLocationCard forecastLimit={forecastLimit} onRefreshWeather={onRefreshWeather} />
@@ -169,6 +172,67 @@ const FeaturedLocationCard = ({
 }) => <WeatherLocationInner featured forecastLimit={forecastLimit} onRefreshWeather={onRefreshWeather} />
 
 const AdditionalLocationCard = () => <WeatherLocationInner />
+
+function WeatherUpdateTimestamp() {
+  const allLocations = useManyAttrs('weatherLocation', ['name', 'weatherFetchedAt'])
+
+  if (allLocations.length === 0) {
+    return null
+  }
+
+  // Use the first location (main) as baseline
+  const mainTime = allLocations[0].weatherFetchedAt as string | null
+  const mainFmt = formatUpdatedAt(mainTime)
+  if (!mainFmt) {
+    return null
+  }
+
+  // Check if all locations share the same time
+  const allSame = allLocations.every((loc) => loc.weatherFetchedAt === mainTime)
+
+  if (allSame) {
+    return (
+      <time className="weather-global-timestamp" title={`Updated: ${mainFmt.full}`}>
+        ⟳ {mainFmt.short}
+      </time>
+    )
+  }
+
+  // Build per-location breakdown for differing times
+  const parts: string[] = []
+  const fullParts: string[] = []
+
+  for (const loc of allLocations) {
+    const name = typeof loc.name === 'string' && loc.name ? loc.name : '?'
+    const t = loc.weatherFetchedAt as string | null
+    const fmt = formatUpdatedAt(t)
+    if (fmt) {
+      parts.push(`${name} ${fmt.short}`)
+      fullParts.push(`${name}: ${fmt.full}`)
+    }
+  }
+
+  // Short text: main time + note about differing ones
+  const diffNames: string[] = []
+  for (let i = 1; i < allLocations.length; i++) {
+    if (allLocations[i].weatherFetchedAt !== mainTime) {
+      const name = typeof allLocations[i].name === 'string' && allLocations[i].name ? allLocations[i].name as string : '?'
+      const fmt = formatUpdatedAt(allLocations[i].weatherFetchedAt as string | null)
+      if (fmt) {
+        diffNames.push(`${name} ${fmt.short}`)
+      }
+    }
+  }
+
+  const shortText = `⟳ ${mainFmt.short}` + (diffNames.length > 0 ? ` · ${diffNames.join(', ')}` : '')
+  const fullText = fullParts.join('\n')
+
+  return (
+    <time className="weather-global-timestamp" title={fullText}>
+      {shortText}
+    </time>
+  )
+}
 
 function GraphFallback() {
   return (

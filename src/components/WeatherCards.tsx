@@ -15,21 +15,31 @@ export const DEFAULT_FORECAST_LIMIT = 3
 export const DEFAULT_ADDITIONAL_LOCATION_COUNT = 3
 export const POPOVER_FORECAST_LIMIT = 2
 
-const formatUpdatedAt = (value: string | null) => {
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+export const formatUpdatedAt = (value: string | null): { short: string; full: string } | null => {
   if (!value) {
-    return 'not updated yet'
+    return null
   }
 
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) {
-    return value
+    return { short: value, full: value }
   }
 
-  return date.toLocaleString()
+  const d = date.getDate()
+  const mon = MONTHS_SHORT[date.getMonth()]
+  const h = String(date.getHours()).padStart(2, '0')
+  const m = String(date.getMinutes()).padStart(2, '0')
+
+  return {
+    short: `${d} ${mon} ${h}:${m}`,
+    full: date.toLocaleString(),
+  }
 }
 
 const CurrentWeatherShape = defineShape({
-  attrs: ['location', 'status', 'temperatureText', 'summary', 'updatedAt', 'weatherCode', 'isDay'],
+  attrs: ['location', 'status', 'temperatureText', 'summary', 'weatherCode', 'isDay'],
 })
 
 const ForecastShape = defineShape({
@@ -45,17 +55,17 @@ export const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
   loadNote?: string | null
   onRetry?: () => void
 }) {
-  const attrs = useAttrs(['location', 'status', 'temperatureText', 'summary', 'updatedAt', 'weatherCode', 'isDay'])
+  const attrs = useAttrs(['location', 'status', 'temperatureText', 'summary', 'weatherCode', 'isDay'])
 
   const rawLocation = typeof attrs.location === 'string' ? attrs.location.trim() : ''
   const location = rawLocation || '[by coordinates]'
   const status = String(loadStatus || attrs.status || 'booting')
   const temperatureText = String(attrs.temperatureText || '-- \u00b0C')
   const summary = String(attrs.summary || '')
-  const updatedAt = (attrs.updatedAt as string | null) ?? null
-  const statusNote = loadNote ?? (updatedAt ? `Updated ${formatUpdatedAt(updatedAt)}` : null)
   const weatherCode = typeof attrs.weatherCode === 'number' ? attrs.weatherCode : null
   const isDay = typeof attrs.isDay === 'boolean' ? attrs.isDay : null
+
+  const showPill = status !== 'ready'
 
   return (
     <>
@@ -68,8 +78,8 @@ export const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
         </div>
       </div>
       <div className="weather-readout__meta">
-        <span className={`status-pill status-pill--${status}`}>{status}</span>
-        {statusNote ? <span>{statusNote}</span> : null}
+        {showPill ? <span className={`status-pill status-pill--${status}`}>{status}</span> : null}
+        {loadNote ? <span>{loadNote}</span> : null}
         {loadStatus === 'error' && onRetry ? (
           <button type="button" className="secondary" onClick={onRetry} data-weather-retry>
             Retry weather

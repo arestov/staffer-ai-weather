@@ -409,6 +409,19 @@ h1 {
   min-height: 10.5rem;
 }
 
+.weather-global-timestamp {
+  position: absolute;
+  top: clamp(0.95rem, 2vw, 1.3rem);
+  right: clamp(0.95rem, 2vw, 1.3rem);
+  z-index: 12;
+  color: var(--text-muted);
+  font-family: var(--font-family-label);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  opacity: 0.5;
+  white-space: nowrap;
+}
+
 .weather-readout--location {
   min-height: 100%;
 }
