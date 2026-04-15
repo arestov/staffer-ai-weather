@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react'
 import { One } from '../dkt-react-sync/components/One'
 import { Many } from '../dkt-react-sync/components/Many'
 import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
@@ -7,7 +8,6 @@ import { readNullableStringAttr, readStringAttr } from '../shared/attrReaders'
 import {
   SELECTED_LOCATION_POPOVER_ID,
   SELECTED_LOCATION_POPOVER_ROUTER_NAME,
-  SelectedLocationPopoverLayer,
   scrollSelectedLocationIntoView,
 } from './SelectedLocationPopover'
 import {
@@ -21,6 +21,10 @@ import {
   WeatherReadoutFallback,
 } from './WeatherCards'
 import { HourlySparklineSection, DailySparklineSection } from './WeatherSparkline'
+
+const LazySelectedLocationPopoverLayer = lazy(() =>
+  import('./SelectedLocationPopover').then(m => ({ default: m.SelectedLocationPopoverLayer })),
+)
 
 export { DEFAULT_FORECAST_LIMIT }
 
@@ -52,7 +56,9 @@ export function WeatherGraph({
         </section>
       </One>
 
-      <SelectedLocationPopoverLayer onRefreshWeather={onRefreshWeather} />
+      <Suspense fallback={null}>
+        <LazySelectedLocationPopoverLayer onRefreshWeather={onRefreshWeather} />
+      </Suspense>
     </>
   )
 }

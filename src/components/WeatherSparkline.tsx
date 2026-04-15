@@ -1,5 +1,9 @@
+import { Suspense, lazy } from 'react'
 import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
-import { WeatherConditionIcon } from './WeatherConditionIcon'
+
+const LazyWeatherConditionIcon = lazy(() =>
+  import('./WeatherConditionIcon').then(m => ({ default: m.WeatherConditionIcon })),
+)
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -171,7 +175,9 @@ function SparklineIconTrack({
             aria-label={summary}
             style={{ left: `${leftPct}%`, width: `${stepPct}%`, '--sparkline-gap': `${gapPct}%` } as React.CSSProperties}
           >
-            <WeatherConditionIcon weatherCode={weatherCode} isDay={true} />
+            <Suspense fallback={null}>
+              <LazyWeatherConditionIcon weatherCode={weatherCode} isDay={true} />
+            </Suspense>
           </div>
         )
       })}

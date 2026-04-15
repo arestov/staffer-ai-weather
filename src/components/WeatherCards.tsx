@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { Suspense, lazy, memo } from 'react'
 import { One } from '../dkt-react-sync/components/One'
 import { Many } from '../dkt-react-sync/components/Many'
 import { defineShape, shapeOf } from '../dkt-react-sync/shape/defineShape'
@@ -8,7 +8,10 @@ import {
   HourlySparklineSection,
   DailySparklineSection,
 } from './WeatherSparkline'
-import { WeatherConditionIcon } from './WeatherConditionIcon'
+
+const LazyWeatherConditionIcon = lazy(() =>
+  import('./WeatherConditionIcon').then(m => ({ default: m.WeatherConditionIcon })),
+)
 
 /** Render temperature text with °C unit at half font-size. */
 function renderTemp(text: string): React.ReactNode {
@@ -82,7 +85,9 @@ export const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
       <div className="weather-readout__value-row">
         <div className="weather-readout__value">{renderTemp(temperatureText)}</div>
         <div className="weather-readout__icon-col">
-          <WeatherConditionIcon weatherCode={weatherCode} isDay={isDay} />
+          <Suspense fallback={null}>
+            <LazyWeatherConditionIcon weatherCode={weatherCode} isDay={isDay} />
+          </Suspense>
           {summary ? <p className="weather-readout__icon-summary">{summary}</p> : null}
         </div>
       </div>
