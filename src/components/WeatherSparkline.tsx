@@ -225,16 +225,23 @@ export function DailySparklineSection() {
   const lastTemp = str(last.temperatureText) || '-- °C'
 
   const allTemps = interleaved.map((p) => p.temp)
-  const minT = Math.min(...allTemps)
-  const maxT = Math.max(...allTemps)
+  const dayTemps = data.map((d) => num(d.temperatureMaxC)).filter((t): t is number => t !== null)
+  const nightTemps = data.map((d) => num(d.temperatureMinC)).filter((t): t is number => t !== null)
   const textTrackItems = dedupeLabels(
     data.map((d) => str(d.summary)),
     (i) => i * 2,
   )
+  const dayRange = dayTemps.length
+    ? `${Math.round(Math.min(...dayTemps))}–${Math.round(Math.max(...dayTemps))}`
+    : null
+  const nightRange = nightTemps.length
+    ? `${Math.round(Math.min(...nightTemps))}–${Math.round(Math.max(...nightTemps))}`
+    : null
   const titleDetail = [
     `${data.length}d`,
-    `${Math.round(minT)}–${Math.round(maxT)} °C`,
-  ].join(' · ')
+    dayRange ? `☀ ${dayRange} °C` : null,
+    nightRange ? `☾ ${nightRange} °C` : null,
+  ].filter(Boolean).join(' · ')
 
   return (
     <div className="sparkline-section">
