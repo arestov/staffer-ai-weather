@@ -3,6 +3,7 @@ import { Many } from '../dkt-react-sync/components/Many'
 import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
 import { useScope } from '../dkt-react-sync/hooks/useScope'
 import { useNamedSessionRouter } from '../dkt-react-sync/hooks/useNamedSessionRouter'
+import { readNullableStringAttr, readStringAttr } from '../shared/attrReaders'
 import {
   SELECTED_LOCATION_POPOVER_ID,
   SELECTED_LOCATION_POPOVER_ROUTER_NAME,
@@ -74,9 +75,9 @@ const WeatherLocationInner = ({
     'lastError',
     'weatherFetchedAt',
   ])
-  const weatherLocationName = typeof weatherLocationAttrs.name === 'string' ? weatherLocationAttrs.name : ''
-  const loadStatus = String(weatherLocationAttrs.loadStatus || 'idle')
-  const lastError = typeof weatherLocationAttrs.lastError === 'string' ? weatherLocationAttrs.lastError : null
+  const weatherLocationName = readStringAttr(weatherLocationAttrs.name)
+  const loadStatus = readStringAttr(weatherLocationAttrs.loadStatus, 'idle')
+  const lastError = readNullableStringAttr(weatherLocationAttrs.lastError)
   const weatherStatus = loadStatus === 'idle' ? undefined : loadStatus
   const selectedLocationId = scope?._nodeId ?? ''
   const isPopoverOpen = Boolean(selectedLocationId && popoverNodeId === selectedLocationId)
