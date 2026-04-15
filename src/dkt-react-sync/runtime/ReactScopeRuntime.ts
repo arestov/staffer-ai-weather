@@ -45,6 +45,10 @@ export interface ReactScopeRuntime {
     payload?: unknown,
     scope?: ReactSyncScopeHandle | null,
   ): void
+
+  getDispatch(
+    scope: ReactSyncScopeHandle | null,
+  ): (actionName: string, payload?: unknown) => void
 }
 
 

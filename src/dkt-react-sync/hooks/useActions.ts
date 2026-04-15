@@ -5,11 +5,7 @@ export const useActions = () => {
   const runtime = useReactScopeRuntime()
   const scope = useScope()
 
-  return {
-    dispatch(actionName: string, payload?: unknown) {
-      runtime.dispatch(actionName, payload, scope)
-    },
-  }
+  return runtime.getDispatch(scope)
 }
 
 

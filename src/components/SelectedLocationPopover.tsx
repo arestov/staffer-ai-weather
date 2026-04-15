@@ -341,7 +341,7 @@ function SelectedLocationPopover({
   onRefreshWeather: () => void
   onClose: () => void
 }) {
-  const { dispatch } = useActions()
+  const dispatch = useActions()
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const routerAttrs = useAttrs([
     'isEditingLocation',

@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { useReactScopeRuntime } from './useReactScopeRuntime'
 import type { ReactSyncScopeHandle } from '../scope/ScopeHandle'
 import { getRelShape } from '../shape/autoShapes'
@@ -34,6 +34,8 @@ const useOneScope = (
   )
 }
 
+const noop = () => {}
+
 export const useNamedSessionRouter = (routerName: string) => {
   const runtime = useReactScopeRuntime()
 
@@ -46,33 +48,42 @@ export const useNamedSessionRouter = (routerName: string) => {
   const routerScope = useOneScope(rootScope, routerName)
   const currentScope = useOneScope(routerScope, 'current_mp_md')
 
-  return {
-    rootScope,
-    routerScope,
-    currentScope,
-    currentNodeId: currentScope?._nodeId ?? null,
-    clearCurrent() {
-      if (!routerScope) {
-        return
-      }
+  const routerDispatch = runtime.getDispatch(routerScope)
+  const rootDispatch = runtime.getDispatch(rootScope)
 
-      runtime.dispatch('eraseModel', undefined, routerScope)
-    },
-    openResource(contextModelId: string) {
-      if (!rootScope || !contextModelId) {
-        return
-      }
+  const clearCurrent = useMemo(
+    () =>
+      routerScope
+        ? () => routerDispatch('eraseModel')
+        : noop,
+    [routerScope, routerDispatch],
+  )
 
-      runtime.dispatch(
-        'navigateRouterToResource',
-        {
-          context_md_id: contextModelId,
-          router_name: routerName,
-        },
-        rootScope,
-      )
-    },
-  }
+  const openResource = useMemo(
+    () =>
+      rootScope
+        ? (contextModelId: string) => {
+            if (!contextModelId) return
+            rootDispatch('navigateRouterToResource', {
+              context_md_id: contextModelId,
+              router_name: routerName,
+            })
+          }
+        : noop,
+    [rootScope, rootDispatch, routerName],
+  )
+
+  return useMemo(
+    () => ({
+      rootScope,
+      routerScope,
+      currentScope,
+      currentNodeId: currentScope?._nodeId ?? null,
+      clearCurrent,
+      openResource,
+    }),
+    [rootScope, routerScope, currentScope, clearCurrent, openResource],
+  )
 }
 
 

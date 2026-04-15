@@ -255,6 +255,28 @@ export const createPageSyncReceiverRuntime = ({
     })
   }
 
+  const scopeDispatchCache = new WeakMap<
+    ReactSyncScopeHandle,
+    (actionName: string, payload?: unknown) => void
+  >()
+
+  const getDispatch = (
+    scope: ReactSyncScopeHandle | null,
+  ): ((actionName: string, payload?: unknown) => void) => {
+    if (!scope) {
+      return (actionName, payload) => dispatchAction(actionName, payload, null)
+    }
+
+    let cached = scopeDispatchCache.get(scope)
+    if (!cached) {
+      cached = (actionName: string, payload?: unknown) =>
+        dispatchAction(actionName, payload, scope)
+      scopeDispatchCache.set(scope, cached)
+    }
+
+    return cached
+  }
+
   const handleSyncMessage = (
     message: Extract<ReactSyncTransportMessage, { type: typeof APP_MSG.SYNC_HANDLE }>,
   ) => {
@@ -371,6 +393,7 @@ export const createPageSyncReceiverRuntime = ({
     ) => {
       dispatchAction(actionName, payload, scope)
     },
+    getDispatch,
     getRootAttrs,
     subscribe: store.subscribe,
     subscribeRootAttrs: (attrNames, listener) =>
