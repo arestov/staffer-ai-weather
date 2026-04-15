@@ -41,24 +41,6 @@ export const createWeatherAppSession = (): WeatherAppSession => {
     workerUrl.searchParams.set('p2pSignalUrl', p2pSignalUrl)
   }
 
-  const pusherKey = typeof import.meta.env.VITE_PUSHER_KEY === 'string' &&
-    import.meta.env.VITE_PUSHER_KEY.trim()
-    ? import.meta.env.VITE_PUSHER_KEY.trim()
-    : null
-
-  const pusherCluster = typeof import.meta.env.VITE_PUSHER_CLUSTER === 'string' &&
-    import.meta.env.VITE_PUSHER_CLUSTER.trim()
-    ? import.meta.env.VITE_PUSHER_CLUSTER.trim()
-    : null
-
-  if (pusherKey) {
-    workerUrl.searchParams.set('pusherKey', pusherKey)
-  }
-
-  if (pusherCluster) {
-    workerUrl.searchParams.set('pusherCluster', pusherCluster)
-  }
-
   const worker = new SharedWorker(
     workerUrl,
     {

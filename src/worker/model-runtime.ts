@@ -22,8 +22,7 @@ import {
 } from './weather-backend-api'
 import { createP2PSessionAdapter, type P2PSessionAdapter } from '../p2p'
 import {
-  createWsSignalingFactory,
-  createPusherSignalingFactory,
+  createDoSignalingFactory,
   type BridgeSignalingFactory,
 } from '../p2p/BridgeSignaling'
 
@@ -229,13 +228,9 @@ const createGeneratedSessionKey = () => {
 export const createWeatherModelRuntime = (options?: {
   weatherBackendBaseUrl?: string | null
   p2pSignalUrl?: string | null
-  pusherKey?: string | null
-  pusherCluster?: string | null
 }) => {
   const p2pSignalUrl = options?.p2pSignalUrl ?? null
-  const pusherKey = options?.pusherKey ?? null
-  const pusherCluster = options?.pusherCluster ?? null
-  const p2pEnabled = Boolean(p2pSignalUrl || (pusherKey && pusherCluster))
+  const p2pEnabled = Boolean(p2pSignalUrl)
   const p2pAdaptersBySessionKey = new Map<string, P2PSessionAdapter>()
   const weatherBackendBaseUrl = resolveWeatherBackendBaseUrl(
     options?.weatherBackendBaseUrl,
@@ -596,11 +591,7 @@ export const createWeatherModelRuntime = (options?: {
     if (adapter) return adapter
 
     let signalingFactory: BridgeSignalingFactory
-    if (pusherKey && pusherCluster) {
-      signalingFactory = createPusherSignalingFactory(pusherKey, pusherCluster)
-    } else {
-      signalingFactory = createWsSignalingFactory(p2pSignalUrl!)
-    }
+    signalingFactory = createDoSignalingFactory(p2pSignalUrl!)
 
     adapter = createP2PSessionAdapter({
       sessionKey,

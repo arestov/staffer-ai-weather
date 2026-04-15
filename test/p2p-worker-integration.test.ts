@@ -523,4 +523,114 @@ describe('P2P worker integration', () => {
     // Only one bridge for the same session key
     expect(bridgeCount).toBe(1)
   })
+
+  test('failover: client becomes server and pages get P2P_SESSION_LOST', async () => {
+    runtime = await createRuntime()
+
+    const transport = createMockTransport()
+    runtime.connect(transport)
+
+    let capturedEvents: MockBridge['events'] | null = null
+    const serverMessages: ReactSyncTransportMessage[] = []
+
+    createWorkerP2PBridge.mockImplementationOnce((config: Parameters<typeof createWorkerP2PBridge>[0]) => {
+      capturedEvents = config.events
+      const peerId = `client-failover-${Math.random().toString(36).slice(2, 8)}`
+
+      const bridge = {
+        get role(): BridgeRole { return 'client' },
+        peerId,
+        sendToServer(msg: ReactSyncTransportMessage) { serverMessages.push(msg) },
+        sendToRemotePeer: vi.fn(),
+        broadcastToRemotePeers: vi.fn(),
+        destroy: vi.fn(),
+      }
+
+      lastMockBridge = {
+        setRole: () => {},
+        events: config.events,
+        serverMessages,
+        peerMessages: new Map(),
+        broadcastMessages: [],
+        destroy: bridge.destroy,
+      }
+      allMockBridges.push(lastMockBridge)
+
+      return bridge
+    })
+
+    transport._receive({
+      type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
+      session_key: 'test-failover',
+    } as ReactSyncTransportMessage)
+
+    await flushAsync(50)
+
+    expect(capturedEvents).not.toBeNull()
+
+    // Trigger failover — this simulates the remote server disappearing
+    capturedEvents!.onFailover()
+    await flushAsync(10)
+
+    // Page should receive P2P_SESSION_LOST with reason='failover'
+    const lostMsg = transport._sent.find(m => m.type === APP_MSG.P2P_SESSION_LOST) as
+      { type: string; reason: string } | undefined
+    expect(lostMsg).toBeDefined()
+    expect(lostMsg!.reason).toBe('failover')
+  })
+
+  test('failed signaling connection: bridge falls back to server mode', async () => {
+    runtime = await createRuntime()
+
+    const transport = createMockTransport()
+    runtime.connect(transport)
+
+    let capturedEvents: MockBridge['events'] | null = null
+
+    createWorkerP2PBridge.mockImplementationOnce((config: Parameters<typeof createWorkerP2PBridge>[0]) => {
+      capturedEvents = config.events
+      const peerId = `fallback-${Math.random().toString(36).slice(2, 8)}`
+
+      const bridge = {
+        get role(): BridgeRole { return 'server' },
+        peerId,
+        sendToServer: vi.fn(),
+        sendToRemotePeer: vi.fn(),
+        broadcastToRemotePeers: vi.fn(),
+        destroy: vi.fn(),
+      }
+
+      // Simulate: signaling error fires before any connection
+      queueMicrotask(() => {
+        config.events.onError(new Error('Signaling connection refused'))
+      })
+
+      lastMockBridge = {
+        setRole: () => {},
+        events: config.events,
+        serverMessages: [],
+        peerMessages: new Map(),
+        broadcastMessages: [],
+        destroy: bridge.destroy,
+      }
+      allMockBridges.push(lastMockBridge)
+
+      return bridge
+    })
+
+    transport._receive({
+      type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
+      session_key: 'test-signal-fail',
+    } as ReactSyncTransportMessage)
+
+    await flushAsync(50)
+
+    // The bridge was created
+    expect(createWorkerP2PBridge).toHaveBeenCalledTimes(1)
+
+    // Despite signaling failure, session should boot (fallback to server)
+    const sessionBooted = transport._sent.find(m => m.type === APP_MSG.SESSION_BOOTED)
+    expect(sessionBooted).toBeDefined()
+    expect((sessionBooted as Record<string, unknown>)?.session_key).toBe('test-signal-fail')
+  })
 })

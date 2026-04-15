@@ -75,6 +75,8 @@ export const createWorkerP2PBridge = (
   const remoteTransports = new Map<string, { receive(msg: ReactSyncTransportMessage): void; destroy(): void }>()
 
   let electionTimer: ReturnType<typeof setTimeout> | null = null
+  /** True once the DO assigns a leader — disables local election. */
+  let leaderAssignedByServer = false
 
   const rtcConfig: RTCConfiguration = {
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
@@ -324,7 +326,8 @@ export const createWorkerP2PBridge = (
       onMemberJoined(remotePeerId, remoteJoinedAt) {
         if (destroyed) return
         knownMembers.set(remotePeerId, { peerId: remotePeerId, joinedAt: remoteJoinedAt, role: 'undecided' })
-        if (role === 'undecided') scheduleElection()
+        // If we're server and there's no DO-based leader assignment, schedule election
+        if (role === 'undecided' && !leaderAssignedByServer) scheduleElection()
         if (role === 'server') {
           // Announce server role so newcomer knows who the server is
           signaling?.sendSignal({
@@ -357,6 +360,20 @@ export const createWorkerP2PBridge = (
         }
       },
 
+      onLeaderAssigned(leaderPeerId, _epoch) {
+        if (destroyed) return
+        leaderAssignedByServer = true
+        // Server-side leader election — takes precedence over local election
+        if (electionTimer) { clearTimeout(electionTimer); electionTimer = null }
+        if (leaderPeerId === peerId) {
+          if (role !== 'server') becomeServer()
+        } else {
+          if (role !== 'client' || serverPeerId !== leaderPeerId) {
+            becomeClient(leaderPeerId)
+          }
+        }
+      },
+
       onSignal(msg) {
         if (destroyed) return
         handleSignal(msg as { kind: string; fromPeerId: string; toPeerId?: string; [key: string]: unknown })
@@ -365,8 +382,10 @@ export const createWorkerP2PBridge = (
       onConnected() {
         if (destroyed) return
         signalingConnected = true
-        // Initial election — may resolve immediately if we're alone
-        scheduleElection()
+        // If server already assigned leader, skip local election
+        if (!leaderAssignedByServer) {
+          scheduleElection()
+        }
       },
 
       onError(error) {

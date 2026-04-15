@@ -60,39 +60,4 @@ export interface RelayEnvelope {
   payload: unknown
 }
 
-// ── PeerRoom configuration ──────────────────────────────────────────
 
-export interface PeerRoomConfig {
-  roomId: string
-  pusherKey: string
-  pusherCluster: string
-  rtcConfig?: RTCConfiguration
-  electionDebounceMs?: number
-  heartbeatIntervalMs?: number
-  heartbeatTimeoutMs?: number
-}
-
-export const DEFAULT_PEER_ROOM_CONFIG = {
-  electionDebounceMs: 500,
-  heartbeatIntervalMs: 5_000,
-  heartbeatTimeoutMs: 15_000,
-  rtcConfig: {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-    ],
-  },
-} as const satisfies Partial<PeerRoomConfig>
-
-// ── PeerRoom events ─────────────────────────────────────────────────
-
-export type PeerRoomEvent =
-  | { type: 'role-decided'; role: PeerRole }
-  | { type: 'data-channel-open'; remotePeerId: string }
-  | { type: 'data-channel-close'; remotePeerId: string }
-  | { type: 'data-channel-message'; remotePeerId: string; data: unknown }
-  | { type: 'server-gone' }
-  | { type: 'became-server' }
-  | { type: 'error'; error: unknown }
-
-export type PeerRoomEventListener = (event: PeerRoomEvent) => void
