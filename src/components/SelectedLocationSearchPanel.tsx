@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react'
+import { useId, type FormEvent } from 'react'
 import type { LocationSearchResult } from '../models/WeatherLocation'
 
 type SelectedLocationSearchPanelProps = {
@@ -38,12 +38,13 @@ export function SelectedLocationSearchPanel({
   onSelectSavedResult,
   onRemoveSavedResult,
 }: SelectedLocationSearchPanelProps) {
-  const searchInputId = 'selected-location-search-input'
-  const searchTitleId = 'selected-location-search-title'
-  const searchHintId = 'selected-location-search-hint'
-  const searchStatusId = 'selected-location-search-status'
-  const searchResultsId = 'selected-location-search-results-list'
-  const savedTitleId = 'selected-location-search-saved-title'
+  const baseId = useId()
+  const searchInputId = `${baseId}-search-input`
+  const searchTitleId = `${baseId}-search-title`
+  const searchHintId = `${baseId}-search-hint`
+  const searchStatusId = `${baseId}-search-status`
+  const searchResultsId = `${baseId}-search-results-list`
+  const savedTitleId = `${baseId}-search-saved-title`
   const searchFieldDescription = [searchHintId, searchStatus !== 'idle' ? searchStatusId : null]
     .filter(Boolean)
     .join(' ')

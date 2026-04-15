@@ -71,22 +71,22 @@ export function AppHeader({
       <header id="app-header-panel" className="app-header" hidden={!isOpen}>
         <h2 className="sr-only">System status</h2>
         <div className="metric-strip">
-          <article className="metric-card">
+          <div className="metric-card">
             <span>Boot state</span>
             <strong>{bootedLabel}</strong>
-          </article>
-          <article className="metric-card">
+          </div>
+          <div className="metric-card">
             <span>Root node</span>
             <strong>{rootNodeId || 'pending'}</strong>
-          </article>
-          <article className="metric-card">
+          </div>
+          <div className="metric-card">
             <span>Session key</span>
             <strong>{sessionKey || 'pending'}</strong>
-          </article>
-          <article className="metric-card">
+          </div>
+          <div className="metric-card">
             <span>Session</span>
             <strong>{sessionId || 'pending'}</strong>
-          </article>
+          </div>
         </div>
 
         {weatherLoadStatus === 'error' && weatherLoadError ? (

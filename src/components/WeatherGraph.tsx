@@ -132,12 +132,12 @@ const WeatherLocationInner = ({
                 rel="currentWeather"
                 fallback={<WeatherReadoutFallback />}
               >
-                <article className="weather-readout weather-readout--location">
+                <div className="weather-readout weather-readout--location">
                   <CurrentWeatherCard
                     loadStatus={weatherStatus}
                     loadNote={weatherNote}
                   />
-                </article>
+                </div>
               </One>
 
               {featured ? (
@@ -197,7 +197,7 @@ function WeatherUpdateTimestamp() {
 
   if (allSame) {
     return (
-      <time className="weather-global-timestamp" title={`Updated: ${mainFmt.full}`}>
+      <time className="weather-global-timestamp" dateTime={typeof mainTime === 'string' ? mainTime : undefined} title={`Updated: ${mainFmt.full}`}>
         ⟳ {mainFmt.short}
       </time>
     )
@@ -233,7 +233,7 @@ function WeatherUpdateTimestamp() {
   const fullText = fullParts.join('\n')
 
   return (
-    <time className="weather-global-timestamp" title={fullText}>
+    <time className="weather-global-timestamp" dateTime={typeof mainTime === 'string' ? mainTime : undefined} title={fullText}>
       {shortText}
     </time>
   )

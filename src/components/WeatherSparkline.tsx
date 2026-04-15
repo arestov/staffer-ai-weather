@@ -179,8 +179,9 @@ function SparklineIconTrack({
           <div
             key={col}
             className="sparkline-icon-track__icon"
+            role="img"
+            aria-label={summary}
             style={{ left: `${leftPct}%`, width: `${stepPct}%`, '--sparkline-gap': `${gapPct}%` } as React.CSSProperties}
-            title={summary}
           >
             <WeatherConditionIcon weatherCode={weatherCode} isDay={true} />
           </div>
@@ -215,6 +216,7 @@ function SparklineDashes({
       role="img"
       aria-label={label}
     >
+      <desc>{`${Math.round(min)} °C – ${Math.round(max)} °C, ${n} points`}</desc>
       {temperatures.map((temp, i) => {
         const x = i * (dashW + DASH_GAP)
         const y = mapY(temp, min, max)

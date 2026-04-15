@@ -200,12 +200,32 @@ export function SelectedLocationPopoverLayer({
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        clearCurrent()
         return
       }
 
-      event.preventDefault()
-      clearCurrent()
+      if (event.key === 'Tab') {
+        const popover = popoverRef.current
+        if (!popover) return
+
+        const focusable = popover.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+        if (!focusable.length) return
+
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first.focus()
+        }
+      }
     }
 
     document.addEventListener('keydown', handleKeyDown)
@@ -265,6 +285,7 @@ export function SelectedLocationPopoverLayer({
         popover="manual"
         hidden={!currentNodeId || !currentScope}
         className="selected-location-popover selected-location-popover--floating"
+        aria-label="Location details"
         data-selected-location-popover-layer
         data-popover-for={currentNodeId ?? ''}
       >

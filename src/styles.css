@@ -174,7 +174,8 @@ input::placeholder {
 
 input:focus {
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgb(var(--color-sky-wash-rgb) / 0.18);
+  box-shadow: 0 0 0 3px rgb(var(--color-sky-wash-rgb) / 0.42);
+  outline: 2px solid transparent;
 }
 
 .app-shell {
@@ -579,6 +580,7 @@ h1 {
 .status-pill--error {
   background: var(--feedback-danger-bg);
   color: var(--feedback-danger-text);
+  border: 1.5px solid var(--feedback-danger-border);
 }
 
 .weather-readout--error {
@@ -1090,6 +1092,35 @@ h1 {
 .selected-location-search__saved-result strong {
   color: var(--text-primary);
   font-size: 0.98rem;
+}
+
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 1rem;
+  z-index: 9999;
+  padding: 0.75rem 1.25rem;
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  border: 2px solid var(--border-focus);
+  border-radius: 12px;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .selected-location-search__saved-result span {

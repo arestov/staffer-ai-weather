@@ -17,6 +17,7 @@ export default function App({
   return (
     <main className="app-shell">
       <h1 className="sr-only">Weather dashboard</h1>
+      <a href="#main-content" className="skip-link">Skip to weather content</a>
 
       <AppHeader
         bootedLabel={bootedLabel}
@@ -28,9 +29,11 @@ export default function App({
         onRefreshWeather={session.refreshWeather}
       />
 
-      <RootScope runtime={session.runtime}>
-        <WeatherGraph forecastLimit={forecastLimit} onRefreshWeather={session.refreshWeather} />
-      </RootScope>
+      <div id="main-content">
+        <RootScope runtime={session.runtime}>
+          <WeatherGraph forecastLimit={forecastLimit} onRefreshWeather={session.refreshWeather} />
+        </RootScope>
+      </div>
     </main>
   )
 }
