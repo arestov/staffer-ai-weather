@@ -435,8 +435,11 @@ h1 {
   margin: 0.6rem 0 0;
   color: var(--text-secondary);
   font-size: 1rem;
-  max-width: 32rem;
   min-height: 2.4rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .weather-readout__meta {
@@ -519,6 +522,7 @@ h1 {
   display: grid;
   gap: 0.5rem;
   align-content: start;
+  min-width: 0;
 }
 
 .sparkline-title {
@@ -583,6 +587,16 @@ h1 {
   font-family: var(--font-family-display);
   font-size: 0.95rem;
   font-weight: 600;
+}
+
+.sparkline-summary {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .sparkline-svg {
@@ -784,7 +798,6 @@ h1 {
 
 .weather-readout--popover .weather-readout__summary {
   min-height: 0;
-  max-width: none;
 }
 
 .forecast-list--popover {

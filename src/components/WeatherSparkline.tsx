@@ -127,8 +127,8 @@ export function HourlySparklineSection() {
   const titleDetail = [
     `${data.length}h`,
     `${Math.round(minT)}–${Math.round(maxT)} °C`,
-    ...(summaries.length ? [summaries.join(', ')] : []),
   ].join(' · ')
+  const summaryLine = summaries.join(', ')
 
   return (
     <div className="sparkline-section">
@@ -149,6 +149,7 @@ export function HourlySparklineSection() {
         </div>
         <SparklineDashes temperatures={temperatures} label="Hourly temperature sparkline" />
       </div>
+      {summaryLine ? <p className="sparkline-summary">{summaryLine}</p> : null}
     </div>
   )
 }
@@ -181,10 +182,12 @@ export function DailySparklineSection() {
   const allTemps = interleaved.map((p) => p.temp)
   const minT = Math.min(...allTemps)
   const maxT = Math.max(...allTemps)
+  const summaries = [...new Set(data.map((d) => str(d.summary)).filter(Boolean))]
   const titleDetail = [
     `${data.length}d`,
     `${Math.round(minT)}–${Math.round(maxT)} °C`,
   ].join(' · ')
+  const summaryLine = summaries.join(', ')
 
   return (
     <div className="sparkline-section">
@@ -209,6 +212,7 @@ export function DailySparklineSection() {
           label="Daily temperature sparkline"
         />
       </div>
+      {summaryLine ? <p className="sparkline-summary">{summaryLine}</p> : null}
     </div>
   )
 }
