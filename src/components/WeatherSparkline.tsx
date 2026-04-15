@@ -31,6 +31,53 @@ function mapY(value: number, min: number, max: number): number {
   return PAD_Y + (1 - (value - min) / (max - min)) * USABLE_H
 }
 
+/** Build deduplicated label list: only keep labels that differ from the previous. */
+function dedupeLabels(
+  summaries: string[],
+  columnIndex?: (i: number) => number,
+): { col: number; text: string }[] {
+  const items: { col: number; text: string }[] = []
+  let prev = ''
+  for (let i = 0; i < summaries.length; i++) {
+    const s = summaries[i]
+    if (s && s !== prev) {
+      items.push({ col: columnIndex ? columnIndex(i) : i, text: s })
+    }
+    if (s) prev = s
+  }
+  return items
+}
+
+/** Text sparkline: labels absolutely positioned to match SVG dash positions. */
+function SparklineTextTrack({
+  items,
+  count,
+}: {
+  items: { col: number; text: string }[]
+  count: number
+}) {
+  if (!items.length) return null
+
+  const dashW = (VB_WIDTH - (count - 1) * DASH_GAP) / count
+
+  return (
+    <div className="sparkline-text-track">
+      {items.map(({ col, text }) => {
+        const leftPct = (col * (dashW + DASH_GAP)) / VB_WIDTH * 100
+        return (
+          <span
+            key={col}
+            className="sparkline-text-track__label"
+            style={{ left: `${leftPct}%` }}
+          >
+            {text}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 /** One horizontal dash per data point, all on a shared y-scale. */
 function SparklineDashes({
   temperatures,
@@ -69,7 +116,6 @@ function SparklineDashes({
             y2={y}
             stroke="currentColor"
             strokeWidth={2.5}
-            strokeLinecap="round"
             opacity={opacity}
           />
         )
@@ -123,12 +169,11 @@ export function HourlySparklineSection() {
 
   const minT = Math.min(...temperatures)
   const maxT = Math.max(...temperatures)
-  const summaries = [...new Set(data.map((d) => str(d.summary)).filter(Boolean))]
+  const textTrackItems = dedupeLabels(data.map((d) => str(d.summary)))
   const titleDetail = [
     `${data.length}h`,
     `${Math.round(minT)}–${Math.round(maxT)} °C`,
   ].join(' · ')
-  const summaryLine = summaries.join(', ')
 
   return (
     <div className="sparkline-section">
@@ -149,7 +194,7 @@ export function HourlySparklineSection() {
         </div>
         <SparklineDashes temperatures={temperatures} label="Hourly temperature sparkline" />
       </div>
-      {summaryLine ? <p className="sparkline-summary">{summaryLine}</p> : null}
+      <SparklineTextTrack items={textTrackItems} count={temperatures.length} />
     </div>
   )
 }
@@ -182,12 +227,14 @@ export function DailySparklineSection() {
   const allTemps = interleaved.map((p) => p.temp)
   const minT = Math.min(...allTemps)
   const maxT = Math.max(...allTemps)
-  const summaries = [...new Set(data.map((d) => str(d.summary)).filter(Boolean))]
+  const textTrackItems = dedupeLabels(
+    data.map((d) => str(d.summary)),
+    (i) => i * 2,
+  )
   const titleDetail = [
     `${data.length}d`,
     `${Math.round(minT)}–${Math.round(maxT)} °C`,
   ].join(' · ')
-  const summaryLine = summaries.join(', ')
 
   return (
     <div className="sparkline-section">
@@ -212,7 +259,7 @@ export function DailySparklineSection() {
           label="Daily temperature sparkline"
         />
       </div>
-      {summaryLine ? <p className="sparkline-summary">{summaryLine}</p> : null}
+      <SparklineTextTrack items={textTrackItems} count={interleaved.length} />
     </div>
   )
 }
