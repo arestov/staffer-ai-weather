@@ -16,6 +16,26 @@ const formatTimeLabel = (iso: unknown): string => {
   return t ? t.slice(0, 5) : '--:--'
 }
 
+const renderDailyTemperatureText = (text: string) => {
+  const parts = text.split(' / ')
+
+  if (parts.length !== 2) {
+    return text
+  }
+
+  return (
+    <>
+      <span className="sparkline-endpoint__temp-part sparkline-endpoint__temp-part--night">
+        {parts[0]}
+      </span>
+      <span className="sparkline-endpoint__temp-divider"> / </span>
+      <span className="sparkline-endpoint__temp-part sparkline-endpoint__temp-part--day">
+        {parts[1]}
+      </span>
+    </>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // sparkline SVG primitives
 // ---------------------------------------------------------------------------
@@ -253,11 +273,15 @@ export function DailySparklineSection() {
         <div className="sparkline-endpoints">
           <span className="sparkline-endpoint">
             <span className="sparkline-endpoint__time">{firstLabel}</span>
-            <span className="sparkline-endpoint__temp">{firstTemp}</span>
+            <span className="sparkline-endpoint__temp sparkline-endpoint__temp--daily">
+              {renderDailyTemperatureText(firstTemp)}
+            </span>
           </span>
           <span className="sparkline-endpoint sparkline-endpoint--end">
             <span className="sparkline-endpoint__time">{lastLabel}</span>
-            <span className="sparkline-endpoint__temp">{lastTemp}</span>
+            <span className="sparkline-endpoint__temp sparkline-endpoint__temp--daily">
+              {renderDailyTemperatureText(lastTemp)}
+            </span>
           </span>
         </div>
         <SparklineDashes

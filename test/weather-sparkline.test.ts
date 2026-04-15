@@ -188,11 +188,13 @@ describe('Weather sparkline sections', () => {
     const dailyFirstTemp = dailyEndpoints[0].querySelector('.sparkline-endpoint__temp')
     expect(dailyFirstLabel?.textContent).toBe('Wed')
     expect(dailyFirstTemp?.textContent).toContain('°C')
+    expect(dailyFirstTemp?.querySelector('.sparkline-endpoint__temp-part--night')).not.toBeNull()
 
     const dailyLastLabel = dailyEndpoints[1].querySelector('.sparkline-endpoint__time')
     const dailyLastTemp = dailyEndpoints[1].querySelector('.sparkline-endpoint__temp')
     expect(dailyLastLabel?.textContent).toBe('Sun')
     expect(dailyLastTemp?.textContent).toContain('°C')
+    expect(dailyLastTemp?.querySelector('.sparkline-endpoint__temp-part--night')).not.toBeNull()
   })
 
   test('sparkline SVG lines have correct y-positions reflecting temperature range', async () => {

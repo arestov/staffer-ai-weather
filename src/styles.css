@@ -590,6 +590,24 @@ h1 {
   font-weight: 600;
 }
 
+.sparkline-endpoint__temp--daily {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.1em;
+}
+
+.sparkline-endpoint__temp-part--night {
+  opacity: 0.55;
+}
+
+.sparkline-endpoint__temp-divider {
+  opacity: 0.55;
+}
+
+.sparkline-endpoint__temp-part--day {
+  opacity: 1;
+}
+
 .sparkline-text-track {
   position: relative;
   min-width: 0;
