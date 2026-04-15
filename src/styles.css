@@ -455,6 +455,18 @@ h1 {
   height: clamp(2.8rem, 7vw, 4.8rem);
 }
 
+.weather-icon-spinner {
+  border-radius: 50%;
+  border: 2px solid rgba(128, 128, 128, 0.15);
+  border-top-color: rgba(128, 128, 128, 0.5);
+  animation: weather-icon-spin 0.7s linear infinite;
+  box-sizing: border-box;
+}
+
+@keyframes weather-icon-spin {
+  to { transform: rotate(360deg); }
+}
+
 .weather-readout__icon-summary {
   margin: 0;
   color: var(--text-secondary);

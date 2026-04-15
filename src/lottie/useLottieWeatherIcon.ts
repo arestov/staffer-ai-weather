@@ -66,21 +66,32 @@ export function useLottieWeatherIcon(iconName: string | null, size: number) {
 
     let cancelled = false
     const dpr = typeof devicePixelRatio !== 'undefined' ? devicePixelRatio : 1
+    const pxW = Math.round(size * dpr)
+    const pxH = Math.round(size * dpr)
+
+    // CSS spinner shown while lottie + icon data load
+    const spinner = document.createElement('div')
+    spinner.className = 'weather-icon-spinner'
+    spinner.style.width = `${size}px`
+    spinner.style.height = `${size}px`
+    container.appendChild(spinner)
 
     // Create a fresh canvas so transferControlToOffscreen() always works
     const canvas = document.createElement('canvas')
-    canvas.width = Math.round(size * dpr)
-    canvas.height = Math.round(size * dpr)
+    canvas.width = pxW
+    canvas.height = pxH
     canvas.style.width = `${size}px`
     canvas.style.height = `${size}px`
     canvas.style.display = 'block'
-    container.appendChild(canvas)
 
     Promise.all([lottiePromise, iconDataPromise])
       .then(([lottie, animationData]) => {
         if (cancelled) {
           return
         }
+
+        spinner.remove()
+        container.appendChild(canvas)
 
         animRef.current = lottie.loadAnimation({
           renderer: 'canvas',
@@ -93,9 +104,7 @@ export function useLottieWeatherIcon(iconName: string | null, size: number) {
           },
         })
       })
-      .catch(() => {
-        // Silently fail if lottie worker is unavailable
-      })
+      .catch(() => {})
 
     return () => {
       cancelled = true
@@ -103,6 +112,7 @@ export function useLottieWeatherIcon(iconName: string | null, size: number) {
         animRef.current.destroy()
         animRef.current = null
       }
+      spinner.remove()
       canvas.remove()
     }
   }, [iconName, size])
