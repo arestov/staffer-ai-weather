@@ -16,11 +16,15 @@
     "preview": "vite preview",
     "repl": "node ./test/repl/run.mjs",
     "repl:playwright": "node ./test/repl/playwright-run.mjs",
-    "test:playwright:session-key": "node ./test/repl/playwright-session-key-run.mjs"
+    "test:playwright:session-key": "node ./test/repl/playwright-session-key-run.mjs",
+    "test:p2p:sync": "node ./test/p2p/playwright-p2p-sync.mjs",
+    "test:p2p:failover": "node ./test/p2p/playwright-p2p-failover.mjs",
+    "test:p2p": "node ./test/p2p/playwright-p2p-sync.mjs && node ./test/p2p/playwright-p2p-failover.mjs"
   },
   "dependencies": {
     "@meteocons/lottie": "^0.1.0",
     "lottie-web": "^5.13.0",
+    "pusher-js": "^8.5.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -36,6 +40,7 @@
     "playwright": "^1.59.1",
     "typescript": "^5.7.0",
     "vite": "^6.0.0",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "ws": "^8.20.0"
   }
 }

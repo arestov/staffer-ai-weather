@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>P2P Protocol Test</title>
+  <style>
+    body { font-family: monospace; margin: 16px; }
+    #log { white-space: pre-wrap; font-size: 12px; color: #555; }
+    .tag { font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div>peer: <span id="peer-id">-</span></div>
+  <div>role: <span id="role">undecided</span></div>
+  <div>status: <span id="status">initializing</span></div>
+  <div>server: <span id="server-id">-</span></div>
+  <div>connected peers: <span id="connected-peers">0</span></div>
+  <hr>
+  <div id="log"></div>
+  <script type="module">
+    // P2P test page — uses WebSocket signaling relay (test only)
+    // URL params: ?room=X&signal=ws://host:port&delay=N
+
+    const params = new URLSearchParams(location.search)
+    const roomId = params.get('room') || 'test-room'
+    const signalUrl = params.get('signal') || 'ws://127.0.0.1:8790'
+    const forcedDelay = Number(params.get('delay') || '0')
+
+    const peerId = crypto.randomUUID()
+    const joinedAt = Date.now()
+    let role = 'undecided'
+    let serverPeerId = null
+    let destroyed = false
+    const peerConnections = new Map() // remotePeerId -> RTCPeerConnection
+    const dataChannels = new Map()    // remotePeerId -> RTCDataChannel
+    const knownMembers = new Map()    // peerId -> { peerId, joinedAt, role }
+    const receivedMessages = []
+
+    const rtcConfig = {
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+    }
+
+    // ── UI ───────────────────────────────────────────────────────
+
+    const logEl = document.getElementById('log')
+    const peerIdEl = document.getElementById('peer-id')
+    const roleEl = document.getElementById('role')
+    const statusEl = document.getElementById('status')
+    const serverIdEl = document.getElementById('server-id')
+    const connPeersEl = document.getElementById('connected-peers')
+
+    peerIdEl.textContent = peerId.slice(0, 8)
+
+    const log = (msg) => {
+      const line = `[${new Date().toISOString().slice(11, 23)}] ${msg}\n`
+      logEl.textContent += line
+      console.log(`[p2p:${peerId.slice(0, 8)}] ${msg}`)
+    }
+
+    const updateUI = () => {
+      roleEl.textContent = role
+      serverIdEl.textContent = serverPeerId ? serverPeerId.slice(0, 8) : '-'
+      connPeersEl.textContent = String(dataChannels.size)
+
+      if (dataChannels.size > 0) {
+        statusEl.textContent = 'connected'
+      } else if (role === 'server') {
+        statusEl.textContent = 'server-waiting'
+      } else if (role === 'client') {
+        statusEl.textContent = 'connecting'
+      } else {
+        statusEl.textContent = 'initializing'
+      }
+    }
+
+    // ── WebRTC ──────────────────────────────────────────────────
+
+    const setupDataChannel = (remotePeerId, dc) => {
+      dc.onopen = () => {
+        log(`dc.open -> ${remotePeerId.slice(0, 8)}`)
+        dataChannels.set(remotePeerId, dc)
+        updateUI()
+      }
+
+      dc.onclose = () => {
+        log(`dc.close -> ${remotePeerId.slice(0, 8)}`)
+        dataChannels.delete(remotePeerId)
+        updateUI()
+        if (role === 'client' && remotePeerId === serverPeerId) {
+          handleServerGone()
+        }
+      }
+
+      dc.onerror = (ev) => {
+        log(`dc.error -> ${remotePeerId.slice(0, 8)}: ${ev}`)
+      }
+
+      dc.onmessage = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.data)
+          receivedMessages.push({ from: remotePeerId, data: parsed, ts: Date.now() })
+          log(`dc.msg <- ${remotePeerId.slice(0, 8)}: ${JSON.stringify(parsed)}`)
+        } catch (e) {
+          log(`dc.msg parse error: ${e}`)
+        }
+      }
+    }
+
+    const createPC = (remotePeerId, initiator) => {
+      const old = peerConnections.get(remotePeerId)
+      if (old) { old.close(); peerConnections.delete(remotePeerId) }
+
+      const pc = new RTCPeerConnection(rtcConfig)
+      peerConnections.set(remotePeerId, pc)
+
+      if (initiator) {
+        const dc = pc.createDataChannel('sync', { ordered: true })
+        setupDataChannel(remotePeerId, dc)
+      } else {
+        pc.ondatachannel = (ev) => setupDataChannel(remotePeerId, ev.channel)
+      }
+
+      pc.onicecandidate = (ev) => {
+        if (!ev.candidate) return
+        sendSignal({
+          kind: 'ice-candidate',
+          roomId,
+          fromPeerId: peerId,
+          toPeerId: remotePeerId,
+          candidate: ev.candidate.toJSON(),
+          ts: Date.now(),
+        })
+      }
+
+      pc.onconnectionstatechange = () => {
+        log(`pc.state ${remotePeerId.slice(0, 8)}: ${pc.connectionState}`)
+        if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+          dataChannels.delete(remotePeerId)
+          updateUI()
+        }
+      }
+
+      return pc
+    }
+
+    // ── Election ────────────────────────────────────────────────
+
+    let electionTimer = null
+
+    const scheduleElection = () => {
+      if (electionTimer) clearTimeout(electionTimer)
+      electionTimer = setTimeout(() => {
+        electionTimer = null
+        if (destroyed) return
+
+        // Check for existing server
+        for (const [, m] of knownMembers) {
+          if (m.role === 'server') {
+            if (role !== 'client' || serverPeerId !== m.peerId) {
+              becomeClient(m.peerId)
+            }
+            return
+          }
+        }
+
+        // Elect: earliest joinedAt, then lowest peerId
+        let bestId = peerId
+        let bestJoined = joinedAt
+
+        for (const [, m] of knownMembers) {
+          if (m.joinedAt < bestJoined || (m.joinedAt === bestJoined && m.peerId < bestId)) {
+            bestId = m.peerId
+            bestJoined = m.joinedAt
+          }
+        }
+
+        if (bestId === peerId) {
+          becomeServer()
+        } else {
+          becomeClient(bestId)
+        }
+      }, 500)
+    }
+
+    const becomeServer = () => {
+      role = 'server'
+      serverPeerId = peerId
+      log('→ server')
+      updateUI()
+
+      sendSignal({
+        kind: 'role-announce',
+        roomId,
+        fromPeerId: peerId,
+        role: 'server',
+        joinedAt,
+        ts: Date.now(),
+      })
+    }
+
+    const becomeClient = async (targetId) => {
+      role = 'client'
+      serverPeerId = targetId
+      log(`→ client (server=${targetId.slice(0, 8)})`)
+      updateUI()
+
+      const pc = createPC(targetId, true)
+      const offer = await pc.createOffer()
+      await pc.setLocalDescription(offer)
+
+      sendSignal({
+        kind: 'offer',
+        roomId,
+        fromPeerId: peerId,
+        toPeerId: targetId,
+        sdp: pc.localDescription.toJSON(),
+        ts: Date.now(),
+      })
+    }
+
+    const handleServerGone = () => {
+      log('server gone → re-electing')
+      serverPeerId = null
+      role = 'undecided'
+      updateUI()
+      scheduleElection()
+    }
+
+    // ── WebSocket signaling ─────────────────────────────────────
+
+    let ws = null
+
+    const sendSignal = (data) => {
+      if (!ws || ws.readyState !== 1) return
+      ws.send(JSON.stringify({ action: 'signal', data }))
+    }
+
+    const handleWsSignal = async (msg) => {
+      if (msg.fromPeerId === peerId) return
+      if (msg.toPeerId && msg.toPeerId !== peerId) return
+
+      switch (msg.kind) {
+        case 'role-announce': {
+          const m = knownMembers.get(msg.fromPeerId)
+          if (m) m.role = msg.role
+          if (msg.role === 'server' && (role === 'undecided' || (role === 'client' && serverPeerId !== msg.fromPeerId))) {
+            becomeClient(msg.fromPeerId)
+          }
+          break
+        }
+
+        case 'offer': {
+          if (role !== 'server') break
+          const pc = createPC(msg.fromPeerId, false)
+          await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp))
+          const answer = await pc.createAnswer()
+          await pc.setLocalDescription(answer)
+
+          sendSignal({
+            kind: 'answer',
+            roomId,
+            fromPeerId: peerId,
+            toPeerId: msg.fromPeerId,
+            sdp: pc.localDescription.toJSON(),
+            ts: Date.now(),
+          })
+          break
+        }
+
+        case 'answer': {
+          const pc = peerConnections.get(msg.fromPeerId)
+          if (pc) await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp))
+          break
+        }
+
+        case 'ice-candidate': {
+          const pc = peerConnections.get(msg.fromPeerId)
+          if (pc) await pc.addIceCandidate(new RTCIceCandidate(msg.candidate))
+          break
+        }
+
+        case 'server-leaving': {
+          if (msg.fromPeerId === serverPeerId) {
+            knownMembers.delete(msg.fromPeerId)
+            const pc = peerConnections.get(msg.fromPeerId)
+            if (pc) { pc.close(); peerConnections.delete(msg.fromPeerId) }
+            dataChannels.delete(msg.fromPeerId)
+            handleServerGone()
+          }
+          break
+        }
+      }
+    }
+
+    // ── Init ────────────────────────────────────────────────────
+
+    if (forcedDelay > 0) {
+      await new Promise(r => setTimeout(r, forcedDelay))
+    }
+
+    ws = new WebSocket(signalUrl)
+
+    ws.onopen = () => {
+      log('ws connected')
+      ws.send(JSON.stringify({
+        action: 'join',
+        roomId,
+        peerId,
+        joinedAt,
+      }))
+    }
+
+    ws.onmessage = (ev) => {
+      let msg
+      try { msg = JSON.parse(ev.data) } catch { return }
+
+      switch (msg.action) {
+        case 'members': {
+          for (const m of msg.members) {
+            knownMembers.set(m.peerId, { ...m, role: 'undecided' })
+          }
+          log(`members: ${msg.members.length} existing`)
+          scheduleElection()
+          break
+        }
+
+        case 'member-joined': {
+          knownMembers.set(msg.peerId, { peerId: msg.peerId, joinedAt: msg.joinedAt, role: 'undecided' })
+          log(`member joined: ${msg.peerId.slice(0, 8)}`)
+          if (role === 'undecided') scheduleElection()
+          break
+        }
+
+        case 'member-left': {
+          knownMembers.delete(msg.peerId)
+          const pc = peerConnections.get(msg.peerId)
+          if (pc) { pc.close(); peerConnections.delete(msg.peerId) }
+          dataChannels.delete(msg.peerId)
+          log(`member left: ${msg.peerId.slice(0, 8)}`)
+          updateUI()
+
+          if (msg.peerId === serverPeerId) {
+            handleServerGone()
+          }
+          break
+        }
+
+        case 'signal': {
+          handleWsSignal(msg.data)
+          break
+        }
+      }
+    }
+
+    ws.onerror = (ev) => log(`ws error: ${ev}`)
+    ws.onclose = () => log('ws closed')
+
+    // ── Expose test API ─────────────────────────────────────────
+
+    window.__p2p = {
+      peerId,
+      get role() { return role },
+      get serverPeerId() { return serverPeerId },
+      get connectedPeers() { return [...dataChannels.keys()] },
+      get receivedMessages() { return receivedMessages.map(m => m.data) },
+      get peerCount() { return dataChannels.size },
+      get status() { return statusEl.textContent },
+      sendToAll(data) {
+        for (const [, dc] of dataChannels) {
+          if (dc.readyState === 'open') dc.send(JSON.stringify(data))
+        }
+      },
+      sendTo(remotePeerId, data) {
+        const dc = dataChannels.get(remotePeerId)
+        if (dc?.readyState === 'open') dc.send(JSON.stringify(data))
+      },
+      clearMessages() {
+        receivedMessages.length = 0
+      },
+      destroy() {
+        destroyed = true
+        if (role === 'server') {
+          sendSignal({
+            kind: 'server-leaving',
+            roomId,
+            fromPeerId: peerId,
+            ts: Date.now(),
+          })
+        }
+        for (const [, pc] of peerConnections) pc.close()
+        for (const [, dc] of dataChannels) dc.close()
+        peerConnections.clear()
+        dataChannels.clear()
+        ws?.close()
+      },
+    }
+
+    log(`init: peer=${peerId.slice(0, 8)} room=${roomId}`)
+  </script>
+</body>
+</html>

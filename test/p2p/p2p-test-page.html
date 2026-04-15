@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>P2P Test</title>
+  <script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
+</head>
+<body>
+  <div id="status">initializing</div>
+  <div id="role">undecided</div>
+  <div id="messages"></div>
+  <script type="module">
+    // Minimal P2P test page — exercises protocol without weather app
+    // Config passed via URL params: ?room=X&pusherKey=Y&cluster=Z
+
+    const params = new URLSearchParams(location.search)
+    const roomId = params.get('room') || 'test-room'
+    const pusherKey = params.get('pusherKey') || '7e2ce96e11e1907a7548'
+    const cluster = params.get('cluster') || 'eu'
+    const forcedDelay = Number(params.get('delay') || '0')
+
+    const statusEl = document.getElementById('status')
+    const roleEl = document.getElementById('role')
+    const messagesEl = document.getElementById('messages')
+
+    const peerId = crypto.randomUUID()
+    const joinedAt = Date.now()
+    let role = 'undecided'
+    let serverPeerId = null
+    let destroyed = false
+    const peers = new Map()       // peerId -> RTCPeerConnection
+    const dataChannels = new Map() // peerId -> RTCDataChannel
+    const knownMembers = new Map() // pusher member id -> info
+    const receivedMessages = []
+
+    const rtcConfig = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+      ],
+    }
+
+    const log = (msg) => {
+      const div = document.createElement('div')
+      div.textContent = `[${new Date().toISOString().slice(11, 23)}] ${msg}`
+      messagesEl.appendChild(div)
+      console.log(`[p2p-test] ${msg}`)
+    }
+
+    const updateUI = () => {
+      roleEl.textContent = role
+      statusEl.textContent = dataChannels.size > 0
+        ? `connected (${dataChannels.size} peer${dataChannels.size > 1 ? 's' : ''})`
+        : role === 'server' ? 'server-waiting' : role === 'client' ? 'connecting' : 'initializing'
+    }
+
+    // ── WebRTC helpers ──────────────────────────────────────────
+
+    const setupDataChannel = (remotePeerId, dc) => {
+      dc.onopen = () => {
+        log(`dc open: ${remotePeerId}`)
+        dataChannels.set(remotePeerId, dc)
+        updateUI()
+      }
+
+      dc.onclose = () => {
+        log(`dc close: ${remotePeerId}`)
+        dataChannels.delete(remotePeerId)
+        updateUI()
+        if (role === 'client' && remotePeerId === serverPeerId) {
+          handleServerGone()
+        }
+      }
+
+      dc.onmessage = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.data)
+          receivedMessages.push(parsed)
+          log(`dc msg from ${remotePeerId}: ${JSON.stringify(parsed)}`)
+        } catch (e) {
+          log(`dc msg parse error: ${e}`)
+        }
+      }
+    }
+
+    const createPeerConnection = (remotePeerId, initiator) => {
+      const existing = peers.get(remotePeerId)
+      if (existing) {
+        existing.close()
+        peers.delete(remotePeerId)
+      }
+
+      const pc = new RTCPeerConnection(rtcConfig)
+      peers.set(remotePeerId, pc)
+
+      if (initiator) {
+        const dc = pc.createDataChannel('weather-sync', { ordered: true })
+        setupDataChannel(remotePeerId, dc)
+      } else {
+        pc.ondatachannel = (ev) => {
+          setupDataChannel(remotePeerId, ev.channel)
+        }
+      }
+
+      pc.onicecandidate = (ev) => {
+        if (!ev.candidate) return
+        sendSignal({
+          kind: 'ice-candidate',
+          roomId,
+          fromPeerId: peerId,
+          toPeerId: remotePeerId,
+          candidate: ev.candidate.toJSON(),
+          ts: Date.now(),
+        })
+      }
+
+      pc.onconnectionstatechange = () => {
+        log(`pc state ${remotePeerId}: ${pc.connectionState}`)
+        if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+          dataChannels.delete(remotePeerId)
+          updateUI()
+        }
+      }
+
+      return pc
+    }
+
+    // ── Role election ──────────────────────────────────────────
+
+    let electionTimer = null
+
+    const scheduleElection = () => {
+      if (electionTimer) clearTimeout(electionTimer)
+      electionTimer = setTimeout(() => {
+        electionTimer = null
+        if (destroyed) return
+
+        // Check if there's an existing server
+        for (const [, m] of knownMembers) {
+          if (m.role === 'server') {
+            becomeClient(m.peerId)
+            return
+          }
+        }
+
+        // Elect by earliest join, then lowest peerId
+        let bestId = peerId
+        let bestJoined = joinedAt
+
+        for (const [, m] of knownMembers) {
+          if (m.joinedAt < bestJoined || (m.joinedAt === bestJoined && m.peerId < bestId)) {
+            bestId = m.peerId
+            bestJoined = m.joinedAt
+          }
+        }
+
+        if (bestId === peerId) {
+          becomeServer()
+        } else {
+          becomeClient(bestId)
+        }
+      }, 500)
+    }
+
+    const becomeServer = () => {
+      role = 'server'
+      serverPeerId = peerId
+      log('became server')
+      updateUI()
+
+      sendSignal({
+        kind: 'role-announce',
+        roomId,
+        fromPeerId: peerId,
+        role: 'server',
+        joinedAt,
+        ts: Date.now(),
+      })
+    }
+
+    const becomeClient = async (targetServerId) => {
+      role = 'client'
+      serverPeerId = targetServerId
+      log(`became client → server: ${targetServerId}`)
+      updateUI()
+
+      // Initiate WebRTC to server
+      const pc = createPeerConnection(targetServerId, true)
+      const offer = await pc.createOffer()
+      await pc.setLocalDescription(offer)
+
+      sendSignal({
+        kind: 'offer',
+        roomId,
+        fromPeerId: peerId,
+        toPeerId: targetServerId,
+        sdp: pc.localDescription.toJSON(),
+        ts: Date.now(),
+      })
+    }
+
+    const handleServerGone = () => {
+      log('server gone, re-electing...')
+      serverPeerId = null
+      scheduleElection()
+    }
+
+    // ── Signaling via Pusher ───────────────────────────────────
+
+    const pusher = new Pusher(pusherKey, {
+      cluster,
+      authEndpoint: null,
+      // For presence channels we need auth — we'll use a simple inline authorizer
+      // In a real app this would go through a backend
+      channelAuthorization: {
+        transport: 'ajax',
+        endpoint: '/__p2p_test_auth__',
+        // Custom authorizer that works without a backend
+        customHandler: (params, callback) => {
+          // Self-sign presence auth (only works for testing with Pusher debug mode)
+          // For real testing, we need a small auth endpoint
+          callback(null, {
+            auth: '',
+            channel_data: JSON.stringify({
+              user_id: peerId,
+              user_info: { peerId, role, joinedAt },
+            }),
+          })
+        },
+      },
+    })
+
+    let channel = null
+
+    const sendSignal = (msg) => {
+      if (!channel) return
+      try {
+        channel.trigger('client-signal', msg)
+      } catch (e) {
+        log(`signal send error: ${e.message}`)
+      }
+    }
+
+    const handleSignal = async (msg) => {
+      if (msg.fromPeerId === peerId) return
+      if (msg.toPeerId && msg.toPeerId !== peerId) return
+
+      switch (msg.kind) {
+        case 'role-announce': {
+          const m = knownMembers.get(msg.fromPeerId)
+          if (m) m.role = msg.role
+          if (msg.role === 'server' && role === 'undecided') {
+            becomeClient(msg.fromPeerId)
+          }
+          break
+        }
+
+        case 'offer': {
+          if (role !== 'server') break
+          const pc = createPeerConnection(msg.fromPeerId, false)
+          await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp))
+          const answer = await pc.createAnswer()
+          await pc.setLocalDescription(answer)
+
+          sendSignal({
+            kind: 'answer',
+            roomId,
+            fromPeerId: peerId,
+            toPeerId: msg.fromPeerId,
+            sdp: pc.localDescription.toJSON(),
+            ts: Date.now(),
+          })
+          break
+        }
+
+        case 'answer': {
+          const pc = peers.get(msg.fromPeerId)
+          if (pc) {
+            await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp))
+          }
+          break
+        }
+
+        case 'ice-candidate': {
+          const pc = peers.get(msg.fromPeerId)
+          if (pc) {
+            await pc.addIceCandidate(new RTCIceCandidate(msg.candidate))
+          }
+          break
+        }
+
+        case 'server-leaving': {
+          if (msg.fromPeerId === serverPeerId) {
+            knownMembers.delete(msg.fromPeerId)
+            const pc = peers.get(msg.fromPeerId)
+            if (pc) { pc.close(); peers.delete(msg.fromPeerId) }
+            dataChannels.delete(msg.fromPeerId)
+            handleServerGone()
+          }
+          break
+        }
+      }
+    }
+
+    // Wait for forced delay (for testing staggered joins)
+    if (forcedDelay > 0) {
+      await new Promise(r => setTimeout(r, forcedDelay))
+    }
+
+    // Pusher presence channels need backend auth.
+    // For E2E tests we'll use a simplified approach: public channel + manual presence tracking.
+    const channelName = `p2p-test-${roomId}`
+    channel = pusher.subscribe(channelName)
+
+    channel.bind('pusher:subscription_succeeded', () => {
+      log(`subscribed to ${channelName}`)
+      statusEl.textContent = 'subscribed'
+
+      // Announce presence
+      sendSignal({
+        kind: 'role-announce',
+        roomId,
+        fromPeerId: peerId,
+        role: 'undecided',
+        joinedAt,
+        ts: Date.now(),
+      })
+
+      // Schedule election after discovery window
+      scheduleElection()
+    })
+
+    channel.bind('client-signal', (data) => {
+      handleSignal(data)
+    })
+
+    // Expose test API
+    window.__p2p = {
+      peerId,
+      get role() { return role },
+      get serverPeerId() { return serverPeerId },
+      get connectedPeers() { return [...dataChannels.keys()] },
+      get receivedMessages() { return [...receivedMessages] },
+      get peerCount() { return dataChannels.size },
+      sendToAll(data) {
+        for (const [, dc] of dataChannels) {
+          if (dc.readyState === 'open') {
+            dc.send(JSON.stringify(data))
+          }
+        }
+      },
+      sendTo(remotePeerId, data) {
+        const dc = dataChannels.get(remotePeerId)
+        if (dc?.readyState === 'open') {
+          dc.send(JSON.stringify(data))
+        }
+      },
+      destroy() {
+        destroyed = true
+        if (role === 'server') {
+          sendSignal({
+            kind: 'server-leaving',
+            roomId,
+            fromPeerId: peerId,
+            ts: Date.now(),
+          })
+        }
+        for (const [, pc] of peers) pc.close()
+        for (const [, dc] of dataChannels) dc.close()
+        peers.clear()
+        dataChannels.clear()
+        pusher.disconnect()
+      },
+    }
+  </script>
+</body>
+</html>
