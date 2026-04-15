@@ -44,6 +44,10 @@ export const WEATHER_LOCATION_BASE_CREATION_SHAPE = {
   attrs: ['name', 'latitude', 'longitude', 'timezone'],
 }
 
+export const WEATHER_LOCATION_LOADING_CREATION_SHAPE = {
+  attrs: ['name', 'latitude', 'longitude', 'timezone', 'loadStatus', 'weatherLoadRequest'],
+}
+
 export const SELECTED_LOCATION_CREATION_SHAPE = {
   attrs: ['isAutoSelected'],
   rels: {

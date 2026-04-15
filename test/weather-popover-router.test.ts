@@ -807,7 +807,7 @@ describe('SelectedLocation popover router', () => {
     expect(replacedWeatherLocation?.attrs.name).toBe('Tokyo')
     expect(replacedWeatherLocation?.attrs.timezone).toBe('Asia/Tokyo')
     expect(replacedWeatherLocation?.attrs.loadStatus).toBe('ready')
-    expect(countWeatherLocationModels(replacedState)).toBe(initialWeatherLocationCount)
+    expect(countWeatherLocationModels(replacedState)).toBe(initialWeatherLocationCount + 1)
     expect(fetchWeatherFromOpenMeteo).toHaveBeenCalledWith(35.6762, 139.6503)
 
     await waitFor(

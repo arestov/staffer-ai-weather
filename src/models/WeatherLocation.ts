@@ -67,7 +67,7 @@ type FailWeatherFromRequestPayload = {
   message: string
 }
 
-const isLocationSearchResult = (value: unknown): value is LocationSearchResult => {
+export const isLocationSearchResult = (value: unknown): value is LocationSearchResult => {
   if (!value || typeof value !== 'object') {
     return false
   }
@@ -125,10 +125,6 @@ const isFailWeatherFromRequestPayload = (
     typeof candidate.requestId === 'number' &&
     typeof candidate.message === 'string'
   )
-}
-
-const getNextWeatherLoadRequestId = (value: unknown) => {
-  return (isWeatherLoadRequest(value) ? value.requestId : 0) + 1
 }
 
 const toErrorMessage = (error: unknown) => {
@@ -324,53 +320,6 @@ export const WeatherLocation = model({
         loadStatus: 'error',
         lastError: payload.message,
       }),
-    },
-    replaceLocation: {
-      to: {
-        name: ['name'],
-        latitude: ['latitude'],
-        longitude: ['longitude'],
-        timezone: ['timezone'],
-        loadStatus: ['loadStatus'],
-        lastError: ['lastError'],
-        weatherFetchedAt: ['weatherFetchedAt'],
-        weatherLoadRequest: ['weatherLoadRequest'],
-        hourlySparkline: ['hourlySparkline'],
-        dailySparkline: ['dailySparkline'],
-        currentWeather: ['<< currentWeather', { method: 'set_one' }],
-        hourlyForecastSeries: ['<< hourlyForecastSeries', { method: 'set_many' }],
-        dailyForecastSeries: ['<< dailyForecastSeries', { method: 'set_many' }],
-      },
-      fn: [
-        ['weatherLoadRequest'] as const,
-        (payload: unknown, weatherLoadRequest: unknown) => {
-          if (!isLocationSearchResult(payload)) {
-            return {}
-          }
-
-          const requestId = getNextWeatherLoadRequestId(weatherLoadRequest)
-
-          return {
-            name: payload.name,
-            latitude: payload.latitude,
-            longitude: payload.longitude,
-            timezone: payload.timezone,
-            loadStatus: 'loading',
-            lastError: null,
-            weatherFetchedAt: null,
-            weatherLoadRequest: {
-              requestId,
-              latitude: payload.latitude,
-              longitude: payload.longitude,
-            },
-            hourlySparkline: null,
-            dailySparkline: null,
-            currentWeather: null,
-            hourlyForecastSeries: [],
-            dailyForecastSeries: [],
-          }
-        },
-      ],
     },
     applyWeatherFromRequest: {
       to: {

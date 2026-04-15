@@ -1,4 +1,6 @@
 import { model } from 'dkt/model.js'
+import { isLocationSearchResult } from './WeatherLocation'
+import { WEATHER_LOCATION_LOADING_CREATION_SHAPE } from './weatherSeed'
 
 const makeParentRel = () => [
   'comp',
@@ -6,6 +8,8 @@ const makeParentRel = () => [
   (parent: unknown) => parent,
   { linking: '<<<< ^' },
 ] as const
+
+const WEATHER_LOCATION_REF_ID = 'new_weather_location'
 
 export const SelectedLocation = model({
   model_name: 'weather_selected_location',
@@ -21,20 +25,90 @@ export const SelectedLocation = model({
     replaceWeatherLocation: {
       to: {
         isAutoSelected: ['isAutoSelected'],
-        weatherLocation: ['<< weatherLocation', { action: 'replaceLocation', inline_subwalker: true }],
+        _createWeatherLocation: [
+          '<< weatherLocation << #',
+          {
+            method: 'at_end',
+            can_create: true,
+            can_hold_refs: true,
+            creation_shape: WEATHER_LOCATION_LOADING_CREATION_SHAPE,
+          },
+        ],
+        weatherLocation: [
+          '<< weatherLocation',
+          {
+            method: 'set_one',
+            can_use_refs: true,
+          },
+        ],
       },
-      fn: (payload: unknown) => ({
-        isAutoSelected: false,
-        weatherLocation: payload,
-      }),
+      fn: (payload: unknown) => {
+        if (!isLocationSearchResult(payload)) {
+          return {}
+        }
+        return {
+          isAutoSelected: false,
+          _createWeatherLocation: {
+            attrs: {
+              name: payload.name,
+              latitude: payload.latitude,
+              longitude: payload.longitude,
+              timezone: payload.timezone,
+              loadStatus: 'loading',
+              weatherLoadRequest: {
+                requestId: 1,
+                latitude: payload.latitude,
+                longitude: payload.longitude,
+              },
+            },
+            hold_ref_id: WEATHER_LOCATION_REF_ID,
+          },
+          weatherLocation: { use_ref_id: WEATHER_LOCATION_REF_ID },
+        }
+      },
     },
     applyAutoLocation: {
       to: {
-        weatherLocation: ['<< weatherLocation', { action: 'replaceLocation', inline_subwalker: true }],
+        _createWeatherLocation: [
+          '<< weatherLocation << #',
+          {
+            method: 'at_end',
+            can_create: true,
+            can_hold_refs: true,
+            creation_shape: WEATHER_LOCATION_LOADING_CREATION_SHAPE,
+          },
+        ],
+        weatherLocation: [
+          '<< weatherLocation',
+          {
+            method: 'set_one',
+            can_use_refs: true,
+          },
+        ],
       },
-      fn: (payload: unknown) => ({
-        weatherLocation: payload,
-      }),
+      fn: (payload: unknown) => {
+        if (!isLocationSearchResult(payload)) {
+          return {}
+        }
+        return {
+          _createWeatherLocation: {
+            attrs: {
+              name: payload.name,
+              latitude: payload.latitude,
+              longitude: payload.longitude,
+              timezone: payload.timezone,
+              loadStatus: 'loading',
+              weatherLoadRequest: {
+                requestId: 1,
+                latitude: payload.latitude,
+                longitude: payload.longitude,
+              },
+            },
+            hold_ref_id: WEATHER_LOCATION_REF_ID,
+          },
+          weatherLocation: { use_ref_id: WEATHER_LOCATION_REF_ID },
+        }
+      },
     },
   },
 })
