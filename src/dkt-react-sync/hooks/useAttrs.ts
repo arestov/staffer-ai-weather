@@ -1,4 +1,4 @@
-import { useMemo, useSyncExternalStore } from 'react'
+import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import { getAttrsShape } from '../shape/autoShapes'
 import { useReactScopeRuntime } from '../../dkt-react-sync/hooks/useReactScopeRuntime'
 import { useShape } from './useShape'
@@ -21,11 +21,17 @@ export const useAttrs = (fields: readonly string[]) => {
 
   useShape(shape)
 
-  return useSyncExternalStore(
-    (listener) => runtime.subscribeAttrs(resolvedScope, normalizedFields, listener),
-    () => runtime.readAttrs(resolvedScope, normalizedFields),
-    () => runtime.readAttrs(resolvedScope, normalizedFields),
+  const subscribe = useCallback(
+    (listener: () => void) => runtime.subscribeAttrs(resolvedScope, normalizedFields, listener),
+    [runtime, resolvedScope, normalizedFields],
   )
+
+  const getSnapshot = useCallback(
+    () => runtime.readAttrs(resolvedScope, normalizedFields),
+    [runtime, resolvedScope, normalizedFields],
+  )
+
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
 
 
