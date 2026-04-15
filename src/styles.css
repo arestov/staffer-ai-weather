@@ -425,6 +425,13 @@ h1 {
   min-height: 100%;
 }
 
+.weather-readout--location:not(.weather-readout--error),
+.weather-readout--popover:not(.weather-readout--error),
+.selected-location-popover__body .weather-readout:not(.weather-readout--error) {
+  background: transparent;
+  border: 0;
+}
+
 .weather-readout__label {
   color: var(--text-muted);
   font-family: var(--font-family-label);
@@ -571,6 +578,7 @@ h1 {
 }
 
 .weather-readout--error {
+  border: 1px solid var(--feedback-danger-border);
   border-color: var(--feedback-danger-border);
   background: rgb(var(--color-clay-rgb) / 0.06);
 }
