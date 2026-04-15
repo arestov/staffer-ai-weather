@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, type FormEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { One } from '../dkt-react-sync/components/One'
 import { ScopeContext } from '../dkt-react-sync/context/ScopeContext'
@@ -134,6 +134,7 @@ export function SelectedLocationPopoverLayer({
   const arrowPopoverRef = useRef<HTMLElement | null>(null)
   const lastOpenNodeIdRef = useRef<string | null>(null)
 
+  // Combined effect: show/hide popover + focus management
   useEffect(() => {
     const popoverNode = popoverRef.current
     const arrowNode = arrowPopoverRef.current
@@ -176,12 +177,19 @@ export function SelectedLocationPopoverLayer({
       ) as HTMLButtonElement | null
 
       showWithSource(popoverNode, triggerButton)
-      // The arrow element is keyed by currentNodeId (see JSX below), so React
-      // remounts the DOM node when switching locations. This forces the browser
-      // to resolve position-anchor from scratch — required because Firefox
-      // caches the resolved anchor target and never recalculates it, even after
-      // a hide/show cycle or requestAnimationFrame yield.
       showWithSource(arrowNode, triggerButton)
+
+      lastOpenNodeIdRef.current = currentNodeId
+
+      if (typeof window !== 'undefined') {
+        const frameId = window.requestAnimationFrame(() => {
+          popoverNode.querySelector<HTMLElement>('[data-popover-focus]')?.focus()
+        })
+        return () => {
+          window.cancelAnimationFrame(frameId)
+        }
+      }
+
       return
     }
 
@@ -192,14 +200,31 @@ export function SelectedLocationPopoverLayer({
     if (isOpen(arrowNode) && typeof arrowNode.hidePopover === 'function') {
       arrowNode.hidePopover()
     }
-  }, [currentNodeId, currentScope])
 
-  useEffect(() => {
-    if (!currentNodeId || !currentScope || typeof document === 'undefined') {
+    const lastOpenNodeId = lastOpenNodeIdRef.current
+
+    if (!lastOpenNodeId) {
       return
     }
 
-    const handleKeyDown = (event: KeyboardEvent) => {
+    if (typeof window !== 'undefined') {
+      const frameId = window.requestAnimationFrame(() => {
+        const returnFocusButton = document.querySelector(
+          `[data-selected-location-id="${lastOpenNodeId}"] .selected-location-card-button`,
+        ) as HTMLButtonElement | null
+
+        returnFocusButton?.focus()
+        lastOpenNodeIdRef.current = null
+      })
+
+      return () => {
+        window.cancelAnimationFrame(frameId)
+      }
+    }
+  }, [currentNodeId, currentScope])
+
+  const handlePopoverKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLElement>) => {
       if (event.key === 'Escape') {
         event.preventDefault()
         clearCurrent()
@@ -226,52 +251,9 @@ export function SelectedLocationPopoverLayer({
           first.focus()
         }
       }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [clearCurrent, currentNodeId, currentScope])
-
-  useEffect(() => {
-    if (typeof document === 'undefined' || typeof window === 'undefined') {
-      return
-    }
-
-    if (currentNodeId && currentScope) {
-      lastOpenNodeIdRef.current = currentNodeId
-
-      const frameId = window.requestAnimationFrame(() => {
-        const focusTarget = popoverRef.current?.querySelector<HTMLElement>('[data-popover-focus]')
-        focusTarget?.focus()
-      })
-
-      return () => {
-        window.cancelAnimationFrame(frameId)
-      }
-    }
-
-    const lastOpenNodeId = lastOpenNodeIdRef.current
-
-    if (!lastOpenNodeId) {
-      return
-    }
-
-    const frameId = window.requestAnimationFrame(() => {
-      const triggerButton = document.querySelector(
-        `[data-selected-location-id="${lastOpenNodeId}"] .selected-location-card-button`,
-      ) as HTMLButtonElement | null
-
-      triggerButton?.focus()
-      lastOpenNodeIdRef.current = null
-    })
-
-    return () => {
-      window.cancelAnimationFrame(frameId)
-    }
-  }, [currentNodeId, currentScope])
+    },
+    [clearCurrent],
+  )
 
   if (typeof document === 'undefined') {
     return null
@@ -288,6 +270,7 @@ export function SelectedLocationPopoverLayer({
         aria-label="Location details"
         data-selected-location-popover-layer
         data-popover-for={currentNodeId ?? ''}
+        onKeyDown={handlePopoverKeyDown}
       >
         {currentScope && routerScope ? (
           <ScopeContext.Provider value={routerScope}>
