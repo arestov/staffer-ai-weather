@@ -361,6 +361,7 @@ h1 {
   max-width: 1240px;
   margin: 0 auto;
   width: 100%;
+  margin-top: 1rem;
 }
 
 .selected-location-shell {
@@ -511,6 +512,8 @@ h1 {
   line-height: 0.87;
   font-weight: 600;
   letter-spacing: -0.06em;
+  display: flex;
+  gap: 0.5rem;
 }
 
 .weather-readout__icon-col {
