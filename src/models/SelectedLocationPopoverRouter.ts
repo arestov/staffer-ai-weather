@@ -2,8 +2,6 @@ import { input as inputAttrs } from 'dkt/dcl/attrs/input.js'
 import { model } from 'dkt/model.js'
 import { Router as RouterCore } from 'dkt-all/models/Router.js'
 import type { LocationSearchResult } from './WeatherLocation'
-import type { LocationSearchApi } from '../worker/location-search-api'
-import type { GeoLocationApi } from '../worker/geo-location-api'
 
 type SearchStatus = 'idle' | 'loading' | 'ready' | 'error'
 
@@ -259,108 +257,208 @@ export const SelectedLocationPopoverRouter = model({
       ['< @one:savedSearchLocations < $root'],
       (savedSearchLocations: unknown) => (Array.isArray(savedSearchLocations) ? savedSearchLocations : []),
     ],
+    searchResponseData: ['input', null],
+    currentLocationResponseData: ['input', null],
     searchRequest: ['input', null],
     activeSearchRequestId: ['input', 0],
   },
   effects: {
+    api: {
+      locationSearchApi: [
+        ['_node_id'] as const,
+        ['#locationSearch'] as const,
+        (locationSearch: unknown) => locationSearch,
+      ],
+      geoLocationApi: [
+        ['_node_id'] as const,
+        ['#geoLocation'] as const,
+        (geoLocation: unknown) => geoLocation,
+      ],
+    },
+    in: {
+      executeLocationSearch: {
+        type: 'state_request',
+        name: 'executeLocationSearch',
+        states: ['searchResponseData'],
+        api: 'locationSearchApi',
+        parse: (result: unknown) => ({ searchResponseData: result }),
+        fn: [
+          ['searchRequest'] as const,
+          async (
+            api: { search: (query: string) => Promise<unknown> },
+            _opts: unknown,
+            searchRequest: unknown,
+          ) => {
+            if (!isSearchRequest(searchRequest)) {
+              return { ok: false as const, message: 'Invalid search request' }
+            }
+
+            try {
+              const results = await api.search(searchRequest.query)
+              return {
+                ok: true as const,
+                requestId: searchRequest.requestId,
+                results,
+              }
+            } catch (error) {
+              return {
+                ok: false as const,
+                requestId: searchRequest.requestId,
+                message: toErrorMessage(error),
+              }
+            }
+          },
+        ],
+      },
+      executeCurrentLocationLookup: {
+        type: 'state_request',
+        name: 'executeCurrentLocationLookup',
+        states: ['currentLocationResponseData'],
+        api: 'geoLocationApi',
+        parse: (result: unknown) => ({ currentLocationResponseData: result }),
+        fn: [
+          ['currentLocationRequest'] as const,
+          async (
+            api: {
+              detectLocation: () => Promise<unknown>
+              detectLocationByCoordinates: (coords: { latitude: number; longitude: number }) => Promise<unknown>
+            },
+            _opts: unknown,
+            currentLocationRequest: unknown,
+          ) => {
+            if (!isCurrentLocationRequest(currentLocationRequest)) {
+              return { ok: false as const, message: 'Invalid current location request' }
+            }
+
+            try {
+              const result = currentLocationRequest.kind === 'browserCoordinates'
+                ? await api.detectLocationByCoordinates({
+                  latitude: currentLocationRequest.latitude,
+                  longitude: currentLocationRequest.longitude,
+                })
+                : await api.detectLocation()
+              return {
+                ok: true as const,
+                requestId: currentLocationRequest.requestId,
+                result,
+              }
+            } catch (error) {
+              return {
+                ok: false as const,
+                requestId: currentLocationRequest.requestId,
+                message: toErrorMessage(error),
+              }
+            }
+          },
+        ],
+      },
+    },
     out: {
-      runLocationSearch: {
-        api: ['self'],
+      triggerLocationSearch: {
+        api: ['self', 'locationSearchApi'],
         trigger: ['searchRequest'],
         require: ['searchRequest'],
         create_when: {
           api_inits: true,
         },
-        is_async: true,
-        fn: [
-          ['searchRequest'] as const,
-          async (
-            self: {
-              dispatch: (actionName: string, payload?: unknown) => Promise<void> | void
-            },
-            _task: unknown,
-            searchRequest: unknown,
-          ) => {
-            if (!isSearchRequest(searchRequest)) {
-              return
-            }
-
-            try {
-              const app = (self as {
-                app?: {
-                  getInterface: (interfaceName: string) => unknown
-                }
-              }).app
-              const locationSearch = app?.getInterface('locationSearch') as LocationSearchApi | null
-
-              if (!locationSearch) {
-                throw new Error('Location search interface is not available')
-              }
-
-              const results = await locationSearch.search(searchRequest.query)
-
-              await self.dispatch('applyLocationSearchResponse', {
-                requestId: searchRequest.requestId,
-                results,
-              })
-            } catch (error) {
-              await self.dispatch('failLocationSearchResponse', {
-                requestId: searchRequest.requestId,
-                message: toErrorMessage(error),
-              })
-            }
+        fn: (
+          self: {
+            resetRequestedState: (name: string) => unknown
+            input: (callback: () => void) => unknown
+            requestState: (name: string) => unknown
           },
-        ],
+        ) => {
+          self.resetRequestedState('searchResponseData')
+          self.input(() => {
+            self.requestState('searchResponseData')
+          })
+        },
       },
-      runCurrentLocationLookup: {
+      applySearchResponseData: {
         api: ['self'],
-        trigger: ['currentLocationRequest'],
-        require: ['currentLocationRequest'],
+        trigger: ['searchResponseData'],
+        require: ['searchResponseData'],
         create_when: {
           api_inits: true,
         },
         is_async: true,
         fn: [
-          ['currentLocationRequest'] as const,
+          ['searchResponseData'] as const,
           async (
-            self: {
-              dispatch: (actionName: string, payload?: unknown) => Promise<void> | void
-              app?: {
-                getInterface: (interfaceName: string) => unknown
-              }
-            },
+            self: { dispatch: (actionName: string, payload?: unknown) => Promise<void> | void },
             _task: unknown,
-            currentLocationRequest: unknown,
+            searchResponseData: unknown,
           ) => {
-            if (!isCurrentLocationRequest(currentLocationRequest)) {
-              return
+            const result = searchResponseData as {
+              ok: boolean
+              requestId?: number
+              results?: unknown[]
+              message?: string
             }
-
-            try {
-              const geoLocation = (
-                self.app?.getInterface('geoLocation') ??
-                self.app?.getInterface('geoLocationSource')
-              ) as GeoLocationApi | null
-
-              if (!geoLocation) {
-                throw new Error('Geo location interface is not available')
-              }
-
-              const result = currentLocationRequest.kind === 'browserCoordinates'
-                ? await geoLocation.detectLocationByCoordinates({
-                  latitude: currentLocationRequest.latitude,
-                  longitude: currentLocationRequest.longitude,
-                })
-                : await geoLocation.detectLocation()
-
-              await self.dispatch('applyCurrentLocationLookupResponse', {
-                requestId: currentLocationRequest.requestId,
-                result,
+            if (result.ok) {
+              await self.dispatch('applyLocationSearchResponse', {
+                requestId: result.requestId,
+                results: result.results,
               })
-            } catch (error) {
+            } else if (result.requestId != null) {
+              await self.dispatch('failLocationSearchResponse', {
+                requestId: result.requestId,
+                message: result.message,
+              })
+            }
+          },
+        ],
+      },
+      triggerCurrentLocationLookup: {
+        api: ['self', 'geoLocationApi'],
+        trigger: ['currentLocationRequest'],
+        require: ['currentLocationRequest'],
+        create_when: {
+          api_inits: true,
+        },
+        fn: (
+          self: {
+            resetRequestedState: (name: string) => unknown
+            input: (callback: () => void) => unknown
+            requestState: (name: string) => unknown
+          },
+        ) => {
+          self.resetRequestedState('currentLocationResponseData')
+          self.input(() => {
+            self.requestState('currentLocationResponseData')
+          })
+        },
+      },
+      applyCurrentLocationResult: {
+        api: ['self'],
+        trigger: ['currentLocationResponseData'],
+        require: ['currentLocationResponseData'],
+        create_when: {
+          api_inits: true,
+        },
+        is_async: true,
+        fn: [
+          ['currentLocationResponseData'] as const,
+          async (
+            self: { dispatch: (actionName: string, payload?: unknown) => Promise<void> | void },
+            _task: unknown,
+            currentLocationResponseData: unknown,
+          ) => {
+            const result = currentLocationResponseData as {
+              ok: boolean
+              requestId?: number
+              result?: unknown
+              message?: string
+            }
+            if (result.ok) {
+              await self.dispatch('applyCurrentLocationLookupResponse', {
+                requestId: result.requestId,
+                result: result.result,
+              })
+            } else if (result.requestId != null) {
               await self.dispatch('failCurrentLocationLookupResponse', {
-                requestId: currentLocationRequest.requestId,
-                message: toErrorMessage(error),
+                requestId: result.requestId,
+                message: result.message,
               })
             }
           },

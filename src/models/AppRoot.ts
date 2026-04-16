@@ -5,7 +5,6 @@ import { SelectedLocation } from './SelectedLocation'
 import { WeatherLocation } from './WeatherLocation'
 import type { LocationSearchResult } from './WeatherLocation'
 import type { WeatherBackendApi } from '../worker/weather-backend-api'
-import type { GeoLocationApi } from '../worker/geo-location-api'
 import {
   SELECTED_LOCATION_CREATION_SHAPE,
   WEATHER_LOCATION_BASE_CREATION_SHAPE,
@@ -253,93 +252,167 @@ const app_props = mergeDcl({
         (geoLocationSource: unknown) => geoLocationSource,
       ],
     },
-    out: {
-      syncSavedSearchLocations: {
-        api: ['self'],
-        trigger: ['savedSearchLocationsSyncRequest'],
-        require: ['savedSearchLocationsSyncRequest', 'savedSearchLocations'],
-        create_when: {
-          api_inits: true,
-        },
-        is_async: true,
+    in: {
+      detectGeoLocation: {
+        type: 'state_request',
+        name: 'detectGeoLocation',
+        states: ['autoDetectedLocation'],
+        api: 'geoLocationSource',
+        parse: (result: unknown) => ({ autoDetectedLocation: result }),
         fn: [
-          ['savedSearchLocationsSyncRequest', 'savedSearchLocations'] as const,
+          [] as const,
           async (
-            self: {
-              dispatch: (actionName: string, payload?: unknown) => Promise<void> | void
-              getInterface: (interfaceName: string) => unknown
-            },
-            _task: unknown,
-            savedSearchLocationsSyncRequest: unknown,
-            savedSearchLocations: unknown,
+            api: { detectLocation: () => Promise<unknown> },
           ) => {
-            if (!isSavedSearchLocationsSyncRequest(savedSearchLocationsSyncRequest)) {
-              return
-            }
-
-            const weatherBackend = (
-              self.getInterface('weatherBackend') ??
-              self.getInterface('weatherBackendSource')
-            ) as WeatherBackendApi | null
-
             try {
-              const places = weatherBackend
-                ? savedSearchLocationsSyncRequest.kind === 'load'
-                  ? await weatherBackend.fetchSavedSearchLocations()
-                  : savedSearchLocationsSyncRequest.kind === 'save'
-                    ? await weatherBackend.saveSavedSearchLocation(savedSearchLocationsSyncRequest.place)
-                    : await weatherBackend.removeSavedSearchLocation(savedSearchLocationsSyncRequest.placeId)
-                : getLocationSearchResults(savedSearchLocations)
-
-              await self.dispatch('applySavedSearchLocationsSyncResult', {
-                requestId: savedSearchLocationsSyncRequest.requestId,
-                places,
-              })
+              const result = await api.detectLocation()
+              return { ok: true as const, data: result }
             } catch (error) {
-              await self.dispatch('failSavedSearchLocationsSyncRequest', {
-                requestId: savedSearchLocationsSyncRequest.requestId,
-                message: toErrorMessage(error),
-              })
+              return { ok: false as const, message: toErrorMessage(error) }
             }
           },
         ],
       },
-      autoDetectMainLocation: {
+      syncSavedSearchLocationsData: {
+        type: 'state_request',
+        name: 'syncSavedSearchLocationsData',
+        states: ['savedSearchLocationsSyncResult'],
+        api: 'weatherBackendSource',
+        parse: (result: unknown) => ({ savedSearchLocationsSyncResult: result }),
+        fn: [
+          ['savedSearchLocationsSyncRequest', 'savedSearchLocations'] as const,
+          async (
+            api: WeatherBackendApi | null,
+            _opts: unknown,
+            savedSearchLocationsSyncRequest: unknown,
+            savedSearchLocations: unknown,
+          ) => {
+            if (!isSavedSearchLocationsSyncRequest(savedSearchLocationsSyncRequest)) {
+              return { ok: false as const, message: 'Invalid sync request' }
+            }
+
+            try {
+              const places = api
+                ? savedSearchLocationsSyncRequest.kind === 'load'
+                  ? await api.fetchSavedSearchLocations()
+                  : savedSearchLocationsSyncRequest.kind === 'save'
+                    ? await api.saveSavedSearchLocation(savedSearchLocationsSyncRequest.place)
+                    : await api.removeSavedSearchLocation(savedSearchLocationsSyncRequest.placeId)
+                : getLocationSearchResults(savedSearchLocations)
+
+              return {
+                ok: true as const,
+                requestId: savedSearchLocationsSyncRequest.requestId,
+                places,
+              }
+            } catch (error) {
+              return {
+                ok: false as const,
+                requestId: savedSearchLocationsSyncRequest.requestId,
+                message: toErrorMessage(error),
+              }
+            }
+          },
+        ],
+      },
+    },
+    out: {
+      triggerGeoDetection: {
         api: ['self'],
         trigger: ['autoGeoStatus'],
         require: ['autoGeoStatus'],
         create_when: {
           api_inits: true,
         },
-        is_async: true,
         fn: [
           ['autoGeoStatus'] as const,
-          async (
-            self: {
-              dispatch: (actionName: string, payload?: unknown) => Promise<void> | void
-              getInterface: (interfaceName: string) => unknown
-            },
+          (
+            self: { requestState: (name: string) => unknown },
             _task: unknown,
             autoGeoStatus: unknown,
           ) => {
             if (autoGeoStatus !== 'pending') {
               return
             }
-
-            const geoLocation = (
-              self.getInterface('geoLocation') ??
-              self.getInterface('geoLocationSource')
-            ) as GeoLocationApi | null
-
-            if (!geoLocation) {
-              return
+            self.requestState('autoDetectedLocation')
+          },
+        ],
+      },
+      applyDetectedGeoLocation: {
+        api: ['self'],
+        trigger: ['autoDetectedLocation'],
+        require: ['autoDetectedLocation'],
+        create_when: {
+          api_inits: true,
+        },
+        is_async: true,
+        fn: [
+          ['autoDetectedLocation'] as const,
+          async (
+            self: { dispatch: (actionName: string, payload?: unknown) => Promise<void> | void },
+            _task: unknown,
+            autoDetectedLocation: unknown,
+          ) => {
+            const result = autoDetectedLocation as { ok: boolean; data?: unknown; message?: string }
+            if (result.ok) {
+              await self.dispatch('applyAutoDetectedLocation', result.data)
+            } else {
+              await self.dispatch('failAutoGeoDetection', result.message)
             }
-
-            try {
-              const result = await geoLocation.detectLocation()
-              await self.dispatch('applyAutoDetectedLocation', result)
-            } catch (error) {
-              await self.dispatch('failAutoGeoDetection', toErrorMessage(error))
+          },
+        ],
+      },
+      triggerSavedSearchLocationsSync: {
+        api: ['self'],
+        trigger: ['savedSearchLocationsSyncRequest'],
+        require: ['savedSearchLocationsSyncRequest'],
+        create_when: {
+          api_inits: true,
+        },
+        fn: (
+          self: {
+            resetRequestedState: (name: string) => unknown
+            input: (callback: () => void) => unknown
+            requestState: (name: string) => unknown
+          },
+        ) => {
+          self.resetRequestedState('savedSearchLocationsSyncResult')
+          self.input(() => {
+            self.requestState('savedSearchLocationsSyncResult')
+          })
+        },
+      },
+      applySavedSearchLocationsSyncData: {
+        api: ['self'],
+        trigger: ['savedSearchLocationsSyncResult'],
+        require: ['savedSearchLocationsSyncResult'],
+        create_when: {
+          api_inits: true,
+        },
+        is_async: true,
+        fn: [
+          ['savedSearchLocationsSyncResult'] as const,
+          async (
+            self: { dispatch: (actionName: string, payload?: unknown) => Promise<void> | void },
+            _task: unknown,
+            savedSearchLocationsSyncResult: unknown,
+          ) => {
+            const result = savedSearchLocationsSyncResult as {
+              ok: boolean
+              requestId?: number
+              places?: unknown[]
+              message?: string
+            }
+            if (result.ok) {
+              await self.dispatch('applySavedSearchLocationsSyncResult', {
+                requestId: result.requestId,
+                places: result.places,
+              })
+            } else if (result.requestId != null) {
+              await self.dispatch('failSavedSearchLocationsSyncRequest', {
+                requestId: result.requestId,
+                message: result.message,
+              })
             }
           },
         ],
@@ -383,8 +456,10 @@ const app_props = mergeDcl({
     savedSearchLocationsSyncError: ['input', null],
     savedSearchLocationsSyncRequest: ['input', null],
     activeSavedSearchLocationsSyncRequestId: ['input', 0],
+    savedSearchLocationsSyncResult: ['input', null],
     autoGeoStatus: ['input', 'idle'],
     autoGeoError: ['input', null],
+    autoDetectedLocation: ['input', null],
   },
   actions: {
     setWeatherLoadState: {
