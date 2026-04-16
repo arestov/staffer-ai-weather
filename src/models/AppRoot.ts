@@ -503,7 +503,6 @@ const app_props = mergeDcl({
           '<< weatherLocation',
           {
             action: 'retryWeatherLoad',
-            inline_subwalker: true,
           },
         ],
       },
