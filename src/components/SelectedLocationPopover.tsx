@@ -123,11 +123,7 @@ const readBrowserCoordinates = async (): Promise<BrowserCoordinates> => {
   })
 }
 
-export function SelectedLocationPopoverLayer({
-  onRefreshWeather,
-}: {
-  onRefreshWeather: () => void
-}) {
+export function SelectedLocationPopoverLayer() {
   const { currentNodeId, currentScope, routerScope, clearCurrent } = useNamedSessionRouter(
     SELECTED_LOCATION_POPOVER_ROUTER_NAME,
   )
@@ -279,7 +275,6 @@ export function SelectedLocationPopoverLayer({
               popoverId={SELECTED_LOCATION_POPOVER_ID}
               selectedLocationId={currentNodeId ?? ''}
               selectedLocationScope={currentScope}
-              onRefreshWeather={onRefreshWeather}
               onClose={clearCurrent}
             />
           </ScopeContext.Provider>
@@ -316,13 +311,11 @@ function SelectedLocationPopover({
   popoverId,
   selectedLocationId,
   selectedLocationScope,
-  onRefreshWeather,
   onClose,
 }: {
   popoverId: string
   selectedLocationId: string
   selectedLocationScope: ReactSyncScopeHandle
-  onRefreshWeather: () => void
   onClose: () => void
 }) {
   const dispatch = useActions()
@@ -488,7 +481,6 @@ function SelectedLocationPopover({
 
         <SelectedLocationPopoverWeatherSection
           isEditingLocation={isEditingLocation}
-          onRefreshWeather={onRefreshWeather}
         />
 
         {!isEditingLocation ? (
@@ -581,16 +573,13 @@ const SelectedLocationPopoverHeader = memo(function SelectedLocationPopoverHeade
 
 function SelectedLocationPopoverWeatherSection({
   isEditingLocation,
-  onRefreshWeather,
 }: {
   isEditingLocation: boolean
-  onRefreshWeather: () => void
 }) {
   return (
     <One rel="weatherLocation" fallback={<PopoverWeatherSectionFallback />}>
       <SelectedLocationPopoverWeatherSectionInner
         isEditingLocation={isEditingLocation}
-        onRefreshWeather={onRefreshWeather}
       />
     </One>
   )
@@ -598,15 +587,17 @@ function SelectedLocationPopoverWeatherSection({
 
 function SelectedLocationPopoverWeatherSectionInner({
   isEditingLocation,
-  onRefreshWeather,
 }: {
   isEditingLocation: boolean
-  onRefreshWeather: () => void
 }) {
+  const dispatch = useActions()
   const weatherLocationAttrs = useAttrs(['loadStatus', 'lastError'])
   const loadStatus = readStringAttr(weatherLocationAttrs.loadStatus, 'idle')
   const lastError = readNullableStringAttr(weatherLocationAttrs.lastError)
   const weatherLoadError = loadStatus === 'error' && lastError ? lastError : null
+  const handleRetryWeather = useCallback(() => {
+    dispatch('retryWeatherLoad')
+  }, [dispatch])
 
   return (
     <>
@@ -617,12 +608,12 @@ function SelectedLocationPopoverWeatherSectionInner({
             fallback={
               <SelectedLocationPopoverCurrentWeatherFallback
                 weatherLoadError={weatherLoadError}
-                onRefreshWeather={onRefreshWeather}
+                onRetryWeather={handleRetryWeather}
               />
             }
           >
             <SelectedLocationPopoverCurrentWeatherPanel
-              onRefreshWeather={onRefreshWeather}
+              onRetryWeather={handleRetryWeather}
             />
           </One>
 
@@ -634,28 +625,28 @@ function SelectedLocationPopoverWeatherSectionInner({
 }
 
 function SelectedLocationPopoverCurrentWeatherPanel({
-  onRefreshWeather,
+  onRetryWeather,
 }: {
-  onRefreshWeather: () => void
+  onRetryWeather: () => void
 }) {
   return (
     <article className="weather-readout weather-readout--popover">
-      <CurrentWeatherCard onRetry={onRefreshWeather} />
+      <CurrentWeatherCard onRetry={onRetryWeather} />
     </article>
   )
 }
 
 function SelectedLocationPopoverCurrentWeatherFallback({
   weatherLoadError,
-  onRefreshWeather,
+  onRetryWeather,
 }: {
   weatherLoadError: string | null
-  onRefreshWeather: () => void
+  onRetryWeather: () => void
 }) {
   return (
     <>
       {weatherLoadError ? (
-        <WeatherReadoutError message={`Weather load failed: ${weatherLoadError}`} onRetry={onRefreshWeather} />
+        <WeatherReadoutError message={`Weather load failed: ${weatherLoadError}`} onRetry={onRetryWeather} />
       ) : (
         <WeatherReadoutFallback />
       )}

@@ -1,9 +1,10 @@
-import { Suspense, lazy } from 'react'
-import { One } from '../dkt-react-sync/components/One'
+import { Suspense, lazy, useCallback } from 'react'
 import { Many } from '../dkt-react-sync/components/Many'
+import { One } from '../dkt-react-sync/components/One'
+import { useActions } from '../dkt-react-sync/hooks/useActions'
 import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
-import { useScope } from '../dkt-react-sync/hooks/useScope'
 import { useNamedSessionRouter } from '../dkt-react-sync/hooks/useNamedSessionRouter'
+import { useScope } from '../dkt-react-sync/hooks/useScope'
 import { readNullableStringAttr, readStringAttr } from '../shared/attrReaders'
 import {
   SELECTED_LOCATION_POPOVER_ID,
@@ -20,28 +21,27 @@ import {
   WeatherReadoutError,
   WeatherReadoutFallback,
 } from './WeatherCards'
-import { HourlySparklineSection, DailySparklineSection } from './WeatherSparkline'
+import { DailySparklineSection, HourlySparklineSection } from './WeatherSparkline'
 
 const LazySelectedLocationPopoverLayer = lazy(() =>
-  import('./SelectedLocationPopover').then(m => ({ default: m.SelectedLocationPopoverLayer })),
+  import('./SelectedLocationPopover').then((m) => ({ default: m.SelectedLocationPopoverLayer })),
 )
 
 export { DEFAULT_FORECAST_LIMIT }
 
 export function WeatherGraph({
   forecastLimit = DEFAULT_FORECAST_LIMIT,
-  onRefreshWeather,
 }: {
   forecastLimit?: number
-  onRefreshWeather: () => void
 }) {
   return (
     <>
       <One rel="pioneer" fallback={<GraphFallback />}>
         <WeatherUpdateTimestamp />
+
         <section className="main-stage">
           <One rel="mainLocation" fallback={<LocationFallback featured forecastLimit={forecastLimit} />}>
-            <FeaturedLocationCard forecastLimit={forecastLimit} onRefreshWeather={onRefreshWeather} />
+            <FeaturedLocationCard forecastLimit={forecastLimit} />
           </One>
         </section>
 
@@ -57,7 +57,7 @@ export function WeatherGraph({
       </One>
 
       <Suspense fallback={null}>
-        <LazySelectedLocationPopoverLayer onRefreshWeather={onRefreshWeather} />
+        <LazySelectedLocationPopoverLayer />
       </Suspense>
     </>
   )
@@ -66,37 +66,20 @@ export function WeatherGraph({
 const WeatherLocationInner = ({
   featured = false,
   forecastLimit,
-  onRefreshWeather,
 }: {
   featured?: boolean
   forecastLimit?: number
-  onRefreshWeather?: () => void
 }) => {
   const scope = useScope()
   const { currentNodeId: popoverNodeId, openResource } =
     useNamedSessionRouter(SELECTED_LOCATION_POPOVER_ROUTER_NAME)
-  const weatherLocationAttrs = useAttrs([
-    'name',
-    'loadStatus',
-    'lastError',
-    'weatherFetchedAt',
-  ])
-  const weatherLocationName = readStringAttr(weatherLocationAttrs.name)
-  const loadStatus = readStringAttr(weatherLocationAttrs.loadStatus, 'idle')
-  const lastError = readNullableStringAttr(weatherLocationAttrs.lastError)
-  const weatherStatus = loadStatus === 'idle' ? undefined : loadStatus
+  const locationAttrs = useAttrs(['name'])
+  const locationName = readStringAttr(locationAttrs.name)
   const selectedLocationId = scope?._nodeId ?? ''
   const isPopoverOpen = Boolean(selectedLocationId && popoverNodeId === selectedLocationId)
-  const locationCardLabel = weatherLocationName
-    ? `Open details for ${weatherLocationName}`
+  const locationCardLabel = locationName
+    ? `Open details for ${locationName}`
     : 'Open selected location details'
-  const weatherLoadError = loadStatus === 'error' && lastError ? lastError : null
-  const weatherNote =
-    loadStatus === 'loading'
-      ? 'Loading weather data'
-      : loadStatus === 'error' && lastError
-        ? `Last update failed: ${lastError}`
-        : null
 
   const weatherLocationBodyFallback = (
     <div className="location-card__body">
@@ -132,51 +115,93 @@ const WeatherLocationInner = ({
       >
         <div className={featured ? 'location-card location-card--featured' : 'location-card'}>
           <One rel="weatherLocation" fallback={weatherLocationBodyFallback}>
-            <div className="location-card__body">
-              <One
-                rel="currentWeather"
-                fallback={<WeatherReadoutFallback />}
-              >
-                <div className="weather-readout weather-readout--location">
-                  <CurrentWeatherCard
-                    loadStatus={weatherStatus}
-                    loadNote={weatherNote}
-                  />
-                </div>
-              </One>
-
-              {featured ? (
-                <div className="forecast-panels">
-                  <HourlySparklineSection />
-                  <DailySparklineSection />
-                </div>
-              ) : null}
-            </div>
+            <WeatherLocationCardBody featured={featured} forecastLimit={forecastLimit} />
           </One>
         </div>
       </button>
 
-      {weatherLoadError ? (
-        <div className="location-card__error">
-          <WeatherReadoutError
-            message={`Weather load failed: ${weatherLoadError}`}
-            onRetry={onRefreshWeather}
-          />
-        </div>
-      ) : null}
+      <One rel="weatherLocation">
+        <WeatherLocationErrorNotice />
+      </One>
     </div>
   )
 }
 
 const FeaturedLocationCard = ({
   forecastLimit,
-  onRefreshWeather,
 }: {
   forecastLimit?: number
-  onRefreshWeather: () => void
-}) => <WeatherLocationInner featured forecastLimit={forecastLimit} onRefreshWeather={onRefreshWeather} />
+}) => <WeatherLocationInner featured forecastLimit={forecastLimit} />
 
 const AdditionalLocationCard = () => <WeatherLocationInner />
+
+const WeatherLocationCardBody = ({
+  featured = false,
+  forecastLimit,
+}: {
+  featured?: boolean
+  forecastLimit?: number
+}) => {
+  const dispatch = useActions()
+  const weatherLocationAttrs = useAttrs(['loadStatus', 'lastError'])
+  const loadStatus = readStringAttr(weatherLocationAttrs.loadStatus, 'idle')
+  const lastError = readNullableStringAttr(weatherLocationAttrs.lastError)
+  const weatherStatus = loadStatus === 'idle' ? undefined : loadStatus
+  const weatherNote =
+    loadStatus === 'loading'
+      ? 'Loading weather data'
+      : loadStatus === 'error' && lastError
+        ? `Last update failed: ${lastError}`
+        : null
+  const handleRetryWeather = useCallback(() => {
+    dispatch('retryWeatherLoad')
+  }, [dispatch])
+
+  return (
+    <div className="location-card__body">
+      <One rel="currentWeather" fallback={<WeatherReadoutFallback />}>
+        <div className="weather-readout weather-readout--location">
+          <CurrentWeatherCard
+            loadStatus={weatherStatus}
+            loadNote={weatherNote}
+            onRetry={handleRetryWeather}
+          />
+        </div>
+      </One>
+
+      {featured ? (
+        <div className="forecast-panels">
+          <HourlySparklineSection />
+          <DailySparklineSection />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function WeatherLocationErrorNotice() {
+  const dispatch = useActions()
+  const weatherLocationAttrs = useAttrs(['loadStatus', 'lastError'])
+  const loadStatus = readStringAttr(weatherLocationAttrs.loadStatus, 'idle')
+  const lastError = readNullableStringAttr(weatherLocationAttrs.lastError)
+  const weatherLoadError = loadStatus === 'error' && lastError ? lastError : null
+  const handleRetryWeather = useCallback(() => {
+    dispatch('retryWeatherLoad')
+  }, [dispatch])
+
+  if (!weatherLoadError) {
+    return null
+  }
+
+  return (
+    <div className="location-card__error">
+      <WeatherReadoutError
+        message={`Weather load failed: ${weatherLoadError}`}
+        onRetry={handleRetryWeather}
+      />
+    </div>
+  )
+}
 
 function WeatherUpdateTimestamp() {
   const attrs = useAttrs(['weatherUpdatedSummary'])
@@ -222,8 +247,4 @@ function GraphFallback() {
     </div>
   )
 }
-
-
-
-
 

@@ -3,7 +3,6 @@ export const APP_MSG = {
   CONTROL_BOOTSTRAP_SESSION: 'control:bootstrap-session',
   CONTROL_CLOSE_SESSION: 'control:close-session',
   CONTROL_DISPATCH_APP_ACTION: 'control:dispatch-app-action',
-  CONTROL_REFRESH_WEATHER: 'control:refresh-weather',
 
   MODEL_BOOTED: 'model:booted',
   SESSION_BOOTED: 'session:booted',
@@ -43,12 +42,6 @@ export type ReactSyncControlCloseSessionMessage = {
 export type ReactSyncControlDispatchAppActionMessage = {
   type: typeof APP_MSG.CONTROL_DISPATCH_APP_ACTION
   action_name: string
-  payload?: unknown
-  scope_node_id?: string | null
-}
-
-export type ReactSyncControlRefreshWeatherMessage = {
-  type: typeof APP_MSG.CONTROL_REFRESH_WEATHER
   payload?: unknown
   scope_node_id?: string | null
 }
@@ -113,7 +106,6 @@ export type ReactSyncTransportMessage =
   | ReactSyncControlBootstrapSessionMessage
   | ReactSyncControlCloseSessionMessage
   | ReactSyncControlDispatchAppActionMessage
-  | ReactSyncControlRefreshWeatherMessage
   | ReactSyncModelBootedMessage
   | ReactSyncSessionBootedMessage
   | ReactSyncRuntimeLogMessage

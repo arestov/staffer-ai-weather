@@ -106,29 +106,6 @@ const SESSION_IMPORTANT_REL_PATHS = Object.freeze([
 const APP_CLEANUP_DELAY_MS = 30 * 1000
 const SESSION_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/
 
-const refreshWeatherForAllLocations = async (
-  app: WeatherAppRuntime,
-) => {
-  const appModel = app.inited.app_model
-  const locationRel = _getCurrentRel(appModel, 'weatherLocation') as RuntimeModelLike[] | null
-
-  const locations: RuntimeModelLike[] = Array.isArray(locationRel) ? locationRel : []
-  const entries = locations
-    .filter((location) => {
-      const lat = location.states?.latitude as number | null | undefined
-      const lon = location.states?.longitude as number | null | undefined
-      return lat != null && lon != null
-    })
-
-  if (!entries.length) {
-    return
-  }
-
-  await Promise.allSettled(
-    entries.map((location) => location.refreshState('weatherData')),
-  )
-}
-
 const runtimeEnv =
   typeof process !== 'undefined' && process?.env ? process.env : undefined
 
@@ -563,17 +540,6 @@ export const createWeatherModelRuntime = (options?: {
           message.payload,
           message.scope_node_id,
         )
-        return
-      }
-      case APP_MSG.CONTROL_REFRESH_WEATHER: {
-        const appEntry = getConnectionAppEntry(connection)
-        if (!appEntry) {
-          throw new Error('worker connection is not attached to a session key')
-        }
-
-        refreshWeatherForAllLocations(appEntry.app).catch((error) => {
-          appendLog(connection, `refresh weather failed: ${error}`)
-        })
         return
       }
       case APP_MSG.SYNC_UPDATE_STRUCTURE_USAGE: {

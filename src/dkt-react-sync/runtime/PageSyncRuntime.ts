@@ -26,7 +26,6 @@ export interface PageSyncRuntime extends ReactScopeRuntime {
     payload?: unknown,
     scope?: ReactSyncScopeHandle | null,
   ): void
-  refreshWeather(): void
   destroy(): void
   getSnapshot(): PageRootSnapshot
   getRootAttrs(attrNames: readonly string[]): Record<string, unknown>

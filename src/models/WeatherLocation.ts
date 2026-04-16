@@ -230,6 +230,7 @@ export const WeatherLocation = model({
     lastError: ['input', null],
     weatherFetchedAt: ['input', null],
     weatherData: ['input', null],
+    retryRequestedAt: ['input', null],
     hourlySparkline: [
       'comp',
       [
@@ -271,6 +272,7 @@ export const WeatherLocation = model({
         loadStatus: ['loadStatus'],
         lastError: ['lastError'],
         weatherFetchedAt: ['weatherFetchedAt'],
+        retryRequestedAt: ['retryRequestedAt'],
         currentWeather: [
           '<< currentWeather',
           {
@@ -305,6 +307,7 @@ export const WeatherLocation = model({
           return {
             loadStatus: 'ready',
             lastError: null,
+            retryRequestedAt: null,
             weatherFetchedAt: payload.fetchedAt,
             currentWeather: {
               attrs: {
@@ -346,11 +349,24 @@ export const WeatherLocation = model({
       to: {
         loadStatus: ['loadStatus'],
         lastError: ['lastError'],
+        retryRequestedAt: ['retryRequestedAt'],
       },
       fn: (payload: { message: string }) => ({
         loadStatus: 'error',
         lastError: payload.message,
+        retryRequestedAt: null,
       }),
+    },
+    retryWeatherLoad: {
+      to: {
+        retryRequestedAt: ['retryRequestedAt'],
+      },
+      fn: [
+        ['$now'] as const,
+        (_payload: unknown, retryRequestedAt: number) => ({
+          retryRequestedAt,
+        }),
+      ],
     },
   },
   effects: {
@@ -437,6 +453,27 @@ export const WeatherLocation = model({
           },
         ],
       },
+      triggerWeatherRetry: {
+        api: ['self'],
+        trigger: ['retryRequestedAt'],
+        require: ['retryRequestedAt'],
+        create_when: {
+          api_inits: true,
+        },
+        fn: (
+          self: {
+            requestState: (name: string) => unknown
+            resetRequestedState: (name: string) => unknown
+            input: (callback: () => void) => unknown
+          },
+        ) => {
+          self.resetRequestedState('weatherData')
+          self.input(() => {
+            self.requestState('weatherData')
+          })
+          return
+        },
+      },
       scheduleNextRefresh: {
         api: ['self', 'time'],
         trigger: ['loadStatus'],
@@ -449,29 +486,31 @@ export const WeatherLocation = model({
           (
             self: {
               refreshState: (name: string) => unknown
-              extra: Record<string, unknown>
+              extra?: Record<string, unknown>
             },
             time: TimeInterface,
             _task: unknown,
             loadStatus: unknown,
           ) => {
-            const existingTimer = self.extra._refreshTimer as ReturnType<typeof setTimeout> | undefined
+            const extra = self.extra ?? (self.extra = {})
+            const existingTimer = extra._refreshTimer as ReturnType<typeof setTimeout> | undefined
             if (existingTimer != null) {
               time.clearTimeout(existingTimer)
-              self.extra._refreshTimer = undefined
+              extra._refreshTimer = undefined
             }
 
             if (loadStatus === 'ready') {
-              self.extra._refreshTimer = time.setTimeout(() => {
-                self.extra._refreshTimer = undefined
+              extra._refreshTimer = time.setTimeout(() => {
+                extra._refreshTimer = undefined
                 self.refreshState('weatherData')
               }, LIVE_UPDATE_INTERVAL_MS)
             } else if (loadStatus === 'error') {
-              self.extra._refreshTimer = time.setTimeout(() => {
-                self.extra._refreshTimer = undefined
+              extra._refreshTimer = time.setTimeout(() => {
+                extra._refreshTimer = undefined
                 self.refreshState('weatherData')
               }, LIVE_UPDATE_RETRY_MS)
             }
+            return
           },
         ],
       },

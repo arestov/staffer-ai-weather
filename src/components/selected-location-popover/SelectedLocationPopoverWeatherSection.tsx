@@ -1,4 +1,6 @@
+import { useCallback } from 'react'
 import { One } from '../../dkt-react-sync/components/One'
+import { useActions } from '../../dkt-react-sync/hooks/useActions'
 import { useAttrs } from '../../dkt-react-sync/hooks/useAttrs'
 import { readNullableStringAttr, readStringAttr } from '../../shared/attrReaders'
 import {
@@ -11,18 +13,15 @@ import {
 
 type SelectedLocationPopoverWeatherSectionProps = {
   isEditingLocation: boolean
-  onRefreshWeather: () => void
 }
 
 export function SelectedLocationPopoverWeatherSection({
   isEditingLocation,
-  onRefreshWeather,
 }: SelectedLocationPopoverWeatherSectionProps) {
   return (
     <One rel="weatherLocation" fallback={<PopoverWeatherSectionFallback />}>
       <SelectedLocationPopoverWeatherSectionInner
         isEditingLocation={isEditingLocation}
-        onRefreshWeather={onRefreshWeather}
       />
     </One>
   )
@@ -30,12 +29,15 @@ export function SelectedLocationPopoverWeatherSection({
 
 function SelectedLocationPopoverWeatherSectionInner({
   isEditingLocation,
-  onRefreshWeather,
 }: SelectedLocationPopoverWeatherSectionProps) {
+  const dispatch = useActions()
   const weatherLocationAttrs = useAttrs(['loadStatus', 'lastError'])
   const loadStatus = readStringAttr(weatherLocationAttrs.loadStatus, 'idle')
   const lastError = readNullableStringAttr(weatherLocationAttrs.lastError)
   const weatherLoadError = loadStatus === 'error' && lastError ? lastError : null
+  const handleRetryWeather = useCallback(() => {
+    dispatch('retryWeatherLoad')
+  }, [dispatch])
 
   return !isEditingLocation ? (
     <div className="selected-location-popover__body">
@@ -44,11 +46,11 @@ function SelectedLocationPopoverWeatherSectionInner({
         fallback={
           <SelectedLocationPopoverCurrentWeatherFallback
             weatherLoadError={weatherLoadError}
-            onRefreshWeather={onRefreshWeather}
+            onRetryWeather={handleRetryWeather}
           />
         }
       >
-        <SelectedLocationPopoverCurrentWeatherPanel onRefreshWeather={onRefreshWeather} />
+        <SelectedLocationPopoverCurrentWeatherPanel onRetryWeather={handleRetryWeather} />
       </One>
 
       <PopoverForecastColumns />
@@ -57,26 +59,26 @@ function SelectedLocationPopoverWeatherSectionInner({
 }
 
 function SelectedLocationPopoverCurrentWeatherPanel({
-  onRefreshWeather,
+  onRetryWeather,
 }: {
-  onRefreshWeather: () => void
+  onRetryWeather: () => void
 }) {
   return (
     <article className="weather-readout weather-readout--popover">
-      <CurrentWeatherCard onRetry={onRefreshWeather} />
+      <CurrentWeatherCard onRetry={onRetryWeather} />
     </article>
   )
 }
 
 function SelectedLocationPopoverCurrentWeatherFallback({
   weatherLoadError,
-  onRefreshWeather,
+  onRetryWeather,
 }: {
   weatherLoadError: string | null
-  onRefreshWeather: () => void
+  onRetryWeather: () => void
 }) {
   return weatherLoadError ? (
-    <WeatherReadoutError message={`Weather load failed: ${weatherLoadError}`} onRetry={onRefreshWeather} />
+    <WeatherReadoutError message={`Weather load failed: ${weatherLoadError}`} onRetry={onRetryWeather} />
   ) : (
     <WeatherReadoutFallback />
   )

@@ -970,7 +970,7 @@ describe('SelectedLocation popover router', () => {
 
     await waitForMainWeatherLoadError(harness, mainLocationId, startupError.message)
 
-    harness.session.refreshWeather()
+    harness.session.dispatchAppAction('retryWeatherLoad')
 
     const recoveredState = await waitForWeatherLoaded(harness)
     const recoveredWeather = getWeatherLocationForSelectedLocation(recoveredState, mainLocationId)

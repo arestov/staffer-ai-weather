@@ -228,12 +228,6 @@ export const createPageSyncReceiverRuntime = ({
     })
   }
 
-  const refreshWeather = () => {
-    emit({
-      type: APP_MSG.CONTROL_REFRESH_WEATHER,
-    })
-  }
-
   const dispatchAction = (
     actionName: string,
     payload?: unknown,
@@ -356,7 +350,6 @@ export const createPageSyncReceiverRuntime = ({
     debugDumpGraph: () => syncReceiver.debugDumpGraph(),
     debugMessages: () => debugMessageLog.slice(),
     dispatchAction,
-    refreshWeather,
     getSnapshot: () => store.getSnapshot(),
     getRootScope: () => syncReceiver.getRootScope(),
     subscribeRootScope: (listener) => syncReceiver.subscribeRoot(listener),

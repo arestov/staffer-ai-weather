@@ -1,9 +1,15 @@
 import { createRoot, type Root } from 'react-dom/client'
 import App from '../../src/components/App'
 import { AppRoot } from '../../src/models/AppRoot'
+import type { ReactSyncScopeHandle } from '../../src/dkt-react-sync/scope/ScopeHandle'
 import { createPageSyncReceiverRuntime } from '../../src/page/createPageSyncReceiverRuntime'
 import type { ReactSyncTransportMessage } from '../../src/shared/messageTypes'
 import { createWeatherModelRuntime } from '../../src/worker/model-runtime'
+
+const APP_ROOT_SCOPE: ReactSyncScopeHandle = {
+  kind: 'scope',
+  _nodeId: 'ROOT',
+}
 
 type TransportListener<Message> = (message: Message) => void
 
@@ -160,7 +166,7 @@ export interface WeatherReplHarness {
     bootstrap(): void
     destroy(): void
     dispatchAction(actionName: string, payload?: unknown): void
-    refreshWeather(): void
+    dispatchAppAction(actionName: string, payload?: unknown): void
     runtime: ReturnType<typeof createPageSyncReceiverRuntime>
     sessionId: string | null
     store: ReturnType<typeof createPageSyncReceiverRuntime>['store']
@@ -199,7 +205,9 @@ export const createWeatherReplHarness = async ({
     bootstrap: pageRuntime.bootstrap,
     destroy,
     dispatchAction: pageRuntime.dispatchAction,
-    refreshWeather: pageRuntime.refreshWeather,
+    dispatchAppAction(actionName: string, payload?: unknown) {
+      pageRuntime.dispatchAction(actionName, payload, APP_ROOT_SCOPE)
+    },
     runtime: pageRuntime,
     store: pageRuntime.store,
   }

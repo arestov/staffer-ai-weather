@@ -496,6 +496,23 @@ const app_props = mergeDcl({
         autoGeoError: typeof payload === 'string' ? payload : toErrorMessage(payload),
       }),
     },
+    retryWeatherLoad: {
+      to: {
+        _retryAllLocations: [
+          '<< @all:weatherLocation',
+          {
+            action: 'retryWeatherLoad',
+            inline_subwalker: true,
+          },
+        ],
+      },
+      fn: [
+        ['$now'] as const,
+        (_payload: unknown, now: number) => ({
+          _retryAllLocations: { at: now },
+        }),
+      ],
+    },
   },
 })
 

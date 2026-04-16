@@ -2,8 +2,14 @@ import { createPageSyncReceiverRuntime } from './createPageSyncReceiverRuntime'
 import { createSharedWorkerTransport } from '../shared/createSharedWorkerTransport'
 import { APP_MSG, type ReactSyncTransportMessage } from '../shared/messageTypes'
 import { createPageP2PManager, type PageP2PManager } from '../p2p/PageP2PManager'
+import type { ReactSyncScopeHandle } from '../dkt-react-sync/scope/ScopeHandle'
 
 export type WeatherAppP2PStatus = 'disabled' | 'undecided' | 'server' | 'client'
+
+const APP_ROOT_SCOPE: ReactSyncScopeHandle = {
+  kind: 'scope',
+  _nodeId: 'ROOT',
+}
 
 export interface WeatherAppSession {
   sessionId: string | null
@@ -18,7 +24,7 @@ export interface WeatherAppSession {
     route?: unknown
   }): void
   dispatchAction(actionName: string, payload?: unknown): void
-  refreshWeather(): void
+  dispatchAppAction(actionName: string, payload?: unknown): void
   subscribeP2PStatus(listener: () => void): () => void
   destroy(): void
 }
@@ -124,6 +130,14 @@ export const createWeatherAppSession = (): WeatherAppSession => {
     }
   }
 
+  const dispatchAppAction = (
+    runtime: ReturnType<typeof createPageSyncReceiverRuntime>,
+    actionName: string,
+    payload?: unknown,
+  ) => {
+    runtime.dispatchAction(actionName, payload, APP_ROOT_SCOPE)
+  }
+
   // ── No P2P: simple direct connection (current behavior) ──
   if (!p2pSignalUrl) {
     const runtime = createPageSyncReceiverRuntime({ transport: workerTransport })
@@ -136,7 +150,7 @@ export const createWeatherAppSession = (): WeatherAppSession => {
       store: runtime.store,
       bootstrap: runtime.bootstrap,
       dispatchAction: runtime.dispatchAction,
-      refreshWeather: runtime.refreshWeather,
+      dispatchAppAction: (actionName, payload) => dispatchAppAction(runtime, actionName, payload),
       subscribeP2PStatus(listener) {
         p2pStatusListeners.add(listener)
         return () => { p2pStatusListeners.delete(listener) }
@@ -222,7 +236,7 @@ export const createWeatherAppSession = (): WeatherAppSession => {
     store: runtime.store,
     bootstrap: wrappedBootstrap,
     dispatchAction: runtime.dispatchAction,
-    refreshWeather: runtime.refreshWeather,
+    dispatchAppAction: (actionName, payload) => dispatchAppAction(runtime, actionName, payload),
     subscribeP2PStatus(listener) {
       p2pStatusListeners.add(listener)
       return () => { p2pStatusListeners.delete(listener) }

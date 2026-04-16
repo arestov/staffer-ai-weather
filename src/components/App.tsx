@@ -43,7 +43,7 @@ export default function App({
 
       <div id="main-content">
         <RootScope runtime={session.runtime}>
-          <WeatherGraph forecastLimit={forecastLimit} onRefreshWeather={session.refreshWeather} />
+          <WeatherGraph forecastLimit={forecastLimit} />
         </RootScope>
       </div>
     </main>
