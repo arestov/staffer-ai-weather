@@ -13,6 +13,17 @@ export default defineConfig({
   optimizeDeps: {
     include: ['lottie-web/build/player/esm/lottie_canvas.min.js'],
   },
+  build: {
+    rollupOptions: {
+      onwarn(warning, defaultHandler) {
+        // lottie-web internally uses eval — nothing we can do about it
+        if (warning.code === 'EVAL' && warning.id?.includes('lottie-web')) {
+          return
+        }
+        defaultHandler(warning)
+      },
+    },
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,
