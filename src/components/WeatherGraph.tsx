@@ -88,14 +88,14 @@ const WeatherLocationInner = ({
     </div>
   )
 
-  const openPopover = () => {
+  const openPopover = useCallback(() => {
     if (!selectedLocationId) {
       return
     }
 
     openResource(selectedLocationId)
     scrollSelectedLocationIntoView(selectedLocationId)
-  }
+  }, [openResource, selectedLocationId])
 
   return (
     <div
@@ -116,13 +116,10 @@ const WeatherLocationInner = ({
         <div className={featured ? 'location-card location-card--featured' : 'location-card'}>
           <One rel="weatherLocation" fallback={weatherLocationBodyFallback}>
             <WeatherLocationCardBody featured={featured} forecastLimit={forecastLimit} />
+            <WeatherLocationErrorNotice />
           </One>
         </div>
       </button>
-
-      <One rel="weatherLocation">
-        <WeatherLocationErrorNotice />
-      </One>
     </div>
   )
 }
