@@ -24,19 +24,13 @@ const getLottieModule = (): Promise<LottieModule> | null => {
 }
 
 /**
- * Renders a Lottie weather icon via lottie-web's canvas worker build.
+ * Renders a Lottie weather icon via lottie-web's canvas build.
  *
- * The lottie_canvas_worker build calls canvas.transferControlToOffscreen()
- * which can only be performed once per canvas element. To handle React
- * re-renders and icon changes, we create a fresh <canvas> imperatively
- * each time and append it into a container div managed by React.
- *
- * The internal web worker is a module-level singleton that persists across
- * mount/unmount cycles.
+ * Lottie creates its own canvas inside the wrapper div.
+ * Each mount creates a fresh wrapper so the internal canvas state
+ * is always clean across React re-renders and icon changes.
  *
  * @param iconName - meteocons icon name (e.g. "clear-day"), or null for nothing
- * @param size - CSS pixel size of the icon
- * @returns ref to attach to a container element (div)
  */
 const DEFAULT_ICON_SIZE = 48
 
@@ -67,8 +61,6 @@ export function useLottieWeatherIcon(iconName: string | null) {
 
     let cancelled = false
     const dpr = typeof devicePixelRatio !== 'undefined' ? devicePixelRatio : 1
-    const pxW = Math.round(size * dpr)
-    const pxH = Math.round(size * dpr)
 
     // CSS spinner shown while lottie + icon data load
     const spinner = document.createElement('div')
@@ -77,13 +69,11 @@ export function useLottieWeatherIcon(iconName: string | null) {
     spinner.style.height = `${size}px`
     container.appendChild(spinner)
 
-    // Create a fresh canvas so transferControlToOffscreen() always works
-    const canvas = document.createElement('canvas')
-    canvas.width = pxW
-    canvas.height = pxH
-    canvas.style.width = `${size}px`
-    canvas.style.height = `${size}px`
-    canvas.style.display = 'block'
+    // Wrapper div that lottie will render its own canvas into
+    const wrapper = document.createElement('div')
+    wrapper.style.width = `${size}px`
+    wrapper.style.height = `${size}px`
+    wrapper.style.display = 'block'
 
     Promise.all([lottiePromise, iconDataPromise])
       .then(([lottie, animationData]) => {
@@ -92,23 +82,19 @@ export function useLottieWeatherIcon(iconName: string | null) {
         }
 
         spinner.remove()
-        container.appendChild(canvas)
+        container.appendChild(wrapper)
 
         const anim = lottie.loadAnimation({
+          container: wrapper,
           renderer: 'canvas',
           animationData,
           loop: true,
           autoplay: true,
           rendererSettings: {
-            canvas,
             clearCanvas: true,
+            dpr,
           },
         })
-        // In the canvas_worker build, loadAnimation() sends the `load`
-        // message to the worker asynchronously (microtask).  Calling
-        // setSpeed() synchronously posts the message *before* `load`,
-        // so the worker silently drops it.  Deferring to DOMLoaded
-        // guarantees the animation exists in the worker.
         if (speed !== 1) {
           anim.addEventListener('DOMLoaded', () => {
             if (!cancelled) anim.setSpeed(speed)
@@ -125,7 +111,7 @@ export function useLottieWeatherIcon(iconName: string | null) {
         animRef.current = null
       }
       spinner.remove()
-      canvas.remove()
+      wrapper.remove()
     }
   }, [iconName])
 

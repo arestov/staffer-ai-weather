@@ -11,6 +11,7 @@ declare module 'lottie-web/build/player/lottie_canvas_worker' {
   }
 
   interface LottieCanvasWorkerParams {
+    container?: HTMLElement
     renderer: 'canvas'
     animationData: unknown
     loop?: boolean
@@ -19,6 +20,7 @@ declare module 'lottie-web/build/player/lottie_canvas_worker' {
       canvas?: HTMLCanvasElement | OffscreenCanvas
       clearCanvas?: boolean
       context?: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
+      dpr?: number
     }
   }
 
