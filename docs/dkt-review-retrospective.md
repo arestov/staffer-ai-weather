@@ -227,3 +227,48 @@ DKT не имеет нативного механизма для "partial state 
 - Удалённые typeof проверки: 15 штук
 - Direct import networking функций: 1 → 0 (`fetchWeatherFromOpenMeteo` заменён на injected interface)
 - `self.getInterface()` вызовов: 4 → 0 (заменены на effects.api declarations)
+
+
+p.s.
+для вызова out effect приходится использовать инвалидацию состояния (например с помощью значения $now) -> trigger
+
+---
+
+## 8. `$now` и идемпотентность action fn
+
+### Проблема: inline_subwalker с пустым payload
+
+`AppRoot.retryWeatherLoad` транслирует действие на все `weatherLocation` через `inline_subwalker`:
+
+```ts
+retryWeatherLoad: {
+  to: {
+    _retryAllLocations: ['<< @all:weatherLocation', { action: 'retryWeatherLoad', inline_subwalker: true }],
+  },
+  fn: () => ({ _retryAllLocations: {} }),
+}
+```
+
+При повторных вызовах `fn` возвращает структурно-идентичный `{}` — dkt обнаруживает что "ничего не изменилось" и **не пропагирует** subwalker dispatch. Первый retry работает, второй и третий — нет.
+
+### Решение: `$now` как уникализатор payload
+
+```ts
+fn: [
+  ['$now'] as const,
+  (_payload: unknown, now: number) => ({
+    _retryAllLocations: { at: now },
+  }),
+],
+```
+
+`$now` гарантирует уникальный timestamp на каждый вызов → dkt видит изменённый payload → subwalker dispatch проходит.
+
+### Паттерн
+
+Любое действие, которое должно "просто сработать" при каждом вызове (retry, refresh, ping), требует `$now` в зависимостях — иначе dkt может оптимизировать повторный вызов как no-op. Это касается:
+- action fn с пустым или статическим payload
+- inline_subwalker проброс в children
+- trigger-зависимости в effects.out
+
+Это фундаментальная особенность: dkt — **реактивный** фреймворк, action fn — **чистая функция от состояния**. Для императивного "просто сделай" нужен уникальный маркер в зависимостях.
