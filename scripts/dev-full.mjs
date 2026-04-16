@@ -63,9 +63,18 @@ const shutdown = (signal) => {
   killProcessTree(frontend, signal)
 }
 
-process.on('SIGINT', () => shutdown('SIGINT'))
-process.on('SIGTERM', () => shutdown('SIGTERM'))
-process.on('SIGHUP', () => shutdown('SIGHUP'))
+process.on('SIGINT', () => {
+  shutdown('SIGINT')
+  process.exit(0)
+})
+process.on('SIGTERM', () => {
+  shutdown('SIGTERM')
+  process.exit(0)
+})
+process.on('SIGHUP', () => {
+  shutdown('SIGHUP')
+  process.exit(0)
+})
 process.on('exit', () => shutdown('SIGTERM'))
 
 const exitWhenDone = (code) => {
