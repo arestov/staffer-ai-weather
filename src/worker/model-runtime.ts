@@ -12,7 +12,7 @@ import type { ReactSyncTransportMessage } from '../shared/messageTypes'
 import { AppRoot } from '../models/AppRoot'
 import { createSessionManager } from './session-manager'
 import { createLocationSearchApi } from './location-search-api'
-import { createWeatherLoaderApi, fetchWeatherFromOpenMeteo } from './weather-api'
+import { createWeatherLoaderApi } from './weather-api'
 import { createGeoLocationApi } from './geo-location-api'
 import {
   createScopedWeatherBackendApi,
@@ -33,6 +33,8 @@ type RuntimeModelLike = {
   ) => Promise<readonly RuntimeModelLike[]>
   input: (callback: () => void | Promise<void>) => unknown
   dispatch: (actionName: string, payload?: unknown) => Promise<void> | void
+  refreshState: (stateName: string) => Promise<unknown> | unknown
+  requestState: (stateName: string) => Promise<unknown> | unknown
   start_page?: unknown
 }
 
@@ -105,7 +107,7 @@ const LIVE_UPDATE_MAX_RETRIES = 3
 const APP_CLEANUP_DELAY_MS = 30 * 1000
 const SESSION_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/
 
-const fetchWeatherForAllLocations = async (
+const refreshWeatherForAllLocations = async (
   app: WeatherAppRuntime,
   weatherStateReporter?: (status: string, error: string | null) => void,
 ) => {
@@ -114,17 +116,11 @@ const fetchWeatherForAllLocations = async (
 
   const locations: RuntimeModelLike[] = Array.isArray(locationRel) ? locationRel : []
   const entries = locations
-    .map((location) => {
+    .filter((location) => {
       const lat = location.states?.latitude as number | null | undefined
       const lon = location.states?.longitude as number | null | undefined
-
-      if (lat == null || lon == null) {
-        return null
-      }
-
-      return { location, lat, lon }
+      return lat != null && lon != null
     })
-    .filter((entry): entry is { location: RuntimeModelLike; lat: number; lon: number } => Boolean(entry))
 
   if (!entries.length) {
     return
@@ -133,38 +129,50 @@ const fetchWeatherForAllLocations = async (
   weatherStateReporter?.('loading', null)
 
   await Promise.allSettled(
-    entries.map(({ location }) => location.dispatch('startLoading')),
+    entries.map((location) => location.refreshState('weatherData')),
   )
 
-  const results = await Promise.allSettled(
-    entries.map(({ lat, lon }) => fetchWeatherFromOpenMeteo(lat, lon)),
-  )
+  weatherStateReporter?.('ready', null)
+}
 
-  await Promise.allSettled(
-    entries.map(({ location }, index) => {
-      const result = results[index]
+const waitForInitialWeatherLoad = (
+  app: WeatherAppRuntime,
+  onSettled: (status: string, error: string | null) => void,
+) => {
+  const appModel = app.inited.app_model
+  const locationRel = _getCurrentRel(appModel, 'weatherLocation') as RuntimeModelLike[] | null
+  const locations: RuntimeModelLike[] = Array.isArray(locationRel) ? locationRel : []
 
-      if (result.status === 'fulfilled') {
-        return location.dispatch('applyWeather', result.value)
-      }
-
-      return location.dispatch('failWeather', {
-        message:
-          result.reason instanceof Error ? result.reason.message : String(result.reason),
-      })
-    }),
-  )
-
-  const failedCount = results.filter((result) => result.status === 'rejected').length
-
-  const nextLoadState = {
-    status: failedCount ? 'error' : 'ready',
-    error: failedCount
-      ? `${failedCount} weather request${failedCount === 1 ? '' : 's'} failed`
-      : null,
+  if (!locations.length) {
+    return
   }
 
-  weatherStateReporter?.(nextLoadState.status, nextLoadState.error)
+  onSettled('loading', null)
+
+  let attempts = 0
+  const maxAttempts = 600
+
+  const check = () => {
+    attempts += 1
+    const allSettled = locations.every((loc) => {
+      const status = loc.states?.loadStatus
+      return status === 'ready' || status === 'error'
+    })
+
+    if (!allSettled && attempts < maxAttempts) {
+      setTimeout(check, 50)
+      return
+    }
+
+    const errorLoc = locations.find((loc) => loc.states?.loadStatus === 'error')
+    if (errorLoc) {
+      onSettled('error', String(errorLoc.states?.lastError ?? 'Weather load failed'))
+    } else {
+      onSettled('ready', null)
+    }
+  }
+
+  setTimeout(check, 0)
 }
 
 const runtimeEnv =
@@ -322,7 +330,7 @@ export const createWeatherModelRuntime = (options?: {
       appEntry.liveUpdateTimer = null
 
       try {
-        await fetchWeatherForAllLocations(appEntry.app, (status, error) => {
+        await refreshWeatherForAllLocations(appEntry.app, (status, error) => {
           broadcastWeatherLoadState(appEntry, status, error)
         })
         retryCount = 0
@@ -621,15 +629,10 @@ export const createWeatherModelRuntime = (options?: {
 
     if (!appEntry.weatherFetchStarted) {
       appEntry.weatherFetchStarted = true
-      fetchWeatherForAllLocations(appEntry.app, (status, error) => {
+      waitForInitialWeatherLoad(appEntry.app, (status, error) => {
         broadcastWeatherLoadState(appEntry, status, error)
       })
-        .finally(() => {
-          startLiveUpdate(appEntry)
-        })
-        .catch((error) => {
-          appendLog(connection, `initial weather fetch failed: ${error}`)
-        })
+      startLiveUpdate(appEntry)
     }
   }
 
@@ -687,7 +690,7 @@ export const createWeatherModelRuntime = (options?: {
           throw new Error('worker connection is not attached to a session key')
         }
 
-        fetchWeatherForAllLocations(appEntry.app, (status, error) => {
+        refreshWeatherForAllLocations(appEntry.app, (status, error) => {
           broadcastWeatherLoadState(appEntry, status, error)
         }).catch((error) => {
           appendLog(connection, `refresh weather failed: ${error}`)

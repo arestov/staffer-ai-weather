@@ -6,7 +6,6 @@ import {
   CURRENT_WEATHER_CREATION_SHAPE,
   FORECAST_SERIES_CREATION_SHAPE,
 } from './weatherSeed'
-import { fetchWeatherFromOpenMeteo } from '../worker/weather-api'
 import {
   formatDailyLabel,
   formatHourlyLabel,
@@ -51,21 +50,9 @@ export type LocationSearchResult = {
   timezone: string | null
 }
 
-type WeatherLoadRequest = {
-  requestId: number
-  latitude: number
-  longitude: number
-}
-
-type ApplyWeatherFromRequestPayload = {
-  requestId: number
-  weather: ApplyWeatherPayload
-}
-
-type FailWeatherFromRequestPayload = {
-  requestId: number
-  message: string
-}
+type WeatherDataResult =
+  | { ok: true; data: ApplyWeatherPayload }
+  | { ok: false; message: string }
 
 export const isLocationSearchResult = (value: unknown): value is LocationSearchResult => {
   if (!value || typeof value !== 'object') {
@@ -83,53 +70,6 @@ export const isLocationSearchResult = (value: unknown): value is LocationSearchR
   )
 }
 
-const isWeatherLoadRequest = (value: unknown): value is WeatherLoadRequest => {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const candidate = value as Partial<WeatherLoadRequest>
-
-  return (
-    typeof candidate.requestId === 'number' &&
-    typeof candidate.latitude === 'number' &&
-    typeof candidate.longitude === 'number'
-  )
-}
-
-const isApplyWeatherFromRequestPayload = (
-  value: unknown,
-): value is ApplyWeatherFromRequestPayload => {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const candidate = value as Partial<ApplyWeatherFromRequestPayload>
-
-  return (
-    typeof candidate.requestId === 'number' &&
-    Boolean(candidate.weather && typeof candidate.weather === 'object')
-  )
-}
-
-const isFailWeatherFromRequestPayload = (
-  value: unknown,
-): value is FailWeatherFromRequestPayload => {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const candidate = value as Partial<FailWeatherFromRequestPayload>
-
-  return (
-    typeof candidate.requestId === 'number' &&
-    typeof candidate.message === 'string'
-  )
-}
-
-const toErrorMessage = (error: unknown) => {
-  return error instanceof Error ? error.message : String(error)
-}
 
 const asFiniteNumber = (value: unknown): number | null => {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
@@ -279,7 +219,7 @@ export const WeatherLocation = model({
     loadStatus: ['input', 'idle'],
     lastError: ['input', null],
     weatherFetchedAt: ['input', null],
-    weatherLoadRequest: ['input', null],
+    weatherData: ['input', null],
     hourlySparkline: [
       'comp',
       [
@@ -411,93 +351,82 @@ export const WeatherLocation = model({
         lastError: payload.message,
       }),
     },
-    applyWeatherFromRequest: {
-      to: {
-        weatherLoadRequest: ['weatherLoadRequest'],
-        applyWeather: ['<<<<', { action: 'applyWeather', inline_subwalker: true }],
-      },
-      fn: [
-        ['$noop', 'weatherLoadRequest'] as const,
-        (payload: unknown, noop: unknown, weatherLoadRequest: unknown) => {
-          if (
-            !isApplyWeatherFromRequestPayload(payload) ||
-            !isWeatherLoadRequest(weatherLoadRequest) ||
-            payload.requestId !== weatherLoadRequest.requestId
-          ) {
-            return noop
-          }
-
-          return {
-            weatherLoadRequest: null,
-            applyWeather: payload.weather,
-          }
-        },
-      ],
-    },
-    failWeatherFromRequest: {
-      to: {
-        weatherLoadRequest: ['weatherLoadRequest'],
-        failWeather: ['<<<<', { action: 'failWeather', inline_subwalker: true }],
-      },
-      fn: [
-        ['$noop', 'weatherLoadRequest'] as const,
-        (payload: unknown, noop: unknown, weatherLoadRequest: unknown) => {
-          if (
-            !isFailWeatherFromRequestPayload(payload) ||
-            !isWeatherLoadRequest(weatherLoadRequest) ||
-            payload.requestId !== weatherLoadRequest.requestId
-          ) {
-            return noop
-          }
-
-          return {
-            weatherLoadRequest: null,
-            failWeather: {
-              message: payload.message,
-            },
-          }
-        },
-      ],
-    },
   },
   effects: {
+    api: {
+      weatherApi: [
+        ['_node_id'] as const,
+        ['#weatherLoader'] as const,
+        (weatherLoader: unknown) => weatherLoader,
+      ],
+    },
+    in: {
+      loadWeather: {
+        type: 'state_request',
+        states: ['weatherData'],
+        api: 'weatherApi',
+        parse: (result: unknown) => ({ weatherData: result }),
+        fn: [
+          ['latitude', 'longitude'] as const,
+          async (
+            api: { loadByCoordinates: (input: { latitude: number; longitude: number }) => Promise<unknown> },
+            _opts: unknown,
+            lat: unknown,
+            lon: unknown,
+          ) => {
+            try {
+              const data = await api.loadByCoordinates({
+                latitude: lat as number,
+                longitude: lon as number,
+              })
+              return { ok: true as const, data }
+            } catch (error) {
+              return { ok: false as const, message: error instanceof Error ? error.message : String(error) }
+            }
+          },
+        ],
+      },
+    },
     out: {
-      loadWeatherForReplacement: {
+      triggerWeatherLoad: {
+        api: ['self', 'weatherApi'],
+        trigger: ['latitude'],
+        require: ['latitude', 'longitude'],
+        create_when: {
+          api_inits: true,
+        },
+        fn: (
+          self: { requestState: (name: string) => unknown },
+        ) => {
+          self.requestState('weatherData')
+        },
+      },
+      applyFetchedWeatherData: {
         api: ['self'],
-        trigger: ['weatherLoadRequest'],
-        require: ['weatherLoadRequest'],
+        trigger: ['weatherData'],
+        require: ['weatherData'],
         create_when: {
           api_inits: true,
         },
         is_async: true,
         fn: [
-          ['weatherLoadRequest'] as const,
+          ['weatherData'] as const,
           async (
             self: {
               dispatch: (actionName: string, payload?: unknown) => Promise<void> | void
             },
             _task: unknown,
-            weatherLoadRequest: unknown,
+            weatherData: unknown,
           ) => {
-            if (!isWeatherLoadRequest(weatherLoadRequest)) {
+            if (!weatherData || typeof weatherData !== 'object') {
               return
             }
 
-            try {
-              const weather = await fetchWeatherFromOpenMeteo(
-                weatherLoadRequest.latitude,
-                weatherLoadRequest.longitude,
-              )
-
-              await self.dispatch('applyWeatherFromRequest', {
-                requestId: weatherLoadRequest.requestId,
-                weather,
-              })
-            } catch (error) {
-              await self.dispatch('failWeatherFromRequest', {
-                requestId: weatherLoadRequest.requestId,
-                message: toErrorMessage(error),
-              })
+            const wd = weatherData as WeatherDataResult
+            if (wd.ok) {
+              await self.dispatch('applyWeather', wd.data)
+            } else {
+              await self.dispatch('failWeather', { message: wd.message })
             }
           },
         ],

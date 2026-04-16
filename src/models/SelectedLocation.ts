@@ -1,6 +1,9 @@
 import { model } from 'dkt/model.js'
 import { isLocationSearchResult } from './WeatherLocation'
-import { WEATHER_LOCATION_LOADING_CREATION_SHAPE } from './weatherSeed'
+import {
+  WEATHER_LOCATION_REPLACEMENT_CREATION_SHAPE,
+  WEATHER_LOCATION_BASE_CREATION_SHAPE,
+} from './weatherSeed'
 
 const makeParentRel = () => [
   'comp',
@@ -31,7 +34,7 @@ export const SelectedLocation = model({
             method: 'at_end',
             can_create: true,
             can_hold_refs: true,
-            creation_shape: WEATHER_LOCATION_LOADING_CREATION_SHAPE,
+            creation_shape: WEATHER_LOCATION_REPLACEMENT_CREATION_SHAPE,
           },
         ],
         weatherLocation: [
@@ -55,11 +58,6 @@ export const SelectedLocation = model({
               longitude: payload.longitude,
               timezone: payload.timezone,
               loadStatus: 'loading',
-              weatherLoadRequest: {
-                requestId: 1,
-                latitude: payload.latitude,
-                longitude: payload.longitude,
-              },
             },
             hold_ref_id: WEATHER_LOCATION_REF_ID,
           },
@@ -75,7 +73,7 @@ export const SelectedLocation = model({
             method: 'at_end',
             can_create: true,
             can_hold_refs: true,
-            creation_shape: WEATHER_LOCATION_LOADING_CREATION_SHAPE,
+            creation_shape: WEATHER_LOCATION_BASE_CREATION_SHAPE,
           },
         ],
         weatherLocation: [
@@ -97,12 +95,6 @@ export const SelectedLocation = model({
               latitude: payload.latitude,
               longitude: payload.longitude,
               timezone: payload.timezone,
-              loadStatus: 'loading',
-              weatherLoadRequest: {
-                requestId: 1,
-                latitude: payload.latitude,
-                longitude: payload.longitude,
-              },
             },
             hold_ref_id: WEATHER_LOCATION_REF_ID,
           },
