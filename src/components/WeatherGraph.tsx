@@ -19,7 +19,7 @@ import {
   SELECTED_LOCATION_POPOVER_ID,
   SELECTED_LOCATION_POPOVER_ROUTER_NAME,
   scrollSelectedLocationIntoView,
-} from './SelectedLocationPopover'
+} from './selected-location-popover/constants'
 import {
   CurrentWeatherCard,
   DEFAULT_ADDITIONAL_LOCATION_COUNT,
