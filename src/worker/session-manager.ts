@@ -15,8 +15,7 @@ type ConnectionEntry = {
   connectedAt: number
 }
 
-const createSessionId = () =>
-  `weather-session-${Math.random().toString(36).slice(2)}`
+const createSessionId = () => `weather-session-${Math.random().toString(36).slice(2)}`
 
 export const createSessionManager = ({
   cleanupDelayMs = 30_000,
@@ -38,10 +37,7 @@ export const createSessionManager = ({
     cleanupTimersBySessionId.delete(sessionId)
   }
 
-  const scheduleCleanup = (
-    sessionId: string,
-    onDestroy: (entry: SessionEntry) => void,
-  ) => {
+  const scheduleCleanup = (sessionId: string, onDestroy: (entry: SessionEntry) => void) => {
     cancelCleanup(sessionId)
 
     cleanupTimersBySessionId.set(
@@ -109,10 +105,7 @@ export const createSessionManager = ({
 
       return session
     },
-    detachStream(
-      streamId: string,
-      onDestroy: (entry: SessionEntry) => void,
-    ) {
+    detachStream(streamId: string, onDestroy: (entry: SessionEntry) => void) {
       const sessionId = sessionIdByStreamId.get(streamId)
       sessionIdByStreamId.delete(streamId)
       connectionsByStreamId.delete(streamId)
@@ -138,7 +131,7 @@ export const createSessionManager = ({
     },
     getSessionByStreamId(streamId: string) {
       const sessionId = sessionIdByStreamId.get(streamId)
-      return sessionId ? sessionsById.get(sessionId) ?? null : null
+      return sessionId ? (sessionsById.get(sessionId) ?? null) : null
     },
     destroySession(sessionId: string) {
       cancelCleanup(sessionId)

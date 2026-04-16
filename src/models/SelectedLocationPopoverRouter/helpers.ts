@@ -1,5 +1,5 @@
-import { isLocationSearchResult } from '../WeatherLocation'
 import type { LocationSearchResult } from '../WeatherLocation'
+import { isLocationSearchResult } from '../WeatherLocation'
 import { toErrorMessage } from '../weatherFormat'
 
 type SearchStatus = 'idle' | 'loading' | 'ready' | 'error'
@@ -23,15 +23,15 @@ type CurrentLocationStatus = 'idle' | 'loading' | 'error'
 
 type CurrentLocationRequest =
   | {
-    requestId: number
-    kind: 'browserCoordinates'
-    latitude: number
-    longitude: number
-  }
+      requestId: number
+      kind: 'browserCoordinates'
+      latitude: number
+      longitude: number
+    }
   | {
-    requestId: number
-    kind: 'fallback'
-  }
+      requestId: number
+      kind: 'fallback'
+    }
 
 type CurrentLocationResponsePayload = {
   requestId: number
@@ -76,10 +76,7 @@ export const isSearchRequest = (value: unknown): value is SearchRequest => {
 
   const candidate = value as Partial<SearchRequest>
 
-  return (
-    typeof candidate.requestId === 'number' &&
-    typeof candidate.query === 'string'
-  )
+  return typeof candidate.requestId === 'number' && typeof candidate.query === 'string'
 }
 
 export const isSearchResponsePayload = (value: unknown): value is SearchResponsePayload => {
@@ -103,10 +100,7 @@ export const isSearchFailurePayload = (value: unknown): value is SearchFailurePa
 
   const candidate = value as Partial<SearchFailurePayload>
 
-  return (
-    typeof candidate.requestId === 'number' &&
-    typeof candidate.message === 'string'
-  )
+  return typeof candidate.requestId === 'number' && typeof candidate.message === 'string'
 }
 
 export const buildSearchResetState = (
@@ -192,7 +186,9 @@ export const isCurrentLocationRequest = (value: unknown): value is CurrentLocati
   )
 }
 
-export const isCurrentLocationResponsePayload = (value: unknown): value is CurrentLocationResponsePayload => {
+export const isCurrentLocationResponsePayload = (
+  value: unknown,
+): value is CurrentLocationResponsePayload => {
   if (!value || typeof value !== 'object') {
     return false
   }
@@ -202,7 +198,9 @@ export const isCurrentLocationResponsePayload = (value: unknown): value is Curre
   return typeof candidate.requestId === 'number' && isLocationSearchResult(candidate.result)
 }
 
-export const isCurrentLocationFailurePayload = (value: unknown): value is CurrentLocationFailurePayload => {
+export const isCurrentLocationFailurePayload = (
+  value: unknown,
+): value is CurrentLocationFailurePayload => {
   if (!value || typeof value !== 'object') {
     return false
   }

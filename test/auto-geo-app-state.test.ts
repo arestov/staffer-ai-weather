@@ -1,32 +1,32 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
+import type { LocationSearchResult } from '../src/models/WeatherLocation'
 import { createPageSyncReceiverRuntime } from '../src/page/createPageSyncReceiverRuntime'
 import type { ReactSyncTransportMessage } from '../src/shared/messageTypes'
 import { createWeatherModelRuntime } from '../src/worker/model-runtime'
-import type { LocationSearchResult } from '../src/models/WeatherLocation'
 
 const { detectLocationMock, fetchWeatherFromOpenMeteo } = vi.hoisted(() => ({
-  detectLocationMock: vi.fn(async (): Promise<LocationSearchResult> => ({
-    id: 'nyc-auto',
-    name: 'New York',
-    subtitle: 'New York, United States',
-    latitude: 40.7128,
-    longitude: -74.006,
-    timezone: 'America/New_York',
-  })),
-  fetchWeatherFromOpenMeteo: vi.fn(
-    async (latitude: number, longitude: number) => ({
-      current: {
-        temperatureC: Math.round(latitude),
-        apparentTemperatureC: Math.round(latitude) - 1,
-        weatherCode: 1,
-        isDay: true,
-        windSpeed10m: Math.abs(Math.round(longitude)),
-      },
-      hourly: [],
-      daily: [],
-      fetchedAt: '2026-04-14T12:00:00.000Z',
+  detectLocationMock: vi.fn(
+    async (): Promise<LocationSearchResult> => ({
+      id: 'nyc-auto',
+      name: 'New York',
+      subtitle: 'New York, United States',
+      latitude: 40.7128,
+      longitude: -74.006,
+      timezone: 'America/New_York',
     }),
   ),
+  fetchWeatherFromOpenMeteo: vi.fn(async (latitude: number, longitude: number) => ({
+    current: {
+      temperatureC: Math.round(latitude),
+      apparentTemperatureC: Math.round(latitude) - 1,
+      weatherCode: 1,
+      isDay: true,
+      windSpeed10m: Math.abs(Math.round(longitude)),
+    },
+    hourly: [],
+    daily: [],
+    fetchedAt: '2026-04-14T12:00:00.000Z',
+  })),
 }))
 
 vi.mock('../src/worker/weather-api', () => ({
@@ -68,7 +68,7 @@ type AsyncTransport<Message> = {
   destroy(): void
 }
 
-const createAsyncTransportBridge = <Message,>() => {
+const createAsyncTransportBridge = <Message>() => {
   type State = {
     closing: boolean
     listeners: Set<TransportListener<Message>>
@@ -164,7 +164,7 @@ const createAsyncTransportBridge = <Message,>() => {
   }
 }
 
-const waitFor = async <T,>(
+const waitFor = async <T>(
   read: () => Promise<T> | T,
   predicate: (value: T) => boolean,
   message: string,
@@ -182,10 +182,8 @@ const waitFor = async <T,>(
   throw new Error(message)
 }
 
-const findModel = (
-  appState: DebugAppState,
-  matcher: (model: SerializedModel) => boolean,
-) => appState?.runtimeModels.find(matcher) ?? appState?.lined.find(matcher) ?? null
+const findModel = (appState: DebugAppState, matcher: (model: SerializedModel) => boolean) =>
+  appState?.runtimeModels.find(matcher) ?? appState?.lined.find(matcher) ?? null
 
 const createWorkerClient = async (
   appRuntime: ReturnType<typeof createWeatherModelRuntime>,
@@ -251,7 +249,9 @@ describe('auto geo app state integration', () => {
 
       const selectedLocation = findModel(
         appState,
-        (model) => model.modelName === 'weather_selected_location' && model.nodeId === mainSelectedLocationId,
+        (model) =>
+          model.modelName === 'weather_selected_location' &&
+          model.nodeId === mainSelectedLocationId,
       )
 
       expect(selectedLocation).not.toBeNull()

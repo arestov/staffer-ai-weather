@@ -4,16 +4,10 @@ declare module 'dkt-all/libs/provoda/_internal/_listRels.js' {
     model_name?: string | null
     states?: Record<string, unknown>
     __getPublicAttrs?: () => readonly string[]
-    getLinedStructure?: (
-      options: unknown,
-      config: unknown,
-    ) => Promise<readonly RuntimeModelLike[]>
+    getLinedStructure?: (options: unknown, config: unknown) => Promise<readonly RuntimeModelLike[]>
     input?: (callback: () => void | Promise<void>) => unknown
   }
 
   export function _listRels(model: RuntimeModelLike): Iterable<string>
-  export function _getCurrentRel(
-    model: RuntimeModelLike,
-    relName: string,
-  ): unknown
+  export function _getCurrentRel(model: RuntimeModelLike, relName: string): unknown
 }

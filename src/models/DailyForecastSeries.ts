@@ -1,5 +1,5 @@
 import { model } from 'dkt/model.js'
-import { formatTemperature, formatDailyLabel, weatherCodeToSummary } from './weatherFormat'
+import { formatDailyLabel, formatTemperature, weatherCodeToSummary } from './weatherFormat'
 
 export const DailyForecastSeries = model({
   model_name: 'weather_daily_forecast_series',
@@ -22,7 +22,8 @@ export const DailyForecastSeries = model({
     summary: [
       'comp',
       ['weatherCode'],
-      (weatherCode: unknown) => weatherCodeToSummary(weatherCode as number | null | undefined, true),
+      (weatherCode: unknown) =>
+        weatherCodeToSummary(weatherCode as number | null | undefined, true),
     ],
   },
 })

@@ -10,8 +10,8 @@
  *   - Signaling error fallback: falls back to server mode
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { APP_MSG } from '../src/shared/messageTypes'
 import type { ReactSyncTransportMessage } from '../src/shared/messageTypes'
+import { APP_MSG } from '../src/shared/messageTypes'
 
 // ── Mock WebSocket ──────────────────────────────────────────────
 
@@ -34,8 +34,12 @@ class MockWebSocket {
     queueMicrotask(() => this.onopen?.({}))
   }
 
-  send(data: string) { this.sent.push(data) }
-  close() { this.readyState = MockWebSocket.CLOSED }
+  send(data: string) {
+    this.sent.push(data)
+  }
+  close() {
+    this.readyState = MockWebSocket.CLOSED
+  }
 
   receiveMessage(data: Record<string, unknown>) {
     this.onmessage?.({ data: JSON.stringify(data) })
@@ -59,8 +63,12 @@ class MockDataChannel {
     this.label = label
   }
 
-  send(data: string) { this.sent.push(data) }
-  close() { this.readyState = 'closed' }
+  send(data: string) {
+    this.sent.push(data)
+  }
+  close() {
+    this.readyState = 'closed'
+  }
 
   simulateOpen() {
     this.readyState = 'open'
@@ -122,7 +130,9 @@ class MockRTCPeerConnection {
 
   async setRemoteDescription(_desc: unknown) {}
   async addIceCandidate(_candidate: unknown) {}
-  close() { this.connectionState = 'closed' }
+  close() {
+    this.connectionState = 'closed'
+  }
 }
 
 // ── Mock SharedWorker (for proxy ports) ─────────────────────────
@@ -132,8 +142,12 @@ class MockMessagePort {
   sent: unknown[] = []
   started = false
 
-  postMessage(data: unknown) { this.sent.push(data) }
-  start() { this.started = true }
+  postMessage(data: unknown) {
+    this.sent.push(data)
+  }
+  start() {
+    this.started = true
+  }
   close() {}
   addEventListener(type: string, handler: (ev: { data: unknown }) => void) {
     if (type === 'message') this.onmessage = handler
@@ -155,17 +169,26 @@ class MockSharedWorker {
 
 vi.stubGlobal('WebSocket', MockWebSocket)
 vi.stubGlobal('RTCPeerConnection', MockRTCPeerConnection)
-vi.stubGlobal('RTCSessionDescription', class {
-  constructor(public desc: unknown) {}
-})
-vi.stubGlobal('RTCIceCandidate', class {
-  constructor(public candidate: unknown) {}
-})
+vi.stubGlobal(
+  'RTCSessionDescription',
+  class {
+    constructor(public desc: unknown) {}
+  },
+)
+vi.stubGlobal(
+  'RTCIceCandidate',
+  class {
+    constructor(public candidate: unknown) {}
+  },
+)
 vi.stubGlobal('SharedWorker', MockSharedWorker)
 
 // ── Test helpers ────────────────────────────────────────────────
 
-const flushMicrotasks = () => new Promise<void>(r => { queueMicrotask(r) })
+const flushMicrotasks = () =>
+  new Promise<void>((r) => {
+    queueMicrotask(r)
+  })
 const flushAsync = async (n = 5) => {
   for (let i = 0; i < n; i++) await flushMicrotasks()
 }
@@ -300,7 +323,9 @@ describe('PageP2PManager', () => {
 
     // Receive from DC → goes to transport listeners
     const received: ReactSyncTransportMessage[] = []
-    transport.listen((msg: ReactSyncTransportMessage) => { received.push(msg) })
+    transport.listen((msg: ReactSyncTransportMessage) => {
+      received.push(msg)
+    })
 
     dc.simulateMessage({
       type: APP_MSG.SESSION_BOOTED,
@@ -358,7 +383,11 @@ describe('PageP2PManager', () => {
 
     // Server should have sent an answer back via signaling
     const answerMsg = ws.sent.find((s) => {
-      try { return JSON.parse(s).type === 'answer' } catch { return false }
+      try {
+        return JSON.parse(s).type === 'answer'
+      } catch {
+        return false
+      }
     })
     expect(answerMsg).toBeDefined()
 
@@ -407,7 +436,9 @@ describe('PageP2PManager', () => {
     })
 
     expect(proxyPort.sent).toHaveLength(1)
-    expect((proxyPort.sent[0] as ReactSyncTransportMessage).type).toBe(APP_MSG.CONTROL_BOOTSTRAP_SESSION)
+    expect((proxyPort.sent[0] as ReactSyncTransportMessage).type).toBe(
+      APP_MSG.CONTROL_BOOTSTRAP_SESSION,
+    )
 
     // Worker sends message through proxy port → should be forwarded to DC
     proxyPort.onmessage?.({
@@ -508,8 +539,12 @@ describe('PageP2PManager', () => {
     // PC should be closed
     expect(pc.connectionState).toBe('closed')
     // WS should have sent bye and closed
-    const byeMsg = ws.sent.find(s => {
-      try { return JSON.parse(s).type === 'bye' } catch { return false }
+    const byeMsg = ws.sent.find((s) => {
+      try {
+        return JSON.parse(s).type === 'bye'
+      } catch {
+        return false
+      }
     })
     expect(byeMsg).toBeDefined()
   })

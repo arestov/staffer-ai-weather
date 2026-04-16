@@ -1,11 +1,10 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react'
-import { getAttrsShape } from '../shape/autoShapes'
 import { useReactScopeRuntime } from '../../dkt-react-sync/hooks/useReactScopeRuntime'
-import { useShape } from './useShape'
 import { useScope } from '../../dkt-react-sync/hooks/useScope'
+import { getAttrsShape } from '../shape/autoShapes'
+import { useShape } from './useShape'
 
-const normalizeFields = (fields: readonly string[]) =>
-  Array.from(new Set(fields)).sort()
+const normalizeFields = (fields: readonly string[]) => Array.from(new Set(fields)).sort()
 
 export const useAttrs = (fields: readonly string[]) => {
   const runtime = useReactScopeRuntime()
@@ -33,9 +32,3 @@ export const useAttrs = (fields: readonly string[]) => {
 
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
-
-
-
-
-
-

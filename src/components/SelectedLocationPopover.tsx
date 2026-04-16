@@ -1,11 +1,11 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, type FormEvent } from 'react'
+import { type FormEvent, memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { One } from '../dkt-react-sync/components/One'
 import { ScopeContext } from '../dkt-react-sync/context/ScopeContext'
 import { useActions } from '../dkt-react-sync/hooks/useActions'
 import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
-import type { ReactSyncScopeHandle } from '../dkt-react-sync/scope/ScopeHandle'
 import { useNamedSessionRouter } from '../dkt-react-sync/hooks/useNamedSessionRouter'
+import type { ReactSyncScopeHandle } from '../dkt-react-sync/scope/ScopeHandle'
 import type { LocationSearchResult } from '../models/WeatherLocation'
 import { readBooleanAttr, readNullableStringAttr, readStringAttr } from '../shared/attrReaders'
 import { SelectedLocationSearchPanel } from './SelectedLocationSearchPanel'
@@ -148,10 +148,7 @@ export function SelectedLocationPopoverLayer() {
       }
     }
 
-    const showWithSource = (
-      node: HTMLElement,
-      triggerButton: HTMLButtonElement | null,
-    ) => {
+    const showWithSource = (node: HTMLElement, triggerButton: HTMLButtonElement | null) => {
       if (typeof node.showPopover !== 'function') {
         return
       }
@@ -233,7 +230,7 @@ export function SelectedLocationPopoverLayer() {
         if (!popover) return
 
         const focusable = popover.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
         )
         if (!focusable.length) return
 
@@ -479,14 +476,10 @@ function SelectedLocationPopover({
           onClose={onClose}
         />
 
-        <SelectedLocationPopoverWeatherSection
-          isEditingLocation={isEditingLocation}
-        />
+        <SelectedLocationPopoverWeatherSection isEditingLocation={isEditingLocation} />
 
         {!isEditingLocation ? (
-          <SelectedLocationPopoverSearchTrigger
-            onStartEdit={handleStartEdit}
-          />
+          <SelectedLocationPopoverSearchTrigger onStartEdit={handleStartEdit} />
         ) : null}
       </ScopeContext.Provider>
 
@@ -578,9 +571,7 @@ function SelectedLocationPopoverWeatherSection({
 }) {
   return (
     <One rel="weatherLocation" fallback={<PopoverWeatherSectionFallback />}>
-      <SelectedLocationPopoverWeatherSectionInner
-        isEditingLocation={isEditingLocation}
-      />
+      <SelectedLocationPopoverWeatherSectionInner isEditingLocation={isEditingLocation} />
     </One>
   )
 }
@@ -612,9 +603,7 @@ function SelectedLocationPopoverWeatherSectionInner({
               />
             }
           >
-            <SelectedLocationPopoverCurrentWeatherPanel
-              onRetryWeather={handleRetryWeather}
-            />
+            <SelectedLocationPopoverCurrentWeatherPanel onRetryWeather={handleRetryWeather} />
           </One>
 
           <PopoverForecastColumns />
@@ -646,17 +635,13 @@ function SelectedLocationPopoverCurrentWeatherFallback({
   return (
     <>
       {weatherLoadError ? (
-        <WeatherReadoutError message={`Weather load failed: ${weatherLoadError}`} onRetry={onRetryWeather} />
+        <WeatherReadoutError
+          message={`Weather load failed: ${weatherLoadError}`}
+          onRetry={onRetryWeather}
+        />
       ) : (
         <WeatherReadoutFallback />
       )}
     </>
   )
 }
-
-
-
-
-
-
-

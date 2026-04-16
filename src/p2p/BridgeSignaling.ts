@@ -42,9 +42,7 @@ export type BridgeSignalingFactory = (params: {
 
 // ── DO WebSocket signaling ──────────────────────────────────────
 
-export const createDoSignalingFactory = (
-  signalUrl: string,
-): BridgeSignalingFactory => {
+export const createDoSignalingFactory = (signalUrl: string): BridgeSignalingFactory => {
   return ({ roomId, peerId, events }) => {
     let destroyed = false
     const knownPeers = new Set<string>()
@@ -189,9 +187,7 @@ export const createDoSignalingFactory = (
  * Legacy WS relay factory — for dev/test signal relay server.
  * Uses the old action-based protocol (join/members/member-joined/member-left/signal).
  */
-export const createWsSignalingFactory = (
-  signalUrl: string,
-): BridgeSignalingFactory => {
+export const createWsSignalingFactory = (signalUrl: string): BridgeSignalingFactory => {
   return ({ roomId, peerId, joinedAt, events }) => {
     let destroyed = false
     let ws: WebSocket | null = new WebSocket(signalUrl)
@@ -236,10 +232,7 @@ export const createWsSignalingFactory = (
         }
 
         case 'member-joined': {
-          events.onMemberJoined(
-            msg.peerId as string,
-            msg.joinedAt as number,
-          )
+          events.onMemberJoined(msg.peerId as string, msg.joinedAt as number)
           break
         }
 

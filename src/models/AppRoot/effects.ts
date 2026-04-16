@@ -1,23 +1,23 @@
-import { isLocationSearchResult } from '../WeatherLocation'
-import type { LocationSearchResult } from '../WeatherLocation'
 import type { WeatherBackendApi } from '../../worker/weather-backend-api'
+import type { LocationSearchResult } from '../WeatherLocation'
+import { isLocationSearchResult } from '../WeatherLocation'
 import { toErrorMessage } from '../weatherFormat'
 
 type SavedSearchLocationsSyncRequest =
   | {
-    requestId: number
-    kind: 'load'
-  }
+      requestId: number
+      kind: 'load'
+    }
   | {
-    requestId: number
-    kind: 'save'
-    place: LocationSearchResult
-  }
+      requestId: number
+      kind: 'save'
+      place: LocationSearchResult
+    }
   | {
-    requestId: number
-    kind: 'remove'
-    placeId: string
-  }
+      requestId: number
+      kind: 'remove'
+      placeId: string
+    }
 
 const isSavedSearchLocationsSyncRequest = (
   value: unknown,
@@ -79,9 +79,7 @@ export const appRootEffects = {
       parse: (result: unknown) => ({ autoDetectedLocation: result }),
       fn: [
         [] as const,
-        async (
-          api: { detectLocation: () => Promise<unknown> },
-        ) => {
+        async (api: { detectLocation: () => Promise<unknown> }) => {
           try {
             const result = await api.detectLocation()
             return { ok: true as const, data: result }
@@ -187,13 +185,11 @@ export const appRootEffects = {
       create_when: {
         api_inits: true,
       },
-      fn: (
-        self: {
-          resetRequestedState: (name: string) => unknown
-          input: (callback: () => void) => unknown
-          requestState: (name: string) => unknown
-        },
-      ) => {
+      fn: (self: {
+        resetRequestedState: (name: string) => unknown
+        input: (callback: () => void) => unknown
+        requestState: (name: string) => unknown
+      }) => {
         self.resetRequestedState('savedSearchLocationsSyncResult')
         self.input(() => {
           self.requestState('savedSearchLocationsSyncResult')

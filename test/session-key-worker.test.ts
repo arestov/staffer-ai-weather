@@ -1,42 +1,40 @@
 import { describe, expect, test, vi } from 'vitest'
 import { createPageSyncReceiverRuntime } from '../src/page/createPageSyncReceiverRuntime'
-import { createWeatherModelRuntime } from '../src/worker/model-runtime'
 import type { ReactSyncTransportMessage } from '../src/shared/messageTypes'
+import { createWeatherModelRuntime } from '../src/worker/model-runtime'
 
 const { fetchWeatherFromOpenMeteo } = vi.hoisted(() => ({
-  fetchWeatherFromOpenMeteo: vi.fn(
-    async (latitude: number, longitude: number) => ({
-      current: {
+  fetchWeatherFromOpenMeteo: vi.fn(async (latitude: number, longitude: number) => ({
+    current: {
+      temperatureC: Math.round(latitude),
+      apparentTemperatureC: Math.round(latitude) - 1,
+      weatherCode: 1,
+      isDay: true,
+      windSpeed10m: Math.abs(Math.round(longitude)),
+    },
+    hourly: [
+      {
+        time: '2026-04-14T00:00:00Z',
         temperatureC: Math.round(latitude),
-        apparentTemperatureC: Math.round(latitude) - 1,
+        precipitationProbability: 10,
         weatherCode: 1,
-        isDay: true,
-        windSpeed10m: Math.abs(Math.round(longitude)),
+        windSpeed10m: 4,
       },
-      hourly: [
-        {
-          time: '2026-04-14T00:00:00Z',
-          temperatureC: Math.round(latitude),
-          precipitationProbability: 10,
-          weatherCode: 1,
-          windSpeed10m: 4,
-        },
-      ],
-      daily: [
-        {
-          date: '2026-04-14',
-          weatherCode: 1,
-          temperatureMaxC: Math.round(latitude) + 4,
-          temperatureMinC: Math.round(latitude) - 2,
-          precipitationProbabilityMax: 20,
-          windSpeedMax: 6,
-          sunrise: '2026-04-14T05:30:00Z',
-          sunset: '2026-04-14T18:45:00Z',
-        },
-      ],
-      fetchedAt: '2026-04-14T12:00:00.000Z',
-    }),
-  ),
+    ],
+    daily: [
+      {
+        date: '2026-04-14',
+        weatherCode: 1,
+        temperatureMaxC: Math.round(latitude) + 4,
+        temperatureMinC: Math.round(latitude) - 2,
+        precipitationProbabilityMax: 20,
+        windSpeedMax: 6,
+        sunrise: '2026-04-14T05:30:00Z',
+        sunset: '2026-04-14T18:45:00Z',
+      },
+    ],
+    fetchedAt: '2026-04-14T12:00:00.000Z',
+  })),
 }))
 
 vi.mock('../src/worker/weather-api', () => ({
@@ -74,7 +72,7 @@ const appRootScope = {
   _nodeId: 'ROOT',
 }
 
-const createAsyncTransportBridge = <Message,>() => {
+const createAsyncTransportBridge = <Message>() => {
   type State = {
     closing: boolean
     listeners: Set<TransportListener<Message>>
@@ -170,7 +168,7 @@ const createAsyncTransportBridge = <Message,>() => {
   }
 }
 
-const waitFor = async <T,>(
+const waitFor = async <T>(
   read: () => Promise<T> | T,
   predicate: (value: T) => boolean,
   message: string,
@@ -188,11 +186,14 @@ const waitFor = async <T,>(
 }
 
 const getAppRoot = (appState: DebugAppState) => {
-  const appRoot = appState?.runtimeModels.find(
-    (model) => model.modelName === 'weather_app_root' && model.nodeId === 'ROOT',
-  ) ?? appState?.lined.find(
-    (model) => model.modelName === 'weather_app_root' && model.nodeId === 'ROOT',
-  ) ?? null
+  const appRoot =
+    appState?.runtimeModels.find(
+      (model) => model.modelName === 'weather_app_root' && model.nodeId === 'ROOT',
+    ) ??
+    appState?.lined.find(
+      (model) => model.modelName === 'weather_app_root' && model.nodeId === 'ROOT',
+    ) ??
+    null
 
   if (!appRoot) {
     throw new Error('weather_app_root not found in debug app state')
@@ -239,25 +240,31 @@ describe('worker app pool by session key', () => {
       alphaClient.pageRuntime.dispatchAction('failAutoGeoDetection', 'alpha-only', appRootScope)
 
       await waitFor(
-        async () => getAppRoot((await appRuntime.debugDumpAppState('alpha-user')) as DebugAppState).attrs.autoGeoError,
+        async () =>
+          getAppRoot((await appRuntime.debugDumpAppState('alpha-user')) as DebugAppState).attrs
+            .autoGeoError,
         (value) => value === 'alpha-only',
         'alpha app did not receive the alpha-specific state update',
       )
 
       expect(
-        getAppRoot((await appRuntime.debugDumpAppState('beta-user')) as DebugAppState).attrs.autoGeoError,
+        getAppRoot((await appRuntime.debugDumpAppState('beta-user')) as DebugAppState).attrs
+          .autoGeoError,
       ).toBe(null)
 
       betaClient.pageRuntime.dispatchAction('failAutoGeoDetection', 'beta-only', appRootScope)
 
       await waitFor(
-        async () => getAppRoot((await appRuntime.debugDumpAppState('beta-user')) as DebugAppState).attrs.autoGeoError,
+        async () =>
+          getAppRoot((await appRuntime.debugDumpAppState('beta-user')) as DebugAppState).attrs
+            .autoGeoError,
         (value) => value === 'beta-only',
         'beta app did not receive the beta-specific state update',
       )
 
       expect(
-        getAppRoot((await appRuntime.debugDumpAppState('alpha-user')) as DebugAppState).attrs.autoGeoError,
+        getAppRoot((await appRuntime.debugDumpAppState('alpha-user')) as DebugAppState).attrs
+          .autoGeoError,
       ).toBe('alpha-only')
 
       alphaClient.pageRuntime.bootstrap({ sessionKey: 'beta-user' })
@@ -268,16 +275,23 @@ describe('worker app pool by session key', () => {
         'alpha client did not switch to beta session key',
       )
 
-      alphaClient.pageRuntime.dispatchAction('failAutoGeoDetection', 'beta-after-switch', appRootScope)
+      alphaClient.pageRuntime.dispatchAction(
+        'failAutoGeoDetection',
+        'beta-after-switch',
+        appRootScope,
+      )
 
       await waitFor(
-        async () => getAppRoot((await appRuntime.debugDumpAppState('beta-user')) as DebugAppState).attrs.autoGeoError,
+        async () =>
+          getAppRoot((await appRuntime.debugDumpAppState('beta-user')) as DebugAppState).attrs
+            .autoGeoError,
         (value) => value === 'beta-after-switch',
         'switched client did not dispatch into the beta app entry',
       )
 
       expect(
-        getAppRoot((await appRuntime.debugDumpAppState('alpha-user')) as DebugAppState).attrs.autoGeoError,
+        getAppRoot((await appRuntime.debugDumpAppState('alpha-user')) as DebugAppState).attrs
+          .autoGeoError,
       ).toBe('alpha-only')
       expect(appRuntime.debugListSessionKeys()).toEqual(['alpha-user', 'beta-user'])
     } finally {

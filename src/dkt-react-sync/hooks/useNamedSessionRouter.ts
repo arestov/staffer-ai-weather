@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react'
-import { useReactScopeRuntime } from './useReactScopeRuntime'
 import type { ReactSyncScopeHandle } from '../scope/ScopeHandle'
 import { getRelShape } from '../shape/autoShapes'
+import { useReactScopeRuntime } from './useReactScopeRuntime'
 
-const useMountedRelShape = (
-  scope: ReactSyncScopeHandle | null,
-  relName: string,
-) => {
+const useMountedRelShape = (scope: ReactSyncScopeHandle | null, relName: string) => {
   const runtime = useReactScopeRuntime()
 
   useEffect(() => {
@@ -18,17 +15,13 @@ const useMountedRelShape = (
   }, [runtime, scope, relName])
 }
 
-const useOneScope = (
-  scope: ReactSyncScopeHandle | null,
-  relName: string,
-) => {
+const useOneScope = (scope: ReactSyncScopeHandle | null, relName: string) => {
   const runtime = useReactScopeRuntime()
 
   useMountedRelShape(scope, relName)
 
   return useSyncExternalStore(
-    (listener) =>
-      scope ? runtime.subscribeOne(scope, relName, listener) : () => {},
+    (listener) => (scope ? runtime.subscribeOne(scope, relName, listener) : () => {}),
     () => (scope ? runtime.readOne(scope, relName) : null),
     () => (scope ? runtime.readOne(scope, relName) : null),
   )
@@ -52,10 +45,7 @@ export const useNamedSessionRouter = (routerName: string) => {
   const rootDispatch = runtime.getDispatch(rootScope)
 
   const clearCurrent = useMemo(
-    () =>
-      routerScope
-        ? () => routerDispatch('eraseModel')
-        : noop,
+    () => (routerScope ? () => routerDispatch('eraseModel') : noop),
     [routerScope, routerDispatch],
   )
 
@@ -85,6 +75,3 @@ export const useNamedSessionRouter = (routerName: string) => {
     [rootScope, routerScope, currentScope, clearCurrent, openResource],
   )
 }
-
-
-

@@ -1,9 +1,9 @@
+import { useSyncExternalStore } from 'react'
+import { useSyncRoot } from '../dkt-react-sync/hooks/useSyncRoot'
 import { RootScope } from '../dkt-react-sync/scope/RootScope'
 import type { WeatherAppSession } from '../page/createWeatherAppSession'
-import { useSyncRoot } from '../dkt-react-sync/hooks/useSyncRoot'
 import { AppHeader } from './AppHeader'
 import { DEFAULT_FORECAST_LIMIT, WeatherGraph } from './WeatherGraph'
-import { useSyncExternalStore } from 'react'
 
 export default function App({
   session,
@@ -49,5 +49,3 @@ export default function App({
     </main>
   )
 }
-
-

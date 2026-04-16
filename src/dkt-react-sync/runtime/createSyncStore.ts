@@ -5,9 +5,7 @@ export interface SyncStore<TSnapshot> {
   updateSnapshot(updater: (currentSnapshot: TSnapshot) => TSnapshot): void
 }
 
-export const createSyncStore = <TSnapshot,>(
-  initialSnapshot: TSnapshot,
-): SyncStore<TSnapshot> => {
+export const createSyncStore = <TSnapshot>(initialSnapshot: TSnapshot): SyncStore<TSnapshot> => {
   let snapshot = initialSnapshot
   const listeners = new Set<() => void>()
 

@@ -98,17 +98,33 @@ const main = async () => {
         bodyChildCount: document.body.children.length,
         rootHtml: document.getElementById('root')?.innerHTML?.slice(0, 500) ?? '(no #root)',
         allSelectors: [
-          ['[data-selected-location-id]', document.querySelectorAll('[data-selected-location-id]').length],
-          ['.weather-readout--location', document.querySelectorAll('.weather-readout--location').length],
+          [
+            '[data-selected-location-id]',
+            document.querySelectorAll('[data-selected-location-id]').length,
+          ],
+          [
+            '.weather-readout--location',
+            document.querySelectorAll('.weather-readout--location').length,
+          ],
           ['.sparkline-section', document.querySelectorAll('.sparkline-section').length],
           ['.location-card', document.querySelectorAll('.location-card').length],
-          ['.location-card--featured', document.querySelectorAll('.location-card--featured').length],
+          [
+            '.location-card--featured',
+            document.querySelectorAll('.location-card--featured').length,
+          ],
           ['.forecast-panels', document.querySelectorAll('.forecast-panels').length],
           ['.sparkline-icon-track', document.querySelectorAll('.sparkline-icon-track').length],
-          ['.sparkline-icon-track__icon', document.querySelectorAll('.sparkline-icon-track__icon').length],
+          [
+            '.sparkline-icon-track__icon',
+            document.querySelectorAll('.sparkline-icon-track__icon').length,
+          ],
         ],
-        featuredCardHtml: document.querySelector('.location-card--featured')?.innerHTML?.slice(0, 1000) ?? '(no featured)',
-        forecastPanelsHtml: document.querySelector('.forecast-panels')?.innerHTML?.slice(0, 1000) ?? '(no forecast-panels)',
+        featuredCardHtml:
+          document.querySelector('.location-card--featured')?.innerHTML?.slice(0, 1000) ??
+          '(no featured)',
+        forecastPanelsHtml:
+          document.querySelector('.forecast-panels')?.innerHTML?.slice(0, 1000) ??
+          '(no forecast-panels)',
       }))
       console.log(`\n[DEBUG ${width}]`, JSON.stringify(debugInfo, null, 2))
 

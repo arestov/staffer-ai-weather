@@ -37,30 +37,37 @@ const main = async () => {
     await new Promise((r) => setTimeout(r, 2000))
 
     // Check main-stage structure
-    const mainStageHtml = await page.locator('.main-stage').first().evaluate((el) => {
-      const result = {
-        forecastPanels: el.querySelector('.forecast-panels') !== null,
-        sparklineSections: el.querySelectorAll('.sparkline-section').length,
-        sparklineSvgs: el.querySelectorAll('.sparkline-svg').length,
-        sparklineTitles: [],
-        sparklineEndpoints: [],
-        forecastChips: el.querySelectorAll('.forecast-chip').length,
-        forecastLists: el.querySelectorAll('.forecast-list').length,
-        miniLabels: Array.from(el.querySelectorAll('.mini-section-label')).map((e) => e.textContent),
-        innerHtmlSnapshot: el.querySelector('.forecast-panels')?.innerHTML?.slice(0, 500) ?? '(no .forecast-panels)',
-      }
+    const mainStageHtml = await page
+      .locator('.main-stage')
+      .first()
+      .evaluate((el) => {
+        const result = {
+          forecastPanels: el.querySelector('.forecast-panels') !== null,
+          sparklineSections: el.querySelectorAll('.sparkline-section').length,
+          sparklineSvgs: el.querySelectorAll('.sparkline-svg').length,
+          sparklineTitles: [],
+          sparklineEndpoints: [],
+          forecastChips: el.querySelectorAll('.forecast-chip').length,
+          forecastLists: el.querySelectorAll('.forecast-list').length,
+          miniLabels: Array.from(el.querySelectorAll('.mini-section-label')).map(
+            (e) => e.textContent,
+          ),
+          innerHtmlSnapshot:
+            el.querySelector('.forecast-panels')?.innerHTML?.slice(0, 500) ??
+            '(no .forecast-panels)',
+        }
 
-      for (const s of el.querySelectorAll('.sparkline-section')) {
-        const title = s.querySelector('.sparkline-title')?.textContent?.trim() ?? ''
-        result.sparklineTitles.push(title)
-      }
+        for (const s of el.querySelectorAll('.sparkline-section')) {
+          const title = s.querySelector('.sparkline-title')?.textContent?.trim() ?? ''
+          result.sparklineTitles.push(title)
+        }
 
-      for (const e of el.querySelectorAll('.sparkline-endpoint')) {
-        result.sparklineEndpoints.push(e.textContent?.trim() ?? '')
-      }
+        for (const e of el.querySelectorAll('.sparkline-endpoint')) {
+          result.sparklineEndpoints.push(e.textContent?.trim() ?? '')
+        }
 
-      return result
-    })
+        return result
+      })
 
     console.log('\n===== MAIN STAGE DIAGNOSTIC =====')
     console.log(JSON.stringify(mainStageHtml, null, 2))
@@ -79,23 +86,30 @@ const main = async () => {
     console.log(JSON.stringify(scopeDebug, null, 2))
 
     // Also check the location-card__body DOM tree
-    const bodyDebug = await page.locator('.location-card--featured .location-card__body').first().evaluate((el) => {
-      return {
-        childrenTags: Array.from(el.children).map((c) => `${c.tagName}.${c.className}`),
-        html: el.innerHTML.slice(0, 1000),
-      }
-    })
+    const bodyDebug = await page
+      .locator('.location-card--featured .location-card__body')
+      .first()
+      .evaluate((el) => {
+        return {
+          childrenTags: Array.from(el.children).map((c) => `${c.tagName}.${c.className}`),
+          html: el.innerHTML.slice(0, 1000),
+        }
+      })
     console.log('\n===== FEATURED CARD BODY =====')
     console.log(JSON.stringify(bodyDebug, null, 2))
 
     // Now test popover
     console.log('\n===== POPOVER TEST =====')
-    await page.locator('[data-selected-location-id] [data-selected-location-trigger]').first().click()
+    await page
+      .locator('[data-selected-location-id] [data-selected-location-trigger]')
+      .first()
+      .click()
     await new Promise((r) => setTimeout(r, 1000))
 
     const popoverHtml = await page.evaluate(() => {
-      const popover = document.querySelector('.selected-location-popover__forecasts')
-        || document.querySelector('.selected-location-popover__body')
+      const popover =
+        document.querySelector('.selected-location-popover__forecasts') ||
+        document.querySelector('.selected-location-popover__body')
       if (!popover) return { error: 'no popover found' }
       return {
         forecastLists: popover.querySelectorAll('.forecast-list').length,
@@ -105,7 +119,6 @@ const main = async () => {
       }
     })
     console.log(JSON.stringify(popoverHtml, null, 2))
-
   } finally {
     try {
       await browser.close()

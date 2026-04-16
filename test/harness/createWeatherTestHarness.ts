@@ -1,7 +1,4 @@
-import {
-  createWeatherReplHarness,
-  type WeatherReplHarness,
-} from '../repl/bootstrap'
+import { createWeatherReplHarness, type WeatherReplHarness } from '../repl/bootstrap'
 
 export type WeatherTestHarness = WeatherReplHarness
 

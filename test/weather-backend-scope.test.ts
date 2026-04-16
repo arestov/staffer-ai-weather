@@ -1,5 +1,8 @@
 import { describe, expect, test, vi } from 'vitest'
-import { createScopedWeatherBackendApi, type WeatherBackendApi } from '../src/worker/weather-backend-api'
+import {
+  createScopedWeatherBackendApi,
+  type WeatherBackendApi,
+} from '../src/worker/weather-backend-api'
 
 describe('scoped weather backend api', () => {
   test('binds saved places operations to the provided session key scope', async () => {

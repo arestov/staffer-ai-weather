@@ -1,4 +1,4 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&display=swap');
+﻿@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&display=swap");
 
 :root {
   color-scheme: light;
@@ -58,11 +58,11 @@
   --shadow-panel: 0 18px 44px rgb(var(--color-ink-rgb) / 0.1);
   --shadow-border-glow: 0 0 0 1px rgb(var(--color-paper-rgb) / 0.22);
 
-  --font-family-body: 'Source Sans 3', ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-family-display: 'Bricolage Grotesque', var(--font-family-body);
-  --font-family-label: 'IBM Plex Mono', 'SFMono-Regular', Consolas, 'Liberation Mono',
-    monospace;
+  --font-family-body:
+    "Source Sans 3", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --font-family-display: "Bricolage Grotesque", var(--font-family-body);
+  --font-family-label: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
   color: var(--text-primary);
   font-family: var(--font-family-body);
@@ -95,7 +95,7 @@ body {
 }
 
 body::before {
-  content: '';
+  content: "";
   position: fixed;
   inset: -20%;
   pointer-events: none;
@@ -104,7 +104,11 @@ body::before {
     linear-gradient(180deg, rgb(var(--color-steel-rgb) / 0.08) 1px, transparent 1px),
     radial-gradient(circle at 20% 18%, rgb(var(--color-paper-rgb) / 0.86), transparent 24%),
     radial-gradient(circle at 72% 32%, rgb(var(--color-paper-rgb) / 0.62), transparent 18%);
-  background-size: 320px 100%, 100% 220px, auto, auto;
+  background-size:
+    320px 100%,
+    100% 220px,
+    auto,
+    auto;
   opacity: 0.48;
 }
 
@@ -205,7 +209,12 @@ input:focus {
   padding: 0.45rem 0.8rem;
   border-radius: 999px;
   background:
-    radial-gradient(circle at 35% 35%, rgb(var(--color-paper-rgb) / 0.96), rgb(var(--color-paper-rgb) / 0.28) 55%, rgb(var(--color-paper-rgb) / 0.06) 100%),
+    radial-gradient(
+      circle at 35% 35%,
+      rgb(var(--color-paper-rgb) / 0.96),
+      rgb(var(--color-paper-rgb) / 0.28) 55%,
+      rgb(var(--color-paper-rgb) / 0.06) 100%
+    ),
     linear-gradient(135deg, rgb(var(--color-paper-rgb) / 0.92), rgb(var(--color-fog-rgb) / 0.82));
   box-shadow: var(--shadow-border-glow), var(--shadow-panel);
   cursor: pointer;
@@ -253,7 +262,7 @@ input:focus {
     transform 160ms ease;
 }
 
-.app-header-shell[data-open='true'] .app-header {
+.app-header-shell[data-open="true"] .app-header {
   opacity: 1;
   transform: translateY(0) scale(1);
 }
@@ -334,7 +343,6 @@ h1 {
   max-width: 1240px;
   margin: 0 auto;
   width: 100%;
-
 }
 
 .selected-location-shell {
@@ -358,7 +366,7 @@ h1 {
 
 .selected-location-card-button:hover,
 .selected-location-card-button:focus-visible,
-.selected-location-card-button[aria-expanded='true'] {
+.selected-location-card-button[aria-expanded="true"] {
   transform: none;
   border-color: transparent;
   background: transparent;
@@ -366,7 +374,7 @@ h1 {
 
 .selected-location-card-button:hover .location-card,
 .selected-location-card-button:focus-visible .location-card,
-.selected-location-card-button[aria-expanded='true'] .location-card {
+.selected-location-card-button[aria-expanded="true"] .location-card {
   border-color: var(--border-strong);
   box-shadow: 0 32px 90px rgb(var(--color-ink-rgb) / 0.16);
 }
@@ -376,7 +384,7 @@ h1 {
   outline-offset: 4px;
 }
 
-.selected-location-card-button[data-popover-anchor='active'] {
+.selected-location-card-button[data-popover-anchor="active"] {
   anchor-name: --selected-location-trigger;
 }
 
@@ -395,8 +403,7 @@ h1 {
   width: min(100%, 60rem);
   padding: 1.3rem;
   min-height: 32rem;
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.52), rgb(var(--color-fog-rgb) / 0.62));
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.52), rgb(var(--color-fog-rgb) / 0.62));
 }
 
 .location-card__body {
@@ -499,7 +506,9 @@ h1 {
 }
 
 @keyframes weather-icon-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .weather-readout__icon-summary {
@@ -512,8 +521,6 @@ h1 {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-
 
 .location-card--featured .weather-readout__icon-summary {
   font-size: 0.9rem;
@@ -896,7 +903,7 @@ h1 {
   max-width: 1000px;
   min-block-size: 12rem;
   padding: 1rem;
-  
+
   min-height: 50vh;
 }
 
@@ -963,8 +970,6 @@ h1 {
 .weather-readout--popover .weather-readout__value {
   font-size: clamp(2.2rem, 5vw, 3.4rem);
 }
-
-
 
 .weather-readout--popover .weather-readout__icon-summary {
   font-size: 0.72rem;
@@ -1221,7 +1226,12 @@ button.selected-location-popover__close:hover {
 .skeleton {
   display: block;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgb(var(--color-fog-rgb) / 0.58), rgb(var(--color-paper-rgb) / 0.92), rgb(var(--color-fog-rgb) / 0.58));
+  background: linear-gradient(
+    90deg,
+    rgb(var(--color-fog-rgb) / 0.58),
+    rgb(var(--color-paper-rgb) / 0.92),
+    rgb(var(--color-fog-rgb) / 0.58)
+  );
   background-size: 200% 100%;
   animation: skeleton-pulse 1.6s ease-in-out infinite;
 }

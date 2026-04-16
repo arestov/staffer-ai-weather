@@ -1,8 +1,8 @@
-import { createPageSyncReceiverRuntime } from './createPageSyncReceiverRuntime'
+import type { ReactSyncScopeHandle } from '../dkt-react-sync/scope/ScopeHandle'
+import { createPageP2PManager, type PageP2PManager } from '../p2p/PageP2PManager'
 import { createSharedWorkerTransport } from '../shared/createSharedWorkerTransport'
 import { APP_MSG, type ReactSyncTransportMessage } from '../shared/messageTypes'
-import { createPageP2PManager, type PageP2PManager } from '../p2p/PageP2PManager'
-import type { ReactSyncScopeHandle } from '../dkt-react-sync/scope/ScopeHandle'
+import { createPageSyncReceiverRuntime } from './createPageSyncReceiverRuntime'
 
 export type WeatherAppP2PStatus = 'disabled' | 'undecided' | 'server' | 'client'
 
@@ -53,7 +53,9 @@ const createBridgedTransport = () => {
     },
     listen(listener: (msg: ReactSyncTransportMessage) => void) {
       listeners.add(listener)
-      return () => { listeners.delete(listener) }
+      return () => {
+        listeners.delete(listener)
+      }
     },
     connectTo(t: TransportTarget) {
       targetUnlisten?.()
@@ -93,27 +95,26 @@ export const createWeatherAppSession = (): WeatherAppSession => {
   }
 
   const workerUrl = new URL('../worker/shared-worker.ts', import.meta.url)
-  const weatherBackendBaseUrl = typeof import.meta.env.VITE_WEATHER_BACKEND_URL === 'string' &&
+  const weatherBackendBaseUrl =
+    typeof import.meta.env.VITE_WEATHER_BACKEND_URL === 'string' &&
     import.meta.env.VITE_WEATHER_BACKEND_URL.trim()
-    ? import.meta.env.VITE_WEATHER_BACKEND_URL.trim()
-    : null
+      ? import.meta.env.VITE_WEATHER_BACKEND_URL.trim()
+      : null
 
   if (weatherBackendBaseUrl) {
     workerUrl.searchParams.set('weatherBackendBaseUrl', weatherBackendBaseUrl)
   }
 
-  const p2pSignalUrl = typeof import.meta.env.VITE_P2P_SIGNAL_URL === 'string' &&
+  const p2pSignalUrl =
+    typeof import.meta.env.VITE_P2P_SIGNAL_URL === 'string' &&
     import.meta.env.VITE_P2P_SIGNAL_URL.trim()
-    ? import.meta.env.VITE_P2P_SIGNAL_URL.trim()
-    : null
+      ? import.meta.env.VITE_P2P_SIGNAL_URL.trim()
+      : null
 
-  const worker = new SharedWorker(
-    workerUrl,
-    {
-      type: 'module',
-      name: 'weather-shared-worker',
-    },
-  )
+  const worker = new SharedWorker(workerUrl, {
+    type: 'module',
+    name: 'weather-shared-worker',
+  })
   const workerTransport = createSharedWorkerTransport(worker)
   const p2pStatusListeners = new Set<() => void>()
   const p2pStatusInitial: WeatherAppP2PStatus = p2pSignalUrl ? 'undecided' : 'disabled'
@@ -142,9 +143,15 @@ export const createWeatherAppSession = (): WeatherAppSession => {
   if (!p2pSignalUrl) {
     const runtime = createPageSyncReceiverRuntime({ transport: workerTransport })
     return {
-      get sessionId() { return runtime.getSnapshot().sessionId },
-      get sessionKey() { return runtime.getSnapshot().sessionKey },
-      get p2pStatus() { return p2pStatus },
+      get sessionId() {
+        return runtime.getSnapshot().sessionId
+      },
+      get sessionKey() {
+        return runtime.getSnapshot().sessionKey
+      },
+      get p2pStatus() {
+        return p2pStatus
+      },
       worker,
       runtime,
       store: runtime.store,
@@ -153,9 +160,13 @@ export const createWeatherAppSession = (): WeatherAppSession => {
       dispatchAppAction: (actionName, payload) => dispatchAppAction(runtime, actionName, payload),
       subscribeP2PStatus(listener) {
         p2pStatusListeners.add(listener)
-        return () => { p2pStatusListeners.delete(listener) }
+        return () => {
+          p2pStatusListeners.delete(listener)
+        }
       },
-      destroy() { runtime.destroy() },
+      destroy() {
+        runtime.destroy()
+      },
     }
   }
 
@@ -228,9 +239,15 @@ export const createWeatherAppSession = (): WeatherAppSession => {
   }
 
   return {
-    get sessionId() { return runtime.getSnapshot().sessionId },
-    get sessionKey() { return runtime.getSnapshot().sessionKey },
-    get p2pStatus() { return p2pStatus },
+    get sessionId() {
+      return runtime.getSnapshot().sessionId
+    },
+    get sessionKey() {
+      return runtime.getSnapshot().sessionKey
+    },
+    get p2pStatus() {
+      return p2pStatus
+    },
     worker,
     runtime,
     store: runtime.store,
@@ -239,7 +256,9 @@ export const createWeatherAppSession = (): WeatherAppSession => {
     dispatchAppAction: (actionName, payload) => dispatchAppAction(runtime, actionName, payload),
     subscribeP2PStatus(listener) {
       p2pStatusListeners.add(listener)
-      return () => { p2pStatusListeners.delete(listener) }
+      return () => {
+        p2pStatusListeners.delete(listener)
+      }
     },
     destroy() {
       p2pManager?.destroy()

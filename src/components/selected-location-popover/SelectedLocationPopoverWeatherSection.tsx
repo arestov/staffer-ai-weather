@@ -20,9 +20,7 @@ export function SelectedLocationPopoverWeatherSection({
 }: SelectedLocationPopoverWeatherSectionProps) {
   return (
     <One rel="weatherLocation" fallback={<PopoverWeatherSectionFallback />}>
-      <SelectedLocationPopoverWeatherSectionInner
-        isEditingLocation={isEditingLocation}
-      />
+      <SelectedLocationPopoverWeatherSectionInner isEditingLocation={isEditingLocation} />
     </One>
   )
 }
@@ -78,7 +76,10 @@ function SelectedLocationPopoverCurrentWeatherFallback({
   onRetryWeather: () => void
 }) {
   return weatherLoadError ? (
-    <WeatherReadoutError message={`Weather load failed: ${weatherLoadError}`} onRetry={onRetryWeather} />
+    <WeatherReadoutError
+      message={`Weather load failed: ${weatherLoadError}`}
+      onRetry={onRetryWeather}
+    />
   ) : (
     <WeatherReadoutFallback />
   )

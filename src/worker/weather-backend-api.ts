@@ -34,8 +34,7 @@ export interface WeatherBackendApi {
 
 const DEFAULT_SAVED_PLACES_SCOPE = 'default'
 
-const runtimeEnv =
-  typeof process !== 'undefined' && process?.env ? process.env : undefined
+const runtimeEnv = typeof process !== 'undefined' && process?.env ? process.env : undefined
 
 const toLocationSearchResults = (value: unknown): LocationSearchResult[] => {
   if (!Array.isArray(value)) {
@@ -75,7 +74,7 @@ const buildWeatherBackendUrl = (baseUrl: string, path: string) => {
 
 const readErrorMessage = async (response: Response) => {
   try {
-    const payload = await response.json() as { error?: unknown }
+    const payload = (await response.json()) as { error?: unknown }
     if (typeof payload.error === 'string' && payload.error.trim()) {
       return payload.error
     }
@@ -86,7 +85,7 @@ const readErrorMessage = async (response: Response) => {
   return `Weather backend responded with ${response.status}`
 }
 
-const requestWeatherBackendJson = async <T,>(
+const requestWeatherBackendJson = async <T>(
   baseUrl: string,
   path: string,
   init?: RequestInit,
@@ -97,7 +96,7 @@ const requestWeatherBackendJson = async <T,>(
     throw new Error(await readErrorMessage(response))
   }
 
-  return await response.json() as T
+  return (await response.json()) as T
 }
 
 export const createWeatherBackendApi = (baseUrl: string): WeatherBackendApi => ({
@@ -112,13 +111,16 @@ export const createWeatherBackendApi = (baseUrl: string): WeatherBackendApi => (
   },
   async storeLocationSearchCache(query, results) {
     const params = new URLSearchParams({ q: query.trim() })
-    const response = await fetch(buildWeatherBackendUrl(baseUrl, `/api/locations/search?${params.toString()}`), {
-      method: 'PUT',
-      headers: {
-        'content-type': 'application/json',
+    const response = await fetch(
+      buildWeatherBackendUrl(baseUrl, `/api/locations/search?${params.toString()}`),
+      {
+        method: 'PUT',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ results }),
       },
-      body: JSON.stringify({ results }),
-    })
+    )
 
     if (!response.ok) {
       throw new Error(await readErrorMessage(response))

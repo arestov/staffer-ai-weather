@@ -53,9 +53,7 @@ export const resolveSessionKeyUrlState = ({
   const path = normalizeHashPath(hash)
   const normalizedLastSessionKey = normalizeSessionKey(lastSessionKey)
 
-  const sessionKey = path && path !== SESSION_KEY_NEW_MARKER
-    ? normalizeSessionKey(path)
-    : null
+  const sessionKey = path && path !== SESSION_KEY_NEW_MARKER ? normalizeSessionKey(path) : null
 
   if (path === SESSION_KEY_NEW_MARKER) {
     const nextSessionKey = normalizeSessionKey(generateSessionKey())
@@ -90,7 +88,7 @@ export const resolveSessionKeyUrlState = ({
   return {
     sessionKey: fallbackSessionKey,
     canonicalHash: buildSessionKeyHash(fallbackSessionKey),
-    reason: normalizedLastSessionKey ? 'storage' as const : 'generated' as const,
+    reason: normalizedLastSessionKey ? ('storage' as const) : ('generated' as const),
     shouldReplace: true,
   }
 }

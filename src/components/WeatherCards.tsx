@@ -1,23 +1,26 @@
-import { Suspense, lazy, memo } from 'react'
-import { One } from '../dkt-react-sync/components/One'
+import { lazy, memo, Suspense } from 'react'
 import { Many } from '../dkt-react-sync/components/Many'
-import { defineShape, shapeOf } from '../dkt-react-sync/shape/defineShape'
+import { One } from '../dkt-react-sync/components/One'
 import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
+import { defineShape, shapeOf } from '../dkt-react-sync/shape/defineShape'
 import { readStringAttr } from '../shared/attrReaders'
-import {
-  HourlySparklineSection,
-  DailySparklineSection,
-} from './WeatherSparkline'
+import { DailySparklineSection, HourlySparklineSection } from './WeatherSparkline'
 
 const LazyWeatherConditionIcon = lazy(() =>
-  import('./WeatherConditionIcon').then(m => ({ default: m.WeatherConditionIcon })),
+  import('./WeatherConditionIcon').then((m) => ({ default: m.WeatherConditionIcon })),
 )
 
 /** Render temperature text with °C unit at half font-size. */
 function renderTemp(text: string): React.ReactNode {
   const idx = text.lastIndexOf('°C')
   if (idx === -1) return text
-  return <>{text.slice(0, idx)}<span className="temp-unit">°C</span>{text.slice(idx + 2)}</>
+  return (
+    <>
+      {text.slice(0, idx)}
+      <span className="temp-unit">°C</span>
+      {text.slice(idx + 2)}
+    </>
+  )
 }
 
 const LOCATION_PLACEHOLDER_KEYS = ['north', 'center', 'south'] as const
@@ -27,7 +30,20 @@ export const DEFAULT_FORECAST_LIMIT = 3
 export const DEFAULT_ADDITIONAL_LOCATION_COUNT = 3
 export const POPOVER_FORECAST_LIMIT = 2
 
-const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const MONTHS_SHORT = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+]
 
 export const formatUpdatedAt = (value: string | null): { short: string; full: string } | null => {
   if (!value) {
@@ -67,7 +83,14 @@ export const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
   loadNote?: string | null
   onRetry?: () => void
 }) {
-  const attrs = useAttrs(['location', 'status', 'temperatureText', 'summary', 'weatherCode', 'isDay'])
+  const attrs = useAttrs([
+    'location',
+    'status',
+    'temperatureText',
+    'summary',
+    'weatherCode',
+    'isDay',
+  ])
 
   const rawLocation = readStringAttr(attrs.location).trim()
   const location = rawLocation || '[by coordinates]'
@@ -114,7 +137,9 @@ export function WeatherReadoutError({
   return (
     <div className="weather-readout weather-readout--location weather-readout--error" role="alert">
       <div className="weather-readout__label">Weather unavailable</div>
-      <div className="weather-readout__value weather-readout__value--placeholder">-- <span className="temp-unit">°C</span></div>
+      <div className="weather-readout__value weather-readout__value--placeholder">
+        -- <span className="temp-unit">°C</span>
+      </div>
       <p className="weather-readout__summary">{message}</p>
       <div className="weather-readout__meta">
         <span className="status-pill status-pill--error">error</span>
@@ -147,7 +172,10 @@ export const WeatherReadoutFallback = memo(function WeatherReadoutFallback() {
       <div className="weather-readout__label" aria-hidden="true">
         <span className="skeleton skeleton-line skeleton-line--label" />
       </div>
-      <div className="weather-readout__value weather-readout__value--placeholder" aria-hidden="true">
+      <div
+        className="weather-readout__value weather-readout__value--placeholder"
+        aria-hidden="true"
+      >
         <span className="skeleton skeleton-block skeleton-block--value" />
       </div>
       <p className="weather-readout__summary" aria-hidden="true">
@@ -181,7 +209,11 @@ export function ForecastEmpty({ count }: { count: number }) {
   )
 }
 
-export const ForecastPanelsFallback = memo(function ForecastPanelsFallback({ forecastLimit = DEFAULT_FORECAST_LIMIT }: { forecastLimit?: number }) {
+export const ForecastPanelsFallback = memo(function ForecastPanelsFallback({
+  forecastLimit = DEFAULT_FORECAST_LIMIT,
+}: {
+  forecastLimit?: number
+}) {
   return (
     <div className="forecast-panels">
       <div>
@@ -254,7 +286,3 @@ export function PopoverWeatherSectionFallback() {
     </div>
   )
 }
-
-
-
-

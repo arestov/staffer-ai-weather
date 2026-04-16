@@ -14,8 +14,9 @@
  * Signaling goes through the Cloudflare Durable Object WebSocket.
  * Leader election is server-side (DO assigns leader).
  */
-import type { ReactSyncTransportMessage } from '../shared/messageTypes'
+
 import { createSharedWorkerTransport } from '../shared/createSharedWorkerTransport'
+import type { ReactSyncTransportMessage } from '../shared/messageTypes'
 import type { BridgeSignaling } from './BridgeSignaling'
 import { createDoSignalingFactory } from './BridgeSignaling'
 import type { SignalMessage } from './types'
@@ -111,7 +112,9 @@ export const createPageP2PManager = (
       try {
         const msg = JSON.parse(ev.data) as ReactSyncTransportMessage
         proxyTransport.send(msg)
-      } catch { /* ignore parse errors */ }
+      } catch {
+        /* ignore parse errors */
+      }
     }
 
     // Bridge: worker port → DC
@@ -158,7 +161,9 @@ export const createPageP2PManager = (
       try {
         const msg = JSON.parse(ev.data) as ReactSyncTransportMessage
         for (const fn of listeners) fn(msg)
-      } catch { /* ignore parse errors */ }
+      } catch {
+        /* ignore parse errors */
+      }
     }
 
     dc.onclose = () => {
@@ -177,7 +182,9 @@ export const createPageP2PManager = (
       },
       listen(listener: (msg: ReactSyncTransportMessage) => void) {
         listeners.add(listener)
-        return () => { listeners.delete(listener) }
+        return () => {
+          listeners.delete(listener)
+        }
       },
       destroy() {
         dcDestroyed = true
@@ -304,8 +311,9 @@ export const createPageP2PManager = (
       case 'answer': {
         const pc = peerConnections.get(msg.fromPeerId)
         if (pc) {
-          pc.setRemoteDescription(new RTCSessionDescription(msg.sdp))
-            .catch((err) => events.onError(err))
+          pc.setRemoteDescription(new RTCSessionDescription(msg.sdp)).catch((err) =>
+            events.onError(err),
+          )
         }
         break
       }
@@ -313,8 +321,7 @@ export const createPageP2PManager = (
       case 'ice-candidate': {
         const pc = peerConnections.get(msg.fromPeerId)
         if (pc) {
-          pc.addIceCandidate(new RTCIceCandidate(msg.candidate))
-            .catch((err) => events.onError(err))
+          pc.addIceCandidate(new RTCIceCandidate(msg.candidate)).catch((err) => events.onError(err))
         }
         break
       }
@@ -382,8 +389,12 @@ export const createPageP2PManager = (
   // ── Public API ───────────────────────────────────────────────
 
   return {
-    get role() { return role },
-    get peerId() { return peerId },
+    get role() {
+      return role
+    },
+    get peerId() {
+      return peerId
+    },
 
     destroy() {
       if (destroyed) return

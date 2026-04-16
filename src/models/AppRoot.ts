@@ -1,18 +1,17 @@
 import { appRoot } from 'dkt/appRoot.js'
 import { merge as mergeDcl } from 'dkt/dcl/merge.js'
-import { SessionRoot } from './SessionRoot'
+import { appRootEffects } from './AppRoot/effects'
 import { SelectedLocation } from './SelectedLocation'
-import { WeatherLocation } from './WeatherLocation'
-import { isLocationSearchResult } from './WeatherLocation'
+import { SessionRoot } from './SessionRoot'
 import type { LocationSearchResult } from './WeatherLocation'
+import { isLocationSearchResult, WeatherLocation } from './WeatherLocation'
 import { toErrorMessage } from './weatherFormat'
 import {
-  SELECTED_LOCATION_CREATION_SHAPE,
-  WEATHER_LOCATION_BASE_CREATION_SHAPE,
   buildInitialSelectedLocations,
   buildInitialWeatherLocations,
+  SELECTED_LOCATION_CREATION_SHAPE,
+  WEATHER_LOCATION_BASE_CREATION_SHAPE,
 } from './weatherSeed'
-import { appRootEffects } from './AppRoot/effects'
 
 type SavedSearchLocationsSyncStatus = 'idle' | 'loading' | 'syncing' | 'ready' | 'error'
 
@@ -34,7 +33,20 @@ const getNextSavedSearchLocationsSyncRequestId = (value: unknown) => {
   return typeof value === 'number' ? value + 1 : 1
 }
 
-const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const MONTHS_SHORT = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+]
 
 const formatUpdatedAt = (value: string | null): { short: string; full: string } | null => {
   if (!value) {
@@ -89,7 +101,8 @@ const buildWeatherUpdatedSummary = (
   const fullParts: string[] = []
 
   for (let index = 0; index < weatherFetchedAtValues.length; index += 1) {
-    const time = typeof weatherFetchedAtValues[index] === 'string' ? weatherFetchedAtValues[index] : null
+    const time =
+      typeof weatherFetchedAtValues[index] === 'string' ? weatherFetchedAtValues[index] : null
     const fmt = formatUpdatedAt(time)
 
     if (!fmt) {
@@ -138,18 +151,11 @@ const isSavedSearchLocationsSyncFailurePayload = (
 
   const candidate = value as Partial<SavedSearchLocationsSyncFailurePayload>
 
-  return (
-    typeof candidate.requestId === 'number' &&
-    typeof candidate.message === 'string'
-  )
+  return typeof candidate.requestId === 'number' && typeof candidate.message === 'string'
 }
 
-const makeRootParentRel = () => [
-  'comp',
-  ['<<<<'],
-  (self: unknown) => self,
-  { linking: '<<<<' },
-] as const
+const makeRootParentRel = () =>
+  ['comp', ['<<<<'], (self: unknown) => self, { linking: '<<<<' }] as const
 
 const app_props = mergeDcl({
   init: (target: { start_page?: unknown }) => {
@@ -164,8 +170,7 @@ const app_props = mergeDcl({
     free_sessions: ['input', { linking: '<< $session_root', many: true }],
     weatherLocation: ['model', WeatherLocation, { many: true }],
     location: ['model', SelectedLocation, { many: true }],
-    nav_parent_at_perspectivator_weather_selected_location_popover_router:
-      makeRootParentRel(),
+    nav_parent_at_perspectivator_weather_selected_location_popover_router: makeRootParentRel(),
     mainLocation: ['input', { linking: '<< location' }],
     additionalLocations: ['input', { linking: '<< location', many: true }],
     locations: [
@@ -381,11 +386,12 @@ const app_props = mergeDcl({
           savedSearchLocations: unknown,
           activeSavedSearchLocationsSyncRequestId: unknown,
         ) => {
-          const id = typeof payload === 'string'
-            ? payload
-            : isLocationSearchResult(payload)
-              ? payload.id
-              : ''
+          const id =
+            typeof payload === 'string'
+              ? payload
+              : isLocationSearchResult(payload)
+                ? payload.id
+                : ''
 
           if (!id) {
             return {}
@@ -419,11 +425,7 @@ const app_props = mergeDcl({
       },
       fn: [
         ['$noop', 'activeSavedSearchLocationsSyncRequestId'] as const,
-        (
-          payload: unknown,
-          noop: unknown,
-          activeSavedSearchLocationsSyncRequestId: number,
-        ) => {
+        (payload: unknown, noop: unknown, activeSavedSearchLocationsSyncRequestId: number) => {
           if (
             !isSavedSearchLocationsSyncResponsePayload(payload) ||
             payload.requestId !== activeSavedSearchLocationsSyncRequestId
@@ -448,11 +450,7 @@ const app_props = mergeDcl({
       },
       fn: [
         ['$noop', 'activeSavedSearchLocationsSyncRequestId'] as const,
-        (
-          payload: unknown,
-          noop: unknown,
-          activeSavedSearchLocationsSyncRequestId: number,
-        ) => {
+        (payload: unknown, noop: unknown, activeSavedSearchLocationsSyncRequestId: number) => {
           if (
             !isSavedSearchLocationsSyncFailurePayload(payload) ||
             payload.requestId !== activeSavedSearchLocationsSyncRequestId
@@ -472,7 +470,10 @@ const app_props = mergeDcl({
       to: {
         autoGeoStatus: ['autoGeoStatus'],
         autoGeoError: ['autoGeoError'],
-        applyAutoLocation: ['<< mainLocation', { action: 'applyAutoLocation', inline_subwalker: true }],
+        applyAutoLocation: [
+          '<< mainLocation',
+          { action: 'applyAutoLocation', inline_subwalker: true },
+        ],
       },
       fn: (payload: unknown) => {
         if (!isLocationSearchResult(payload)) {

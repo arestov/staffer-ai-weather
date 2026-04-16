@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { createWeatherTestHarness, type WeatherTestHarness } from './harness/createWeatherTestHarness'
+import {
+  createWeatherTestHarness,
+  type WeatherTestHarness,
+} from './harness/createWeatherTestHarness'
 
 const {
   fetchWeatherFromOpenMeteo,
@@ -7,35 +10,33 @@ const {
   detectLocationMock,
   detectLocationByCoordinatesMock,
 } = vi.hoisted(() => ({
-  fetchWeatherFromOpenMeteo: vi.fn(
-    async (latitude: number, longitude: number) => ({
-      current: {
-        temperatureC: Math.round(latitude),
-        apparentTemperatureC: Math.round(latitude) - 1,
-        weatherCode: 1,
-        isDay: true,
-        windSpeed10m: Math.abs(Math.round(longitude)),
-      },
-      hourly: Array.from({ length: 3 }, (_, index) => ({
-        time: `2026-04-13T0${index}:00:00Z`,
-        temperatureC: Math.round(latitude) + index,
-        precipitationProbability: index * 10,
-        weatherCode: 1,
-        windSpeed10m: 4 + index,
-      })),
-      daily: Array.from({ length: 3 }, (_, index) => ({
-        date: `2026-04-1${index + 3}`,
-        weatherCode: 1,
-        temperatureMaxC: Math.round(latitude) + 4 + index,
-        temperatureMinC: Math.round(latitude) - 2 + index,
-        precipitationProbabilityMax: 20 + index,
-        windSpeedMax: 6 + index,
-        sunrise: '2026-04-13T05:30:00Z',
-        sunset: '2026-04-13T18:45:00Z',
-      })),
-      fetchedAt: '2026-04-13T12:00:00.000Z',
-    }),
-  ),
+  fetchWeatherFromOpenMeteo: vi.fn(async (latitude: number, longitude: number) => ({
+    current: {
+      temperatureC: Math.round(latitude),
+      apparentTemperatureC: Math.round(latitude) - 1,
+      weatherCode: 1,
+      isDay: true,
+      windSpeed10m: Math.abs(Math.round(longitude)),
+    },
+    hourly: Array.from({ length: 3 }, (_, index) => ({
+      time: `2026-04-13T0${index}:00:00Z`,
+      temperatureC: Math.round(latitude) + index,
+      precipitationProbability: index * 10,
+      weatherCode: 1,
+      windSpeed10m: 4 + index,
+    })),
+    daily: Array.from({ length: 3 }, (_, index) => ({
+      date: `2026-04-1${index + 3}`,
+      weatherCode: 1,
+      temperatureMaxC: Math.round(latitude) + 4 + index,
+      temperatureMinC: Math.round(latitude) - 2 + index,
+      precipitationProbabilityMax: 20 + index,
+      windSpeedMax: 6 + index,
+      sunrise: '2026-04-13T05:30:00Z',
+      sunset: '2026-04-13T18:45:00Z',
+    })),
+    fetchedAt: '2026-04-13T12:00:00.000Z',
+  })),
   fetchLocationSearchResults: vi.fn(async (query: string) => {
     const normalized = query.trim().toLowerCase()
 
@@ -83,14 +84,16 @@ const {
   detectLocationMock: vi.fn(async () => {
     throw new Error('auto geo disabled in tests')
   }),
-  detectLocationByCoordinatesMock: vi.fn(async ({ latitude, longitude }: { latitude: number; longitude: number }) => ({
-    id: `coords-${latitude.toFixed(4)}-${longitude.toFixed(4)}`,
-    name: '',
-    subtitle: '',
-    latitude,
-    longitude,
-    timezone: null,
-  })),
+  detectLocationByCoordinatesMock: vi.fn(
+    async ({ latitude, longitude }: { latitude: number; longitude: number }) => ({
+      id: `coords-${latitude.toFixed(4)}-${longitude.toFixed(4)}`,
+      name: '',
+      subtitle: '',
+      latitude,
+      longitude,
+      timezone: null,
+    }),
+  ),
 }))
 
 vi.mock('../src/worker/weather-api', () => ({
@@ -133,7 +136,7 @@ type DebugAppState = {
   runtimeModels: SerializedModel[]
 } | null
 
-const waitFor = async <T,>(
+const waitFor = async <T>(
   read: () => Promise<T> | T,
   predicate: (value: T) => boolean,
   message: string,
@@ -201,9 +204,7 @@ const getSelectedLocationIds = (appState: DebugAppState) => {
   const mainLocationId =
     typeof appRoot.rels.mainLocation === 'string' ? appRoot.rels.mainLocation : null
   const additionalLocationIds = Array.isArray(appRoot.rels.additionalLocations)
-    ? appRoot.rels.additionalLocations.filter(
-        (value): value is string => typeof value === 'string',
-      )
+    ? appRoot.rels.additionalLocations.filter((value): value is string => typeof value === 'string')
     : []
 
   if (!mainLocationId) {
@@ -221,14 +222,21 @@ const getSavedSearchLocations = (appState: DebugAppState) => {
 
   return Array.isArray(appRoot.attrs.savedSearchLocations)
     ? appRoot.attrs.savedSearchLocations.filter(
-        (value): value is {
+        (
+          value,
+        ): value is {
           id: string
           name: string
           subtitle: string
           latitude: number
           longitude: number
           timezone: string | null
-        } => Boolean(value && typeof value === 'object' && typeof (value as { id?: unknown }).id === 'string'),
+        } =>
+          Boolean(
+            value &&
+              typeof value === 'object' &&
+              typeof (value as { id?: unknown }).id === 'string',
+          ),
       )
     : []
 }
@@ -258,9 +266,9 @@ const setNavigatorGeolocation = (geolocation: {
 }
 
 const countWeatherLocationModels = (appState: DebugAppState) => {
-  return appState?.runtimeModels.filter(
-    (model) => model.modelName === 'weather_location',
-  ).length ?? 0
+  return (
+    appState?.runtimeModels.filter((model) => model.modelName === 'weather_location').length ?? 0
+  )
 }
 
 const getWeatherLocationForSelectedLocation = (
@@ -280,10 +288,7 @@ const getWeatherLocationForSelectedLocation = (
     return null
   }
 
-  return getSerializedModel(
-    appState,
-    (model) => model.nodeId === weatherLocationId,
-  )
+  return getSerializedModel(appState, (model) => model.nodeId === weatherLocationId)
 }
 
 const queryPopover = (selectedLocationId: string) =>
@@ -380,7 +385,7 @@ const createWeatherPayload = (temperatureC: number, fetchedAt: string) => ({
   fetchedAt,
 })
 
-const createDeferred = <T,>() => {
+const createDeferred = <T>() => {
   let resolve!: (value: T | PromiseLike<T>) => void
 
   const promise = new Promise<T>((promiseResolve) => {
@@ -607,7 +612,9 @@ describe('SelectedLocation popover router', () => {
 
     expect(savedResult?.textContent).toContain('Tokyo')
 
-    const removeButton = document.body.querySelector('[data-location-search-saved-remove="tokyo-1"]')
+    const removeButton = document.body.querySelector(
+      '[data-location-search-saved-remove="tokyo-1"]',
+    )
     expect(removeButton).not.toBeNull()
 
     clickElement(removeButton as Element)
@@ -686,7 +693,9 @@ describe('SelectedLocation popover router', () => {
 
     expect(secondLayer).toBe(firstLayer)
     expect(queryPopover(mainLocationId)).toBeNull()
-    expect(queryPopover(additionalLocationId)?.querySelector('[data-location-edit-trigger]')).not.toBeNull()
+    expect(
+      queryPopover(additionalLocationId)?.querySelector('[data-location-edit-trigger]'),
+    ).not.toBeNull()
   })
 
   test('router search replaces selected location in place', async () => {
@@ -740,19 +749,15 @@ describe('SelectedLocation popover router', () => {
 
     const routerModel = getPopoverRouter(await getAppState(harness))
 
-    harness.pageRuntime.dispatchAction(
-      'submitLocationSearch',
-      { query: 'Tokyo' },
-      { _nodeId: routerModel.nodeId ?? '' } as never,
-    )
+    harness.pageRuntime.dispatchAction('submitLocationSearch', { query: 'Tokyo' }, {
+      _nodeId: routerModel.nodeId ?? '',
+    } as never)
 
     await waitFor(
       async () => getAppState(harness as WeatherTestHarness),
       (appState) => {
         const router = getPopoverRouter(appState)
-        const results = Array.isArray(router.attrs.searchResults)
-          ? router.attrs.searchResults
-          : []
+        const results = Array.isArray(router.attrs.searchResults) ? router.attrs.searchResults : []
 
         return (
           router.attrs.searchStatus === 'ready' &&
@@ -877,18 +882,14 @@ describe('SelectedLocation popover router', () => {
       async () => getAppState(harness as WeatherTestHarness),
       (appState) => {
         const router = getPopoverRouter(appState)
-        const results = Array.isArray(router.attrs.searchResults)
-          ? router.attrs.searchResults
-          : []
+        const results = Array.isArray(router.attrs.searchResults) ? router.attrs.searchResults : []
 
-        return (
-          results.some(
-            (result) =>
-              typeof result === 'object' &&
-              result != null &&
-              'name' in result &&
-              (result as { name?: unknown }).name === 'Tokyo',
-          )
+        return results.some(
+          (result) =>
+            typeof result === 'object' &&
+            result != null &&
+            'name' in result &&
+            (result as { name?: unknown }).name === 'Tokyo',
         )
       },
       'initial debounced search did not return Tokyo',
@@ -915,9 +916,7 @@ describe('SelectedLocation popover router', () => {
       async () => getAppState(harness as WeatherTestHarness),
       (appState) => {
         const router = getPopoverRouter(appState)
-        const results = Array.isArray(router.attrs.searchResults)
-          ? router.attrs.searchResults
-          : []
+        const results = Array.isArray(router.attrs.searchResults) ? router.attrs.searchResults : []
 
         return (
           router.attrs.searchStatus === 'loading' &&
@@ -937,9 +936,7 @@ describe('SelectedLocation popover router', () => {
       async () => getAppState(harness as WeatherTestHarness),
       (appState) => {
         const router = getPopoverRouter(appState)
-        const results = Array.isArray(router.attrs.searchResults)
-          ? router.attrs.searchResults
-          : []
+        const results = Array.isArray(router.attrs.searchResults) ? router.attrs.searchResults : []
 
         return (
           router.attrs.searchStatus === 'ready' &&
@@ -1019,7 +1016,9 @@ describe('SelectedLocation popover router', () => {
       (appState) => {
         const router = getPopoverRouter(appState)
 
-        return router.attrs.searchStatus === 'error' && router.attrs.searchError === 'geocoding offline'
+        return (
+          router.attrs.searchStatus === 'error' && router.attrs.searchError === 'geocoding offline'
+        )
       },
       'search error did not surface in the router state',
     )
@@ -1036,9 +1035,7 @@ describe('SelectedLocation popover router', () => {
       async () => getAppState(harness as WeatherTestHarness),
       (appState) => {
         const router = getPopoverRouter(appState)
-        const results = Array.isArray(router.attrs.searchResults)
-          ? router.attrs.searchResults
-          : []
+        const results = Array.isArray(router.attrs.searchResults) ? router.attrs.searchResults : []
 
         return (
           router.attrs.searchStatus === 'ready' &&
@@ -1141,7 +1138,10 @@ describe('SelectedLocation popover router', () => {
       (appState) => {
         const weatherLocation = getWeatherLocationForSelectedLocation(appState, mainLocationId)
 
-        return weatherLocation?.attrs.latitude === 40.7128 && weatherLocation?.attrs.longitude === -74.006
+        return (
+          weatherLocation?.attrs.latitude === 40.7128 &&
+          weatherLocation?.attrs.longitude === -74.006
+        )
       },
       'selected location was not replaced from browser coordinates',
     )
@@ -1150,8 +1150,7 @@ describe('SelectedLocation popover router', () => {
       () =>
         harness.rootElement
           .querySelector('[data-selected-location-id]')
-          ?.textContent
-          ?.replace(/\s+/g, ' ')
+          ?.textContent?.replace(/\s+/g, ' ')
           .trim() ?? '',
       (text) => text.includes('[by coordinates]'),
       'main card did not render the coordinate fallback label',
@@ -1256,11 +1255,9 @@ describe('SelectedLocation popover router', () => {
 
     const routerModel = getPopoverRouter(await getAppState(harness))
 
-    harness.pageRuntime.dispatchAction(
-      'submitLocationSearch',
-      { query: 'Tokyo' },
-      { _nodeId: routerModel.nodeId ?? '' } as never,
-    )
+    harness.pageRuntime.dispatchAction('submitLocationSearch', { query: 'Tokyo' }, {
+      _nodeId: routerModel.nodeId ?? '',
+    } as never)
 
     const tokyoResult = await waitFor(
       () => document.body.querySelector('[data-location-search-result="tokyo-1"]'),
@@ -1276,8 +1273,7 @@ describe('SelectedLocation popover router', () => {
         const weatherLocation = getWeatherLocationForSelectedLocation(appState, mainLocationId)
 
         return (
-          weatherLocation?.attrs.name === 'Tokyo' &&
-          weatherLocation?.attrs.loadStatus === 'loading'
+          weatherLocation?.attrs.name === 'Tokyo' && weatherLocation?.attrs.loadStatus === 'loading'
         )
       },
       'first weather request did not start',
@@ -1311,11 +1307,9 @@ describe('SelectedLocation popover router', () => {
       createWeatherPayload(49, '2026-04-13T12:00:00.000Z'),
     )
 
-    harness.pageRuntime.dispatchAction(
-      'submitLocationSearch',
-      { query: 'Portland' },
-      { _nodeId: routerModel.nodeId ?? '' } as never,
-    )
+    harness.pageRuntime.dispatchAction('submitLocationSearch', { query: 'Portland' }, {
+      _nodeId: routerModel.nodeId ?? '',
+    } as never)
 
     const portlandResult = await waitFor(
       () => document.body.querySelector('[data-location-search-result="portland-fallback"]'),
@@ -1366,17 +1360,13 @@ describe('SelectedLocation popover router', () => {
 
     const routerModel = getPopoverRouter(await getAppState(harness))
 
-    harness.pageRuntime.dispatchAction(
-      'startLocationEditing',
-      { seedQuery: 'Tokyo' },
-      { _nodeId: routerModel.nodeId ?? '' } as never,
-    )
+    harness.pageRuntime.dispatchAction('startLocationEditing', { seedQuery: 'Tokyo' }, {
+      _nodeId: routerModel.nodeId ?? '',
+    } as never)
 
-    harness.pageRuntime.dispatchAction(
-      'submitLocationSearch',
-      { query: 'Tokyo' },
-      { _nodeId: routerModel.nodeId ?? '' } as never,
-    )
+    harness.pageRuntime.dispatchAction('submitLocationSearch', { query: 'Tokyo' }, {
+      _nodeId: routerModel.nodeId ?? '',
+    } as never)
 
     const firstSearchState = await waitFor(
       async () => getAppState(harness as WeatherTestHarness),
@@ -1390,16 +1380,12 @@ describe('SelectedLocation popover router', () => {
 
     const firstRequestId = getPopoverRouter(firstSearchState).attrs.activeSearchRequestId
 
-    harness.pageRuntime.dispatchAction(
-      'updateLocationSearchQuery',
-      'Portland',
-      { _nodeId: routerModel.nodeId ?? '' } as never,
-    )
-    harness.pageRuntime.dispatchAction(
-      'submitLocationSearch',
-      { query: 'Portland' },
-      { _nodeId: routerModel.nodeId ?? '' } as never,
-    )
+    harness.pageRuntime.dispatchAction('updateLocationSearchQuery', 'Portland', {
+      _nodeId: routerModel.nodeId ?? '',
+    } as never)
+    harness.pageRuntime.dispatchAction('submitLocationSearch', { query: 'Portland' }, {
+      _nodeId: routerModel.nodeId ?? '',
+    } as never)
 
     const secondSearchState = await waitFor(
       async () => getAppState(harness as WeatherTestHarness),
@@ -1451,11 +1437,9 @@ describe('SelectedLocation popover router', () => {
       'replacement search did not resolve Portland before cancel',
     )
 
-    harness.pageRuntime.dispatchAction(
-      'cancelLocationEditing',
-      undefined,
-      { _nodeId: routerModel.nodeId ?? '' } as never,
-    )
+    harness.pageRuntime.dispatchAction('cancelLocationEditing', undefined, {
+      _nodeId: routerModel.nodeId ?? '',
+    } as never)
 
     harness.pageRuntime.dispatchAction(
       'applyLocationSearchResponse',

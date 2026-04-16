@@ -1,40 +1,41 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { createWeatherTestHarness, type WeatherTestHarness } from './harness/createWeatherTestHarness'
 import {
   createWeatherBackendTestHarness,
   type WeatherBackendTestHarness,
 } from './harness/createWeatherBackendTestHarness'
+import {
+  createWeatherTestHarness,
+  type WeatherTestHarness,
+} from './harness/createWeatherTestHarness'
 
 const { fetchWeatherFromOpenMeteo } = vi.hoisted(() => ({
-  fetchWeatherFromOpenMeteo: vi.fn(
-    async (latitude: number, longitude: number) => ({
-      current: {
-        temperatureC: Math.round(latitude),
-        apparentTemperatureC: Math.round(latitude) - 1,
-        weatherCode: 1,
-        isDay: true,
-        windSpeed10m: Math.abs(Math.round(longitude)),
-      },
-      hourly: Array.from({ length: 3 }, (_, index) => ({
-        time: `2026-04-13T0${index}:00:00Z`,
-        temperatureC: Math.round(latitude) + index,
-        precipitationProbability: index * 10,
-        weatherCode: 1,
-        windSpeed10m: 4 + index,
-      })),
-      daily: Array.from({ length: 3 }, (_, index) => ({
-        date: `2026-04-1${index + 3}`,
-        weatherCode: 1,
-        temperatureMaxC: Math.round(latitude) + 4 + index,
-        temperatureMinC: Math.round(latitude) - 2 + index,
-        precipitationProbabilityMax: 20 + index,
-        windSpeedMax: 6 + index,
-        sunrise: '2026-04-13T05:30:00Z',
-        sunset: '2026-04-13T18:45:00Z',
-      })),
-      fetchedAt: '2026-04-13T12:00:00.000Z',
-    }),
-  ),
+  fetchWeatherFromOpenMeteo: vi.fn(async (latitude: number, longitude: number) => ({
+    current: {
+      temperatureC: Math.round(latitude),
+      apparentTemperatureC: Math.round(latitude) - 1,
+      weatherCode: 1,
+      isDay: true,
+      windSpeed10m: Math.abs(Math.round(longitude)),
+    },
+    hourly: Array.from({ length: 3 }, (_, index) => ({
+      time: `2026-04-13T0${index}:00:00Z`,
+      temperatureC: Math.round(latitude) + index,
+      precipitationProbability: index * 10,
+      weatherCode: 1,
+      windSpeed10m: 4 + index,
+    })),
+    daily: Array.from({ length: 3 }, (_, index) => ({
+      date: `2026-04-1${index + 3}`,
+      weatherCode: 1,
+      temperatureMaxC: Math.round(latitude) + 4 + index,
+      temperatureMinC: Math.round(latitude) - 2 + index,
+      precipitationProbabilityMax: 20 + index,
+      windSpeedMax: 6 + index,
+      sunrise: '2026-04-13T05:30:00Z',
+      sunset: '2026-04-13T18:45:00Z',
+    })),
+    fetchedAt: '2026-04-13T12:00:00.000Z',
+  })),
 }))
 
 vi.mock('../src/worker/weather-api', () => ({
@@ -77,7 +78,7 @@ const tokyoResult = {
   timezone: 'Asia/Tokyo',
 }
 
-const waitFor = async <T,>(
+const waitFor = async <T>(
   read: () => Promise<T> | T,
   predicate: (value: T) => boolean,
   message: string,
@@ -147,8 +148,10 @@ const getSavedSearchLocations = (appState: DebugAppState) => {
   const appRoot = getAppRoot(appState)
 
   return Array.isArray(appRoot.attrs.savedSearchLocations)
-    ? appRoot.attrs.savedSearchLocations.filter(
-        (value): value is { id: string } => Boolean(value && typeof value === 'object' && typeof (value as { id?: unknown }).id === 'string'),
+    ? appRoot.attrs.savedSearchLocations.filter((value): value is { id: string } =>
+        Boolean(
+          value && typeof value === 'object' && typeof (value as { id?: unknown }).id === 'string',
+        ),
       )
     : []
 }
@@ -251,11 +254,9 @@ describe('Weather backend integration', () => {
     harness = await createWeatherTestHarness()
     const router = await openMainLocationEditPanel(harness)
 
-    harness.pageRuntime.dispatchAction(
-      'submitLocationSearch',
-      { query: 'Berlin' },
-      { _nodeId: router.nodeId ?? '' } as never,
-    )
+    harness.pageRuntime.dispatchAction('submitLocationSearch', { query: 'Berlin' }, {
+      _nodeId: router.nodeId ?? '',
+    } as never)
 
     await waitFor(
       async () => getPopoverRouter(await getAppState(harness as WeatherTestHarness)),
@@ -269,11 +270,9 @@ describe('Weather backend integration', () => {
       'first backend search did not return results',
     )
 
-    harness.pageRuntime.dispatchAction(
-      'submitLocationSearch',
-      { query: '  berlin  ' },
-      { _nodeId: router.nodeId ?? '' } as never,
-    )
+    harness.pageRuntime.dispatchAction('submitLocationSearch', { query: '  berlin  ' }, {
+      _nodeId: router.nodeId ?? '',
+    } as never)
 
     await waitFor(
       () => ({
@@ -304,11 +303,9 @@ describe('Weather backend integration', () => {
     harness = await createWeatherTestHarness()
     const router = await openMainLocationEditPanel(harness)
 
-    harness.pageRuntime.dispatchAction(
-      'submitLocationSearch',
-      { query: 'nomatch' },
-      { _nodeId: router.nodeId ?? '' } as never,
-    )
+    harness.pageRuntime.dispatchAction('submitLocationSearch', { query: 'nomatch' }, {
+      _nodeId: router.nodeId ?? '',
+    } as never)
 
     const resolvedRouter = await waitFor(
       async () => getPopoverRouter(await getAppState(harness as WeatherTestHarness)),
@@ -336,11 +333,9 @@ describe('Weather backend integration', () => {
     harness = await createWeatherTestHarness()
     const router = await openMainLocationEditPanel(harness)
 
-    harness.pageRuntime.dispatchAction(
-      'submitLocationSearch',
-      { query: 'failtown' },
-      { _nodeId: router.nodeId ?? '' } as never,
-    )
+    harness.pageRuntime.dispatchAction('submitLocationSearch', { query: 'failtown' }, {
+      _nodeId: router.nodeId ?? '',
+    } as never)
 
     const resolvedRouter = await waitFor(
       async () => getPopoverRouter(await getAppState(harness as WeatherTestHarness)),
@@ -371,11 +366,9 @@ describe('Weather backend integration', () => {
     harness = await createWeatherTestHarness()
     const router = await openMainLocationEditPanel(harness)
 
-    harness.pageRuntime.dispatchAction(
-      'submitLocationSearch',
-      { query: 'Berlin' },
-      { _nodeId: router.nodeId ?? '' } as never,
-    )
+    harness.pageRuntime.dispatchAction('submitLocationSearch', { query: 'Berlin' }, {
+      _nodeId: router.nodeId ?? '',
+    } as never)
 
     await waitFor(
       async () => getPopoverRouter(await getAppState(harness as WeatherTestHarness)),
@@ -442,11 +435,9 @@ describe('Weather backend integration', () => {
     harness = await createWeatherTestHarness()
     const router = await openMainLocationEditPanel(harness)
 
-    harness.pageRuntime.dispatchAction(
-      'submitLocationSearch',
-      { query: 'Tokyo' },
-      { _nodeId: router.nodeId ?? '' } as never,
-    )
+    harness.pageRuntime.dispatchAction('submitLocationSearch', { query: 'Tokyo' }, {
+      _nodeId: router.nodeId ?? '',
+    } as never)
 
     await waitFor(
       async () => getPopoverRouter(await getAppState(harness as WeatherTestHarness)),
@@ -460,11 +451,9 @@ describe('Weather backend integration', () => {
       'Tokyo search response did not resolve',
     )
 
-    harness.pageRuntime.dispatchAction(
-      'saveLocationSearchResult',
-      tokyoResult,
-      { _nodeId: router.nodeId ?? '' } as never,
-    )
+    harness.pageRuntime.dispatchAction('saveLocationSearchResult', tokyoResult, {
+      _nodeId: router.nodeId ?? '',
+    } as never)
 
     await waitFor(
       async () => getSavedSearchLocations(await getAppState(harness as WeatherTestHarness)),

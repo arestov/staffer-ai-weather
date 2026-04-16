@@ -7,8 +7,5 @@ declare module 'dkt/dcl/attrs/input.js' {
 }
 
 declare module 'dkt-all/libs/provoda/bwlev/requireRouter.js' {
-  export const requireRouter: (
-    self: unknown,
-    router_name: string,
-  ) => Promise<any>
+  export const requireRouter: (self: unknown, router_name: string) => Promise<any>
 }

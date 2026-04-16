@@ -28,13 +28,9 @@ const formatLocationSubtitle = (raw: OpenMeteoSearchResultRaw) => {
   return [raw.admin1, raw.country].filter(Boolean).join(', ')
 }
 
-const normalizeLocationSearchResult = (
-  raw: OpenMeteoSearchResultRaw,
-): LocationSearchResult => {
+const normalizeLocationSearchResult = (raw: OpenMeteoSearchResultRaw): LocationSearchResult => {
   return {
-    id: raw.id != null
-      ? String(raw.id)
-      : `${raw.name}:${raw.latitude}:${raw.longitude}`,
+    id: raw.id != null ? String(raw.id) : `${raw.name}:${raw.latitude}:${raw.longitude}`,
     name: raw.name,
     subtitle: formatLocationSubtitle(raw),
     latitude: raw.latitude,
@@ -59,7 +55,7 @@ const fetchLocationSearchResultsFromOpenMeteo = async (
     throw new Error(`Open-Meteo geocoding responded with ${response.status}`)
   }
 
-  const raw = await response.json() as OpenMeteoSearchResponse
+  const raw = (await response.json()) as OpenMeteoSearchResponse
   const results = Array.isArray(raw.results) ? raw.results : []
 
   return results.map(normalizeLocationSearchResult)

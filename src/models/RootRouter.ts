@@ -15,5 +15,3 @@ const RootRouter = mergeDcl({
 })
 
 export default RootRouter
-
-

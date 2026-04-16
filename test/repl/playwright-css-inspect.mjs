@@ -3,7 +3,9 @@ import { chromium } from 'playwright'
 const previewBaseUrl = process.env.WEATHER_PLAYWRIGHT_URL || 'http://127.0.0.1:4173'
 
 const pick = (items, names) =>
-  Object.fromEntries(names.map((name) => [name, items.find((item) => item.name === name)?.value ?? null]))
+  Object.fromEntries(
+    names.map((name) => [name, items.find((item) => item.name === name)?.value ?? null]),
+  )
 
 const main = async () => {
   const browser = await chromium.launch({ headless: true })
@@ -13,7 +15,9 @@ const main = async () => {
     await page.goto(previewBaseUrl, { waitUntil: 'domcontentloaded' })
     await page.waitForSelector('[data-selected-location-trigger]')
     await page.click('[data-selected-location-trigger]')
-    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+    )
 
     const cdp = await page.context().newCDPSession(page)
     await cdp.send('DOM.enable')
@@ -24,7 +28,18 @@ const main = async () => {
       ['.app-shell', ['display', 'position', 'anchor-name', 'top', 'left', 'width', 'height']],
       [
         '[data-selected-location-popover-layer]',
-        ['display', 'position', 'position-anchor', 'top', 'left', 'width', 'height', 'z-index', 'inset-top', 'inset-left'],
+        [
+          'display',
+          'position',
+          'position-anchor',
+          'top',
+          'left',
+          'width',
+          'height',
+          'z-index',
+          'inset-top',
+          'inset-left',
+        ],
       ],
       [
         '[data-selected-location-popover]',
@@ -65,21 +80,18 @@ const main = async () => {
       )
     }
 
-    const arrowMetrics = await page.$eval(
-      '[data-selected-location-popover]',
-      (element) => {
-        const style = getComputedStyle(element, '::before')
+    const arrowMetrics = await page.$eval('[data-selected-location-popover]', (element) => {
+      const style = getComputedStyle(element, '::before')
 
-        return {
-          top: style.top,
-          left: style.left,
-          position: style.position,
-          transform: style.transform,
-          width: style.width,
-          height: style.height,
-        }
-      },
-    )
+      return {
+        top: style.top,
+        left: style.left,
+        position: style.position,
+        transform: style.transform,
+        width: style.width,
+        height: style.height,
+      }
+    })
 
     console.log(JSON.stringify({ selector: '::before', computed: arrowMetrics }, null, 2))
   } finally {

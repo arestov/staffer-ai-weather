@@ -55,18 +55,22 @@ const main = async () => {
 
     const support = await page.evaluate(() => ({
       popover: typeof HTMLElement.prototype.showPopover === 'function',
-      anchorName: typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
-        ? CSS.supports('anchor-name: --selected-location-trigger')
-        : false,
-      positionAnchor: typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
-        ? CSS.supports('position-anchor: --selected-location-trigger')
-        : false,
-      anchorFn: typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
-        ? CSS.supports('top: anchor(bottom)')
-        : false,
-      anchorSize: typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
-        ? CSS.supports('width: anchor-size(--weather-shell width)')
-        : false,
+      anchorName:
+        typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
+          ? CSS.supports('anchor-name: --selected-location-trigger')
+          : false,
+      positionAnchor:
+        typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
+          ? CSS.supports('position-anchor: --selected-location-trigger')
+          : false,
+      anchorFn:
+        typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
+          ? CSS.supports('top: anchor(bottom)')
+          : false,
+      anchorSize:
+        typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
+          ? CSS.supports('width: anchor-size(--weather-shell width)')
+          : false,
     }))
 
     const data = await page.evaluate(async () => {
@@ -81,15 +85,22 @@ const main = async () => {
       const popoverLayer = document.querySelector('[data-selected-location-popover-layer]')
       const popoverSurface = document.querySelector('[data-selected-location-popover]')
       const triggerBox = trigger.getBoundingClientRect().toJSON()
-      const layerBox = popoverLayer instanceof HTMLElement ? popoverLayer.getBoundingClientRect().toJSON() : null
-      const surfaceBox = popoverSurface instanceof HTMLElement ? popoverSurface.getBoundingClientRect().toJSON() : null
-      const layerStyle = popoverLayer instanceof HTMLElement ? {
-        position: getComputedStyle(popoverLayer).position,
-        top: getComputedStyle(popoverLayer).top,
-        left: getComputedStyle(popoverLayer).left,
-        width: getComputedStyle(popoverLayer).width,
-        display: getComputedStyle(popoverLayer).display,
-      } : null
+      const layerBox =
+        popoverLayer instanceof HTMLElement ? popoverLayer.getBoundingClientRect().toJSON() : null
+      const surfaceBox =
+        popoverSurface instanceof HTMLElement
+          ? popoverSurface.getBoundingClientRect().toJSON()
+          : null
+      const layerStyle =
+        popoverLayer instanceof HTMLElement
+          ? {
+              position: getComputedStyle(popoverLayer).position,
+              top: getComputedStyle(popoverLayer).top,
+              left: getComputedStyle(popoverLayer).left,
+              width: getComputedStyle(popoverLayer).width,
+              display: getComputedStyle(popoverLayer).display,
+            }
+          : null
 
       return {
         title: document.title,
@@ -98,7 +109,10 @@ const main = async () => {
         surfaceBox,
         layerStyle,
         popoverText: popoverSurface?.textContent ?? null,
-        currentPopoverFor: popoverLayer instanceof HTMLElement ? popoverLayer.getAttribute('data-popover-for') : null,
+        currentPopoverFor:
+          popoverLayer instanceof HTMLElement
+            ? popoverLayer.getAttribute('data-popover-for')
+            : null,
       }
     })
 

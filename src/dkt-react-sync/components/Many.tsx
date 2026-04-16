@@ -1,9 +1,9 @@
+import { useSyncExternalStore } from 'react'
 import { ScopeContext } from '../context/ScopeContext'
 import { useReactScopeRuntime } from '../hooks/useReactScopeRuntime'
+import { useScope } from '../hooks/useScope'
 import { useShape } from '../hooks/useShape'
 import { getRelShape } from '../shape/autoShapes'
-import { useScope } from '../hooks/useScope'
-import { useSyncExternalStore } from 'react'
 
 const EMPTY_ITEMS = Object.freeze([]) as readonly []
 
@@ -30,8 +30,7 @@ export const Many = ({
     () => (scope ? runtime.readMany(scope, rel) : EMPTY_ITEMS),
   )
 
-  const visibleItems =
-    typeof limit === 'number' ? items.slice(0, Math.max(0, limit)) : items
+  const visibleItems = typeof limit === 'number' ? items.slice(0, Math.max(0, limit)) : items
 
   if (!scope || !visibleItems.length) {
     return <>{empty}</>
@@ -47,9 +46,3 @@ export const Many = ({
     </>
   )
 }
-
-
-
-
-
-

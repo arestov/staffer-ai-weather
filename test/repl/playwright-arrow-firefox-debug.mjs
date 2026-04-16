@@ -32,13 +32,30 @@ const main = async () => {
 
         const arrowRect = arrow.getBoundingClientRect()
         const arrowStyle = getComputedStyle(arrow)
-        const isPopoverOpen = popover && (() => { try { return popover.matches(':popover-open') } catch { return false } })()
-        const isArrowOpen = (() => { try { return arrow.matches(':popover-open') } catch { return false } })()
+        const isPopoverOpen =
+          popover &&
+          (() => {
+            try {
+              return popover.matches(':popover-open')
+            } catch {
+              return false
+            }
+          })()
+        const isArrowOpen = (() => {
+          try {
+            return arrow.matches(':popover-open')
+          } catch {
+            return false
+          }
+        })()
 
         // Find the active anchor
         const activeAnchor = document.querySelector('[data-popover-anchor="active"]')
         const anchorRect = activeAnchor ? activeAnchor.getBoundingClientRect() : null
-        const anchorId = activeAnchor?.closest('[data-selected-location-id]')?.getAttribute('data-selected-location-id') ?? null
+        const anchorId =
+          activeAnchor
+            ?.closest('[data-selected-location-id]')
+            ?.getAttribute('data-selected-location-id') ?? null
 
         return {
           isPopoverOpen,
@@ -72,23 +89,34 @@ const main = async () => {
     const state0 = await getArrowState()
     console.log(JSON.stringify(state0, null, 2))
 
-    // Now click via JS dispatch (force:true may not trigger React through popover)  
+    // Now click via JS dispatch (force:true may not trigger React through popover)
     for (let i = 1; i < Math.min(triggers.length, 5); i++) {
       console.log(`\n--- JS click trigger ${i} (popover already open) ---`)
 
       const triggerRect = await triggers[i].evaluate((el) => {
         const rect = el.getBoundingClientRect()
-        return { top: Math.round(rect.top), left: Math.round(rect.left), width: Math.round(rect.width) }
+        return {
+          top: Math.round(rect.top),
+          left: Math.round(rect.left),
+          width: Math.round(rect.width),
+        }
       })
       console.log(`  trigger rect: ${JSON.stringify(triggerRect)}`)
 
-      // Dispatch click directly on the button element  
+      // Dispatch click directly on the button element
       await triggers[i].evaluate((el) => el.click())
-      
-      for (const [label, wait] of [['50ms', 50], ['200ms', 150], ['500ms', 300], ['1000ms', 500]]) {
+
+      for (const [label, wait] of [
+        ['50ms', 50],
+        ['200ms', 150],
+        ['500ms', 300],
+        ['1000ms', 500],
+      ]) {
         await page.waitForTimeout(wait)
         const state = await getArrowState()
-        console.log(`  after ${label}: arrowOpen=${state.isArrowOpen} arrowLeft=${state.arrowRect?.left} anchorLeft=${state.anchorRect?.left} anchorId=${state.anchorId} popoverFor=${state.popoverFor}`)
+        console.log(
+          `  after ${label}: arrowOpen=${state.isArrowOpen} arrowLeft=${state.arrowRect?.left} anchorLeft=${state.anchorRect?.left} anchorId=${state.anchorId} popoverFor=${state.popoverFor}`,
+        )
       }
     }
 
@@ -101,7 +129,6 @@ const main = async () => {
     await page.waitForTimeout(600)
     const stateReopen = await getArrowState()
     console.log('After reopen:', JSON.stringify(stateReopen, null, 2))
-
   } finally {
     await browser.close().catch(() => {})
   }

@@ -88,7 +88,6 @@ export function AppHeader({
             <strong>{sessionId || 'pending'}</strong>
           </div>
         </div>
-
       </header>
     </div>
   )

@@ -1,10 +1,6 @@
 import { useAttrs } from '../../dkt-react-sync/hooks/useAttrs'
 import type { LocationSearchResult } from '../../models/WeatherLocation'
-import {
-  readBooleanAttr,
-  readNullableStringAttr,
-  readStringAttr,
-} from '../../shared/attrReaders'
+import { readBooleanAttr, readNullableStringAttr, readStringAttr } from '../../shared/attrReaders'
 
 const toLocationSearchResults = (value: unknown): LocationSearchResult[] => {
   if (!Array.isArray(value)) {

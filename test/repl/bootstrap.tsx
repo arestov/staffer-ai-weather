@@ -1,7 +1,7 @@
 import { createRoot, type Root } from 'react-dom/client'
 import App from '../../src/components/App'
-import { AppRoot } from '../../src/models/AppRoot'
 import type { ReactSyncScopeHandle } from '../../src/dkt-react-sync/scope/ScopeHandle'
+import { AppRoot } from '../../src/models/AppRoot'
 import { createPageSyncReceiverRuntime } from '../../src/page/createPageSyncReceiverRuntime'
 import type { ReactSyncTransportMessage } from '../../src/shared/messageTypes'
 import { createWeatherModelRuntime } from '../../src/worker/model-runtime'
@@ -61,10 +61,7 @@ const createAsyncTransportBridge = <Message,>() => {
               try {
                 listener(message)
               } catch (error) {
-                console.error(
-                  `[weather-repl:${label}] transport listener failed`,
-                  error,
-                )
+                console.error(`[weather-repl:${label}] transport listener failed`, error)
                 throw error
               }
             }
@@ -135,9 +132,7 @@ const waitForImmediate = () =>
     setImmediate(resolve)
   })
 
-const waitForReady = async (
-  runtime: ReturnType<typeof createPageSyncReceiverRuntime>,
-) => {
+const waitForReady = async (runtime: ReturnType<typeof createPageSyncReceiverRuntime>) => {
   for (let i = 0; i < 200; i += 1) {
     const snapshot = runtime.getSnapshot()
 
@@ -251,4 +246,3 @@ export const createWeatherReplHarness = async ({
 
   return harness
 }
-

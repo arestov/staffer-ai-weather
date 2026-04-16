@@ -62,9 +62,7 @@ export interface WorkerP2PBridgeConfig {
 /**
  * Creates a WorkerP2PBridge using a pluggable signaling layer.
  */
-export const createWorkerP2PBridge = (
-  config: WorkerP2PBridgeConfig,
-): WorkerP2PBridge => {
+export const createWorkerP2PBridge = (config: WorkerP2PBridgeConfig): WorkerP2PBridge => {
   let role: P2PBridgeRole = 'undecided'
   let serverPeerId: string | null = null
   let destroyed = false
@@ -75,7 +73,10 @@ export const createWorkerP2PBridge = (
   const peerConnections = new Map<string, RTCPeerConnection>()
   const dataChannels = new Map<string, RTCDataChannel>()
   const knownMembers = new Map<string, { peerId: string; joinedAt: number; role: string }>()
-  const remoteTransports = new Map<string, { receive(msg: ReactSyncTransportMessage): void; destroy(): void }>()
+  const remoteTransports = new Map<
+    string,
+    { receive(msg: ReactSyncTransportMessage): void; destroy(): void }
+  >()
 
   /** Messages queued while client DataChannel to server isn't open yet. */
   const pendingToServer: ReactSyncTransportMessage[] = []
@@ -154,7 +155,10 @@ export const createWorkerP2PBridge = (
 
   const createPC = (remotePeerId: string, initiator: boolean) => {
     const old = peerConnections.get(remotePeerId)
-    if (old) { old.close(); peerConnections.delete(remotePeerId) }
+    if (old) {
+      old.close()
+      peerConnections.delete(remotePeerId)
+    }
 
     const pc = new RTCPeerConnection(rtcConfig)
     peerConnections.set(remotePeerId, pc)
@@ -283,7 +287,10 @@ export const createWorkerP2PBridge = (
       case 'role-announce': {
         const m = knownMembers.get(msg.fromPeerId)
         if (m) m.role = msg.role as string
-        if (msg.role === 'server' && (role === 'undecided' || (role === 'client' && serverPeerId !== msg.fromPeerId))) {
+        if (
+          msg.role === 'server' &&
+          (role === 'undecided' || (role === 'client' && serverPeerId !== msg.fromPeerId))
+        ) {
           await becomeClient(msg.fromPeerId)
         }
         break
@@ -292,7 +299,9 @@ export const createWorkerP2PBridge = (
       case 'offer': {
         if (role !== 'server') break
         const pc = createPC(msg.fromPeerId, false)
-        await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp as RTCSessionDescriptionInit))
+        await pc.setRemoteDescription(
+          new RTCSessionDescription(msg.sdp as RTCSessionDescriptionInit),
+        )
         const answer = await pc.createAnswer()
         await pc.setLocalDescription(answer)
 
@@ -309,7 +318,10 @@ export const createWorkerP2PBridge = (
 
       case 'answer': {
         const pc = peerConnections.get(msg.fromPeerId)
-        if (pc) await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp as RTCSessionDescriptionInit))
+        if (pc)
+          await pc.setRemoteDescription(
+            new RTCSessionDescription(msg.sdp as RTCSessionDescriptionInit),
+          )
         break
       }
 
@@ -323,7 +335,10 @@ export const createWorkerP2PBridge = (
         if (msg.fromPeerId === serverPeerId) {
           knownMembers.delete(msg.fromPeerId)
           const pc = peerConnections.get(msg.fromPeerId)
-          if (pc) { pc.close(); peerConnections.delete(msg.fromPeerId) }
+          if (pc) {
+            pc.close()
+            peerConnections.delete(msg.fromPeerId)
+          }
           dataChannels.delete(msg.fromPeerId)
           handleServerGone()
         }
@@ -341,7 +356,11 @@ export const createWorkerP2PBridge = (
     events: {
       onMemberJoined(remotePeerId, remoteJoinedAt) {
         if (destroyed) return
-        knownMembers.set(remotePeerId, { peerId: remotePeerId, joinedAt: remoteJoinedAt, role: 'undecided' })
+        knownMembers.set(remotePeerId, {
+          peerId: remotePeerId,
+          joinedAt: remoteJoinedAt,
+          role: 'undecided',
+        })
         // If we're server and there's no DO-based leader assignment, schedule election
         if (role === 'undecided' && !leaderAssignedByServer) scheduleElection()
         if (role === 'server') {
@@ -361,7 +380,10 @@ export const createWorkerP2PBridge = (
         if (destroyed) return
         knownMembers.delete(remotePeerId)
         const pc = peerConnections.get(remotePeerId)
-        if (pc) { pc.close(); peerConnections.delete(remotePeerId) }
+        if (pc) {
+          pc.close()
+          peerConnections.delete(remotePeerId)
+        }
         dataChannels.delete(remotePeerId)
 
         if (remotePeerId === serverPeerId) {
@@ -380,7 +402,10 @@ export const createWorkerP2PBridge = (
         if (destroyed) return
         leaderAssignedByServer = true
         // Server-side leader election — takes precedence over local election
-        if (electionTimer) { clearTimeout(electionTimer); electionTimer = null }
+        if (electionTimer) {
+          clearTimeout(electionTimer)
+          electionTimer = null
+        }
         if (leaderPeerId === peerId) {
           if (role !== 'server') becomeServer()
         } else {
@@ -392,7 +417,9 @@ export const createWorkerP2PBridge = (
 
       onSignal(msg) {
         if (destroyed) return
-        handleSignal(msg as { kind: string; fromPeerId: string; toPeerId?: string; [key: string]: unknown })
+        handleSignal(
+          msg as { kind: string; fromPeerId: string; toPeerId?: string; [key: string]: unknown },
+        )
       },
 
       onConnected() {
@@ -419,8 +446,12 @@ export const createWorkerP2PBridge = (
   // ── Public interface ──────────────────────────────────────────
 
   return {
-    get role() { return role },
-    get peerId() { return peerId },
+    get role() {
+      return role
+    },
+    get peerId() {
+      return peerId
+    },
 
     sendToServer(message: ReactSyncTransportMessage) {
       if (role !== 'client' || !serverPeerId) return
@@ -451,7 +482,10 @@ export const createWorkerP2PBridge = (
       if (destroyed) return
       destroyed = true
 
-      if (electionTimer) { clearTimeout(electionTimer); electionTimer = null }
+      if (electionTimer) {
+        clearTimeout(electionTimer)
+        electionTimer = null
+      }
 
       if (role === 'server') {
         signaling?.sendSignal({

@@ -30,7 +30,10 @@ describe('geo-location-api', () => {
 
   describe('fetchCountryIs', () => {
     test('returns ip and country from country.is', async () => {
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeJsonResponse({ ip: '1.2.3.4', country: 'DE' })))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(makeJsonResponse({ ip: '1.2.3.4', country: 'DE' })),
+      )
 
       const result = await fetchCountryIs()
 
@@ -81,9 +84,7 @@ describe('geo-location-api', () => {
     test('throws when geocoding returns an empty list', async () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeJsonResponse({ results: [] })))
 
-      await expect(fetchOpenMeteoGeocoding('Unknown')).rejects.toThrow(
-        'No geocoding results found',
-      )
+      await expect(fetchOpenMeteoGeocoding('Unknown')).rejects.toThrow('No geocoding results found')
     })
 
     test('throws when Open-Meteo geocoding returns non-ok response', async () => {
@@ -137,7 +138,9 @@ describe('geo-location-api', () => {
       const fetchMock = vi
         .fn()
         .mockResolvedValueOnce(makeJsonResponse({ ip: '9.9.9.9', country: 'XX' }))
-        .mockResolvedValueOnce(makeJsonResponse({ results: [{ ...berlinGeocodingResult, name: 'XX' }] }))
+        .mockResolvedValueOnce(
+          makeJsonResponse({ results: [{ ...berlinGeocodingResult, name: 'XX' }] }),
+        )
 
       vi.stubGlobal('fetch', fetchMock)
 

@@ -3,10 +3,7 @@ import type { ApplyWeatherPayload } from '../models/WeatherLocation'
 export interface WeatherLoaderApi {
   source_name: 'weatherLoader'
   errors_fields: string[]
-  loadByCoordinates(input: {
-    latitude: number
-    longitude: number
-  }): Promise<ApplyWeatherPayload>
+  loadByCoordinates(input: { latitude: number; longitude: number }): Promise<ApplyWeatherPayload>
 }
 
 type OpenMeteoCurrentRaw = {
@@ -84,7 +81,8 @@ export const fetchWeatherFromOpenMeteo = async (
     current: 'temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m',
     hourly: 'temperature_2m,precipitation_probability,weather_code,wind_speed_10m',
     forecast_hours: '12',
-    daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset',
+    daily:
+      'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset',
     forecast_days: '5',
     timezone: 'auto',
   })
@@ -95,7 +93,7 @@ export const fetchWeatherFromOpenMeteo = async (
     throw new Error(`Open-Meteo responded with ${response.status}`)
   }
 
-  const raw = await response.json() as OpenMeteoRawResponse
+  const raw = (await response.json()) as OpenMeteoRawResponse
   return normalizeWeatherResponse(raw)
 }
 
@@ -106,4 +104,3 @@ export const createWeatherLoaderApi = (): WeatherLoaderApi => ({
     return fetchWeatherFromOpenMeteo(latitude, longitude)
   },
 })
-

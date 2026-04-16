@@ -1,16 +1,12 @@
 import { model } from 'dkt/model.js'
 import { isLocationSearchResult } from './WeatherLocation'
 import {
-  WEATHER_LOCATION_REPLACEMENT_CREATION_SHAPE,
   WEATHER_LOCATION_BASE_CREATION_SHAPE,
+  WEATHER_LOCATION_REPLACEMENT_CREATION_SHAPE,
 } from './weatherSeed'
 
-const makeParentRel = () => [
-  'comp',
-  ['<<<< ^'],
-  (parent: unknown) => parent,
-  { linking: '<<<< ^' },
-] as const
+const makeParentRel = () =>
+  ['comp', ['<<<< ^'], (parent: unknown) => parent, { linking: '<<<< ^' }] as const
 
 const WEATHER_LOCATION_REF_ID = 'new_weather_location'
 
@@ -21,8 +17,7 @@ export const SelectedLocation = model({
   },
   rels: {
     weatherLocation: ['input', { linking: '<< weatherLocation << #' }],
-    nav_parent_at_perspectivator_weather_selected_location_popover_router:
-      makeParentRel(),
+    nav_parent_at_perspectivator_weather_selected_location_popover_router: makeParentRel(),
   },
   actions: {
     replaceWeatherLocation: {

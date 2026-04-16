@@ -1,8 +1,8 @@
-import { Suspense, lazy } from 'react'
+import { lazy, Suspense } from 'react'
 import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
 
 const LazyWeatherConditionIcon = lazy(() =>
-  import('./WeatherConditionIcon').then(m => ({ default: m.WeatherConditionIcon })),
+  import('./WeatherConditionIcon').then((m) => ({ default: m.WeatherConditionIcon })),
 )
 
 // ---------------------------------------------------------------------------
@@ -13,7 +13,13 @@ const LazyWeatherConditionIcon = lazy(() =>
 function renderTemp(text: string): React.ReactNode {
   const idx = text.lastIndexOf('°C')
   if (idx === -1) return text
-  return <>{text.slice(0, idx)}<span className="temp-unit">°C</span>{text.slice(idx + 2)}</>
+  return (
+    <>
+      {text.slice(0, idx)}
+      <span className="temp-unit">°C</span>
+      {text.slice(idx + 2)}
+    </>
+  )
 }
 
 const renderDailyTitleDetail = ({
@@ -112,7 +118,11 @@ function dedupeWeatherCodes(
   for (let i = 0; i < codes.length; i++) {
     const code = codes[i]
     if (code !== null && code !== prev) {
-      items.push({ col: columnIndex ? columnIndex(i) : i, weatherCode: code, summary: summaries[i] || '' })
+      items.push({
+        col: columnIndex ? columnIndex(i) : i,
+        weatherCode: code,
+        summary: summaries[i] || '',
+      })
     }
     if (code !== null) prev = code
   }
@@ -134,13 +144,9 @@ function SparklineTextTrack({
   return (
     <div className="sparkline-text-track">
       {items.map(({ col, text }) => {
-        const leftPct = (col * (dashW + DASH_GAP)) / VB_WIDTH * 100
+        const leftPct = ((col * (dashW + DASH_GAP)) / VB_WIDTH) * 100
         return (
-          <span
-            key={col}
-            className="sparkline-text-track__label"
-            style={{ left: `${leftPct}%` }}
-          >
+          <span key={col} className="sparkline-text-track__label" style={{ left: `${leftPct}%` }}>
             {text}
           </span>
         )
@@ -160,20 +166,26 @@ function SparklineIconTrack({
   if (!items.length) return null
 
   const dashW = (VB_WIDTH - (count - 1) * DASH_GAP) / count
-  const stepPct = (dashW + DASH_GAP) / VB_WIDTH * 100
-  const gapPct = DASH_GAP / VB_WIDTH * 100
+  const stepPct = ((dashW + DASH_GAP) / VB_WIDTH) * 100
+  const gapPct = (DASH_GAP / VB_WIDTH) * 100
 
   return (
     <div className="sparkline-icon-track">
       {items.map(({ col, weatherCode, summary }) => {
-        const leftPct = (col * (dashW + DASH_GAP)) / VB_WIDTH * 100
+        const leftPct = ((col * (dashW + DASH_GAP)) / VB_WIDTH) * 100
         return (
           <div
             key={col}
             className="sparkline-icon-track__icon"
             role="img"
             aria-label={summary}
-            style={{ left: `${leftPct}%`, width: `${stepPct}%`, '--sparkline-gap': `${gapPct}%` } as React.CSSProperties}
+            style={
+              {
+                left: `${leftPct}%`,
+                width: `${stepPct}%`,
+                '--sparkline-gap': `${gapPct}%`,
+              } as React.CSSProperties
+            }
           >
             <Suspense fallback={null}>
               <LazyWeatherConditionIcon weatherCode={weatherCode} isDay={true} />
@@ -279,10 +291,25 @@ export function HourlySparklineSection() {
 
   if (!data || !data.temperatures.length) return null
 
-  const { temperatures, minC, maxC, count, firstLabel, lastLabel, firstTemp, lastTemp, weatherCodes, weatherSummaries } = data
+  const {
+    temperatures,
+    minC,
+    maxC,
+    count,
+    firstLabel,
+    lastLabel,
+    firstTemp,
+    lastTemp,
+    weatherCodes,
+    weatherSummaries,
+  } = data
 
   const iconTrackItems = dedupeWeatherCodes(weatherCodes, weatherSummaries)
-  const titleDetail = <>{count}h · {Math.round(minC)}–{Math.round(maxC)} <span className="temp-unit">°C</span></>
+  const titleDetail = (
+    <>
+      {count}h · {Math.round(minC)}–{Math.round(maxC)} <span className="temp-unit">°C</span>
+    </>
+  )
 
   return (
     <div className="sparkline-section">
@@ -314,7 +341,19 @@ export function DailySparklineSection() {
 
   if (!data || !data.temperatures.length) return null
 
-  const { temperatures, opacities, count, firstLabel, lastLabel, firstTemp, lastTemp, dayRange, nightRange, weatherCodes, weatherSummaries } = data
+  const {
+    temperatures,
+    opacities,
+    count,
+    firstLabel,
+    lastLabel,
+    firstTemp,
+    lastTemp,
+    dayRange,
+    nightRange,
+    weatherCodes,
+    weatherSummaries,
+  } = data
 
   const iconTrackItems = dedupeWeatherCodes(weatherCodes, weatherSummaries, (i) => i * 2)
   const titleDetail = renderDailyTitleDetail({ dayCount: count, dayRange, nightRange })

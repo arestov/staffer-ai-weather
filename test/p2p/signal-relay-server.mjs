@@ -42,7 +42,11 @@ const broadcastRoomState = (room, roomId) => {
 const pickNextLeader = (room) => {
   let oldest = null
   for (const peer of room.peers.values()) {
-    if (!oldest || peer.joinedAt < oldest.joinedAt || (peer.joinedAt === oldest.joinedAt && peer.peerId < oldest.peerId)) {
+    if (
+      !oldest ||
+      peer.joinedAt < oldest.joinedAt ||
+      (peer.joinedAt === oldest.joinedAt && peer.peerId < oldest.peerId)
+    ) {
       oldest = peer
     }
   }
@@ -91,7 +95,10 @@ wss.on('connection', (ws) => {
     }
 
     // Signal relay (offer / answer / ice-candidate)
-    if ((msg.type === 'offer' || msg.type === 'answer' || msg.type === 'ice-candidate') && currentRoomId) {
+    if (
+      (msg.type === 'offer' || msg.type === 'answer' || msg.type === 'ice-candidate') &&
+      currentRoomId
+    ) {
       const room = rooms.get(currentRoomId)
       if (!room) return
 

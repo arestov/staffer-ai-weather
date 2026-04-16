@@ -1,5 +1,5 @@
 import { toErrorMessage } from '../weatherFormat'
-import { isSearchRequest, isCurrentLocationRequest } from './helpers'
+import { isCurrentLocationRequest, isSearchRequest } from './helpers'
 
 export const popoverRouterEffects = {
   api: {
@@ -60,7 +60,10 @@ export const popoverRouterEffects = {
         async (
           api: {
             detectLocation: () => Promise<unknown>
-            detectLocationByCoordinates: (coords: { latitude: number; longitude: number }) => Promise<unknown>
+            detectLocationByCoordinates: (coords: {
+              latitude: number
+              longitude: number
+            }) => Promise<unknown>
           },
           _opts: unknown,
           currentLocationRequest: unknown,
@@ -70,12 +73,13 @@ export const popoverRouterEffects = {
           }
 
           try {
-            const result = currentLocationRequest.kind === 'browserCoordinates'
-              ? await api.detectLocationByCoordinates({
-                latitude: currentLocationRequest.latitude,
-                longitude: currentLocationRequest.longitude,
-              })
-              : await api.detectLocation()
+            const result =
+              currentLocationRequest.kind === 'browserCoordinates'
+                ? await api.detectLocationByCoordinates({
+                    latitude: currentLocationRequest.latitude,
+                    longitude: currentLocationRequest.longitude,
+                  })
+                : await api.detectLocation()
             return {
               ok: true as const,
               requestId: currentLocationRequest.requestId,
@@ -100,13 +104,11 @@ export const popoverRouterEffects = {
       create_when: {
         api_inits: true,
       },
-      fn: (
-        self: {
-          resetRequestedState: (name: string) => unknown
-          input: (callback: () => void) => unknown
-          requestState: (name: string) => unknown
-        },
-      ) => {
+      fn: (self: {
+        resetRequestedState: (name: string) => unknown
+        input: (callback: () => void) => unknown
+        requestState: (name: string) => unknown
+      }) => {
         self.resetRequestedState('searchResponseData')
         self.input(() => {
           self.requestState('searchResponseData')
@@ -155,13 +157,11 @@ export const popoverRouterEffects = {
       create_when: {
         api_inits: true,
       },
-      fn: (
-        self: {
-          resetRequestedState: (name: string) => unknown
-          input: (callback: () => void) => unknown
-          requestState: (name: string) => unknown
-        },
-      ) => {
+      fn: (self: {
+        resetRequestedState: (name: string) => unknown
+        input: (callback: () => void) => unknown
+        requestState: (name: string) => unknown
+      }) => {
         self.resetRequestedState('currentLocationResponseData')
         self.input(() => {
           self.requestState('currentLocationResponseData')

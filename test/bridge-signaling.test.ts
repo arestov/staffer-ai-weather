@@ -44,7 +44,9 @@ class MockWebSocket {
 
   // ─ Test helpers ─
   static instances: MockWebSocket[] = []
-  static reset() { MockWebSocket.instances = [] }
+  static reset() {
+    MockWebSocket.instances = []
+  }
 
   /** Simulate the open event */
   simulateOpen() {

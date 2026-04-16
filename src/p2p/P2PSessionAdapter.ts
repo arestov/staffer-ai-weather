@@ -12,12 +12,12 @@
  */
 import type { DomSyncTransportLike } from 'dkt/dom-sync/transport.js'
 import { APP_MSG, type ReactSyncTransportMessage } from '../shared/messageTypes'
+import type { BridgeSignalingFactory } from './BridgeSignaling'
 import {
   createWorkerP2PBridge,
   type WorkerP2PBridge,
   type WorkerP2PBridgeConfig,
 } from './WorkerP2PBridge'
-import type { BridgeSignalingFactory } from './BridgeSignaling'
 
 type RuntimeConnector = {
   connect(transport: DomSyncTransportLike<ReactSyncTransportMessage>): {
@@ -95,7 +95,9 @@ const createVirtualPeerTransport = (
     },
     listen(listener: (msg: ReactSyncTransportMessage) => void) {
       listeners.add(listener)
-      return () => { listeners.delete(listener) }
+      return () => {
+        listeners.delete(listener)
+      }
     },
     destroy() {
       destroyed = true
@@ -103,14 +105,14 @@ const createVirtualPeerTransport = (
     },
     _receive(msg: ReactSyncTransportMessage) {
       if (destroyed) return
-      for (const fn of listeners) { fn(msg) }
+      for (const fn of listeners) {
+        fn(msg)
+      }
     },
   }
 }
 
-export const createP2PSessionAdapter = (
-  config: P2PSessionAdapterConfig,
-): P2PSessionAdapter => {
+export const createP2PSessionAdapter = (config: P2PSessionAdapterConfig): P2PSessionAdapter => {
   let localRuntime: RuntimeConnector | null = null
   let destroyed = false
 
@@ -124,10 +126,7 @@ export const createP2PSessionAdapter = (
   >()
 
   // Remote peer virtual transports and their runtime connections (server mode)
-  const remotePeerTransports = new Map<
-    string,
-    ReturnType<typeof createVirtualPeerTransport>
-  >()
+  const remotePeerTransports = new Map<string, ReturnType<typeof createVirtualPeerTransport>>()
   const remotePeerConnections = new Map<string, { destroy(): Promise<void> | void }>()
 
   // Role decision promise
@@ -172,7 +171,10 @@ export const createP2PSessionAdapter = (
     for (const [transport, entry] of pageEntries) {
       if (currentRole === 'server' && !entry.runtimeConnection && localRuntime) {
         // Tear down relay if transitioning from client → server
-        if (entry.unlisten) { entry.unlisten(); entry.unlisten = null }
+        if (entry.unlisten) {
+          entry.unlisten()
+          entry.unlisten = null
+        }
         connectPageToRuntime(transport)
       } else if (currentRole === 'client' && !entry.unlisten && !entry.runtimeConnection) {
         startPageRelay(transport)
@@ -224,10 +226,16 @@ export const createP2PSessionAdapter = (
 
       onRemotePeerDisconnected(remotePeerId: string) {
         const conn = remotePeerConnections.get(remotePeerId)
-        if (conn) { conn.destroy(); remotePeerConnections.delete(remotePeerId) }
+        if (conn) {
+          conn.destroy()
+          remotePeerConnections.delete(remotePeerId)
+        }
 
         const vt = remotePeerTransports.get(remotePeerId)
-        if (vt) { vt.destroy(); remotePeerTransports.delete(remotePeerId) }
+        if (vt) {
+          vt.destroy()
+          remotePeerTransports.delete(remotePeerId)
+        }
       },
 
       onRemoteMessage(msg: ReactSyncTransportMessage) {

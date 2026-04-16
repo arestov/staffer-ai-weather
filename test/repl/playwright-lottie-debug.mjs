@@ -21,7 +21,7 @@ const waitForServer = async (url, timeoutMs = 30000) => {
       const res = await fetch(url)
       if (res.ok) return true
     } catch {}
-    await new Promise(r => setTimeout(r, 500))
+    await new Promise((r) => setTimeout(r, 500))
   }
   throw new Error(`Server did not start at ${url} within ${timeoutMs}ms`)
 }
@@ -41,8 +41,8 @@ const main = async () => {
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     needsKill = true
-    devProc.stdout.on('data', d => process.stdout.write(`[vite] ${d}`))
-    devProc.stderr.on('data', d => process.stderr.write(`[vite:err] ${d}`))
+    devProc.stdout.on('data', (d) => process.stdout.write(`[vite] ${d}`))
+    devProc.stderr.on('data', (d) => process.stderr.write(`[vite:err] ${d}`))
     await waitForServer(devUrl)
     console.log('[lottie-debug] Dev server ready')
   }
@@ -53,16 +53,16 @@ const main = async () => {
   // Collect console messages
   const consoleLogs = []
   const failedRequests = []
-  page.on('console', msg => {
+  page.on('console', (msg) => {
     const text = `[browser:${msg.type()}] ${msg.text()}`
     consoleLogs.push(text)
     console.log(text)
   })
-  page.on('pageerror', err => {
+  page.on('pageerror', (err) => {
     consoleLogs.push(`[browser:error] ${err.message}`)
     console.error(`[browser:error] ${err.message}`)
   })
-  page.on('response', response => {
+  page.on('response', (response) => {
     if (response.status() >= 400) {
       const line = `[network:${response.status()}] ${response.url()}`
       failedRequests.push(line)
@@ -130,7 +130,8 @@ const main = async () => {
 
       for (const container of containers) {
         const canvases = container.querySelectorAll('canvas')
-        const label = container.closest('[data-testcard]')?.getAttribute('data-testcard') ?? 'unknown'
+        const label =
+          container.closest('[data-testcard]')?.getAttribute('data-testcard') ?? 'unknown'
 
         for (const canvas of canvases) {
           // Try to read actual pixel data from a 2D context
@@ -152,8 +153,12 @@ const main = async () => {
                   totalAlpha += a
                   if (samplePixels.length < 5) {
                     samplePixels.push({
-                      r: data[i], g: data[i+1], b: data[i+2], a,
-                      x: (i / 4) % canvas.width, y: Math.floor((i / 4) / canvas.width),
+                      r: data[i],
+                      g: data[i + 1],
+                      b: data[i + 2],
+                      a,
+                      x: (i / 4) % canvas.width,
+                      y: Math.floor(i / 4 / canvas.width),
                     })
                   }
                 }
@@ -210,8 +215,10 @@ const main = async () => {
     await page.screenshot({ path: screenshotPath, fullPage: true })
     console.log(`\n[lottie-debug] Screenshot saved to ${screenshotPath}`)
 
-    // Check for errors  
-    const errors = consoleLogs.filter(l => l.includes('error') || l.includes('Error') || l.includes('fail'))
+    // Check for errors
+    const errors = consoleLogs.filter(
+      (l) => l.includes('error') || l.includes('Error') || l.includes('fail'),
+    )
     if (errors.length > 0) {
       console.log('\n[lottie-debug] === CONSOLE ERRORS ===')
       for (const e of errors) console.log(e)
@@ -231,7 +238,7 @@ const main = async () => {
   }
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error(err)
   process.exit(1)
 })

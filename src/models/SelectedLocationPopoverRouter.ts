@@ -1,20 +1,20 @@
 import { input as inputAttrs } from 'dkt/dcl/attrs/input.js'
 import { model } from 'dkt/model.js'
 import { Router as RouterCore } from 'dkt-all/models/Router.js'
-import { isLocationSearchResult } from './WeatherLocation'
+import { popoverRouterEffects } from './SelectedLocationPopoverRouter/effects'
 import {
+  buildSearchingState,
+  buildSearchResetState,
+  isCurrentLocationFailurePayload,
+  isCurrentLocationResponsePayload,
+  isSearchFailurePayload,
+  isSearchResponsePayload,
   MIN_LOCATION_SEARCH_QUERY_LENGTH,
+  normalizeBrowserCoordinates,
   normalizeSearchInput,
   normalizeSearchRequestQuery,
-  isSearchResponsePayload,
-  isSearchFailurePayload,
-  buildSearchResetState,
-  buildSearchingState,
-  normalizeBrowserCoordinates,
-  isCurrentLocationResponsePayload,
-  isCurrentLocationFailurePayload,
 } from './SelectedLocationPopoverRouter/helpers'
-import { popoverRouterEffects } from './SelectedLocationPopoverRouter/effects'
+import { isLocationSearchResult } from './WeatherLocation'
 
 export const SelectedLocationPopoverRouter = model({
   extends: RouterCore,
@@ -38,7 +38,8 @@ export const SelectedLocationPopoverRouter = model({
     savedSearchLocations: [
       'comp',
       ['< @one:savedSearchLocations < $root'],
-      (savedSearchLocations: unknown) => (Array.isArray(savedSearchLocations) ? savedSearchLocations : []),
+      (savedSearchLocations: unknown) =>
+        Array.isArray(savedSearchLocations) ? savedSearchLocations : [],
     ],
     searchResponseData: ['input', null],
     currentLocationResponseData: ['input', null],
@@ -143,7 +144,8 @@ export const SelectedLocationPopoverRouter = model({
           searchResults: unknown,
           activeSearchRequestId: number,
         ) => {
-          const query = normalizeSearchRequestQuery(payload) || normalizeSearchRequestQuery(searchQuery)
+          const query =
+            normalizeSearchRequestQuery(payload) || normalizeSearchRequestQuery(searchQuery)
 
           if (query.length < MIN_LOCATION_SEARCH_QUERY_LENGTH) {
             return {}
@@ -186,10 +188,7 @@ export const SelectedLocationPopoverRouter = model({
       fn: [
         ['$noop', 'activeSearchRequestId'] as const,
         (payload: unknown, noop: unknown, activeSearchRequestId: number) => {
-          if (
-            !isSearchResponsePayload(payload) ||
-            payload.requestId !== activeSearchRequestId
-          ) {
+          if (!isSearchResponsePayload(payload) || payload.requestId !== activeSearchRequestId) {
             return noop
           }
 
@@ -210,10 +209,7 @@ export const SelectedLocationPopoverRouter = model({
       fn: [
         ['$noop', 'activeSearchRequestId'] as const,
         (payload: unknown, noop: unknown, activeSearchRequestId: number) => {
-          if (
-            !isSearchFailurePayload(payload) ||
-            payload.requestId !== activeSearchRequestId
-          ) {
+          if (!isSearchFailurePayload(payload) || payload.requestId !== activeSearchRequestId) {
             return noop
           }
 
@@ -293,7 +289,10 @@ export const SelectedLocationPopoverRouter = model({
         currentLocationStatus: ['currentLocationStatus'],
         currentLocationError: ['currentLocationError'],
         currentLocationRequest: ['currentLocationRequest'],
-        replaceWeatherLocation: ['<< current_mp_md', { action: 'replaceWeatherLocation', inline_subwalker: true }],
+        replaceWeatherLocation: [
+          '<< current_mp_md',
+          { action: 'replaceWeatherLocation', inline_subwalker: true },
+        ],
       },
       fn: [
         ['$noop', 'activeCurrentLocationRequestId', 'activeSearchRequestId'] as const,
@@ -353,7 +352,10 @@ export const SelectedLocationPopoverRouter = model({
         currentLocationStatus: ['currentLocationStatus'],
         currentLocationError: ['currentLocationError'],
         currentLocationRequest: ['currentLocationRequest'],
-        replaceWeatherLocation: ['<< current_mp_md', { action: 'replaceWeatherLocation', inline_subwalker: true }],
+        replaceWeatherLocation: [
+          '<< current_mp_md',
+          { action: 'replaceWeatherLocation', inline_subwalker: true },
+        ],
       },
       fn: [
         ['$noop', 'activeSearchRequestId'] as const,
@@ -371,7 +373,10 @@ export const SelectedLocationPopoverRouter = model({
     },
     saveLocationSearchResult: {
       to: {
-        saveLocationSearchResult: ['<<<< #', { action: 'saveLocationSearchResult', inline_subwalker: true }],
+        saveLocationSearchResult: [
+          '<<<< #',
+          { action: 'saveLocationSearchResult', inline_subwalker: true },
+        ],
       },
       fn: [
         ['$noop'] as const,
@@ -388,7 +393,10 @@ export const SelectedLocationPopoverRouter = model({
     },
     removeLocationSearchResult: {
       to: {
-        removeLocationSearchResult: ['<<<< #', { action: 'removeLocationSearchResult', inline_subwalker: true }],
+        removeLocationSearchResult: [
+          '<<<< #',
+          { action: 'removeLocationSearchResult', inline_subwalker: true },
+        ],
       },
       fn: [
         ['$noop'] as const,
@@ -405,4 +413,3 @@ export const SelectedLocationPopoverRouter = model({
     },
   },
 })
-

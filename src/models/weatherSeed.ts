@@ -15,7 +15,7 @@ export const buildSelectedLocationRecord = (weatherLocation: unknown, isAutoSele
 })
 
 export const buildInitialWeatherLocations = () =>
-  INITIAL_LOCATIONS.map(loc => ({
+  INITIAL_LOCATIONS.map((loc) => ({
     attrs: {
       name: loc.name,
       latitude: loc.latitude,
@@ -29,8 +29,7 @@ export const buildInitialSelectedLocations = (weatherLocations: unknown[]) => {
     throw new Error('weatherLocation should resolve to list')
   }
 
-  const [mainWeather, singaporeWeather, vancouverWeather, capeTownWeather] =
-    weatherLocations
+  const [mainWeather, singaporeWeather, vancouverWeather, capeTownWeather] = weatherLocations
 
   return [
     buildSelectedLocationRecord(mainWeather, true),
@@ -57,15 +56,29 @@ export const SELECTED_LOCATION_CREATION_SHAPE = {
 
 export const CURRENT_WEATHER_CREATION_SHAPE = {
   attrs: [
-    'location', 'updatedAt',
-    'temperatureC', 'apparentTemperatureC', 'weatherCode', 'isDay', 'windSpeed10m',
+    'location',
+    'updatedAt',
+    'temperatureC',
+    'apparentTemperatureC',
+    'weatherCode',
+    'isDay',
+    'windSpeed10m',
   ],
 }
 
 export const FORECAST_SERIES_CREATION_SHAPE = {
   attrs: [
-    'time', 'date', 'temperatureC', 'temperatureMaxC', 'temperatureMinC',
-    'precipitationProbability', 'precipitationProbabilityMax',
-    'weatherCode', 'windSpeed10m', 'windSpeedMax', 'sunrise', 'sunset',
+    'time',
+    'date',
+    'temperatureC',
+    'temperatureMaxC',
+    'temperatureMinC',
+    'precipitationProbability',
+    'precipitationProbabilityMax',
+    'weatherCode',
+    'windSpeed10m',
+    'windSpeedMax',
+    'sunrise',
+    'sunset',
   ],
 }

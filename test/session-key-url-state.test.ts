@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'vitest'
+import { createPageSyncReceiverRuntime } from '../src/page/createPageSyncReceiverRuntime'
 import {
   buildSessionKeyHash,
   normalizeSessionKey,
   resolveSessionKeyUrlState,
 } from '../src/page/sessionKeyUrlState'
-import { createPageSyncReceiverRuntime } from '../src/page/createPageSyncReceiverRuntime'
 import { APP_MSG } from '../src/shared/messageTypes'
 
 describe('session key url state', () => {

@@ -215,7 +215,7 @@ const COUNTRY_CITY_MAP: Record<string, string> = {
   VN: 'Hanoi',
   VU: 'Port Vila',
   WS: 'Apia',
-  YE: 'Sana\'a',
+  YE: "Sana'a",
   ZA: 'Cape Town',
   ZM: 'Lusaka',
   ZW: 'Harare',

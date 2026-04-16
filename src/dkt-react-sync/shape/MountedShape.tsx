@@ -13,5 +13,3 @@ export const MountedShape = ({
 
   return <>{children}</>
 }
-
-

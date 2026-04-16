@@ -59,5 +59,3 @@ export interface RelayEnvelope {
   relay: true
   payload: unknown
 }
-
-

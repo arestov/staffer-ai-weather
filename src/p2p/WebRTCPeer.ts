@@ -1,4 +1,4 @@
-import type { IceCandidateSignal, OfferSignal, AnswerSignal } from './types'
+import type { AnswerSignal, IceCandidateSignal, OfferSignal } from './types'
 
 export interface WebRTCPeerEvents {
   onOpen(): void

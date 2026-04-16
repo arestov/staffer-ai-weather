@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useMemo } from 'react'
+import { lazy, Suspense, useCallback, useMemo } from 'react'
 import { Many } from '../dkt-react-sync/components/Many'
 import { One } from '../dkt-react-sync/components/One'
 import { useActions } from '../dkt-react-sync/hooks/useActions'
@@ -40,7 +40,10 @@ export function WeatherGraph({
         <WeatherUpdateTimestamp />
 
         <section className="main-stage">
-          <One rel="mainLocation" fallback={<LocationFallback featured forecastLimit={forecastLimit} />}>
+          <One
+            rel="mainLocation"
+            fallback={<LocationFallback featured forecastLimit={forecastLimit} />}
+          >
             <FeaturedLocationCard forecastLimit={forecastLimit} />
           </One>
         </section>
@@ -71,8 +74,9 @@ const WeatherLocationInner = ({
   forecastLimit?: number
 }) => {
   const scope = useScope()
-  const { currentNodeId: popoverNodeId, openResource } =
-    useNamedSessionRouter(SELECTED_LOCATION_POPOVER_ROUTER_NAME)
+  const { currentNodeId: popoverNodeId, openResource } = useNamedSessionRouter(
+    SELECTED_LOCATION_POPOVER_ROUTER_NAME,
+  )
   const locationAttrs = useAttrs(['name'])
   const locationName = readStringAttr(locationAttrs.name)
   const selectedLocationId = scope?._nodeId ?? ''
@@ -102,7 +106,11 @@ const WeatherLocationInner = ({
 
   return (
     <div
-      className={featured ? 'selected-location-shell selected-location-shell--featured' : 'selected-location-shell'}
+      className={
+        featured
+          ? 'selected-location-shell selected-location-shell--featured'
+          : 'selected-location-shell'
+      }
       data-selected-location-id={selectedLocationId}
     >
       <button
@@ -127,11 +135,9 @@ const WeatherLocationInner = ({
   )
 }
 
-const FeaturedLocationCard = ({
-  forecastLimit,
-}: {
-  forecastLimit?: number
-}) => <WeatherLocationInner featured forecastLimit={forecastLimit} />
+const FeaturedLocationCard = ({ forecastLimit }: { forecastLimit?: number }) => (
+  <WeatherLocationInner featured forecastLimit={forecastLimit} />
+)
 
 const AdditionalLocationCard = () => <WeatherLocationInner />
 
@@ -205,13 +211,11 @@ function WeatherLocationErrorNotice() {
 
 function WeatherUpdateTimestamp() {
   const attrs = useAttrs(['weatherUpdatedSummary'])
-  const summary = attrs.weatherUpdatedSummary as
-    | {
-        dateTime: string | null
-        shortText: string
-        title: string
-      }
-    | null
+  const summary = attrs.weatherUpdatedSummary as {
+    dateTime: string | null
+    shortText: string
+    title: string
+  } | null
 
   if (!summary) {
     return null
@@ -247,4 +251,3 @@ function GraphFallback() {
     </div>
   )
 }
-

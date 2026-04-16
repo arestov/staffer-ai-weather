@@ -355,19 +355,12 @@ export class ReactSyncReceiver {
     }
   }
 
-  subscribeNodeAttrs(
-    nodeId: string | null,
-    attrNames: readonly string[],
-    listener: Listener,
-  ) {
+  subscribeNodeAttrs(nodeId: string | null, attrNames: readonly string[], listener: Listener) {
     if (!nodeId) {
       return noop
     }
 
-    const nodeStore = this.ensureNodeNamedSubs(
-      this.attrSubsByNodeId,
-      nodeId,
-    )
+    const nodeStore = this.ensureNodeNamedSubs(this.attrSubsByNodeId, nodeId)
     const cleanups: Array<() => void> = []
 
     for (let i = 0; i < attrNames.length; i += 1) {
@@ -401,11 +394,7 @@ export class ReactSyncReceiver {
       if (nextRootNodeId !== currentRootNodeId) {
         stopAttrs()
         currentRootNodeId = nextRootNodeId
-        stopAttrs = this.subscribeNodeAttrs(
-          currentRootNodeId,
-          attrNames,
-          listener,
-        )
+        stopAttrs = this.subscribeNodeAttrs(currentRootNodeId, attrNames, listener)
       }
 
       listener()
@@ -550,8 +539,7 @@ export class ReactSyncReceiver {
     node_id?: string | number | null
     data?: readonly [DictKey, number | null, number | string | null]
   }) {
-    const nextRootNodeId =
-      payload?.node_id == null ? null : toNodeId(payload.node_id)
+    const nextRootNodeId = payload?.node_id == null ? null : toNodeId(payload.node_id)
     const previousRootNodeId = this.rootNodeId
 
     if (nextRootNodeId) {
@@ -586,11 +574,7 @@ export class ReactSyncReceiver {
           const nodeId = toNodeId(list[cursor + SYNC_ATTRS_NODE_ID])
           const changesLength = Number(list[cursor + SYNC_ATTRS_CHANGES_LENGTH] ?? 0)
           const start = cursor + SYNC_ATTRS_PAYLOAD
-          this.applyAttrsFlat(
-            nodeId,
-            list.slice(start, start + changesLength),
-            dirtyAttrsByNodeId,
-          )
+          this.applyAttrsFlat(nodeId, list.slice(start, start + changesLength), dirtyAttrsByNodeId)
           cursor = start + changesLength
           break
         }
@@ -612,8 +596,7 @@ export class ReactSyncReceiver {
             nodeId,
             (list[cursor + SYNC_TREE_BASE_MODEL_NAME] as DictKey) ?? null,
             (list[cursor + SYNC_TREE_BASE_HIERARCHY_NUM] as number | null) ?? null,
-            (list[cursor + SYNC_TREE_BASE_CONSTR_ID] as number | string | null) ??
-              null,
+            (list[cursor + SYNC_TREE_BASE_CONSTR_ID] as number | string | null) ?? null,
           )
           cursor += SYNC_TREE_BASE_LENGTH
           break
@@ -805,11 +788,7 @@ export class ReactSyncReceiver {
     notifyAll(listenersToNotify)
   }
 
-  private pushDirtyName(
-    dirtyByNodeId: Map<string, Set<string>>,
-    nodeId: string,
-    name: string,
-  ) {
+  private pushDirtyName(dirtyByNodeId: Map<string, Set<string>>, nodeId: string, name: string) {
     let nodeDirty = dirtyByNodeId.get(nodeId)
     if (!nodeDirty) {
       nodeDirty = new Set()
@@ -847,10 +826,7 @@ export class ReactSyncReceiver {
     return this.dictFlat?.[key] ?? null
   }
 
-  private ensureNodeNamedSubs(
-    store: Map<string, Map<string, Set<Listener>>>,
-    nodeId: string,
-  ) {
+  private ensureNodeNamedSubs(store: Map<string, Map<string, Set<Listener>>>, nodeId: string) {
     let nodeStore = store.get(nodeId)
     if (!nodeStore) {
       nodeStore = new Map()
@@ -860,10 +836,7 @@ export class ReactSyncReceiver {
     return nodeStore
   }
 
-  private ensureNamedListenerBucket(
-    store: Map<string, Set<Listener>>,
-    name: string,
-  ) {
+  private ensureNamedListenerBucket(store: Map<string, Set<Listener>>, name: string) {
     let listeners = store.get(name)
     if (!listeners) {
       listeners = new Set()
@@ -937,5 +910,3 @@ export class ReactSyncReceiver {
     return nextValues
   }
 }
-
-

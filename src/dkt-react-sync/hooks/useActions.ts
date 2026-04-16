@@ -7,6 +7,3 @@ export const useActions = () => {
 
   return runtime.getDispatch(scope)
 }
-
-
-

@@ -31,8 +31,12 @@ class MockWebSocket {
     queueMicrotask(() => this.onopen?.({}))
   }
 
-  send(data: string) { this.sent.push(data) }
-  close() { this.readyState = MockWebSocket.CLOSED }
+  send(data: string) {
+    this.sent.push(data)
+  }
+  close() {
+    this.readyState = MockWebSocket.CLOSED
+  }
 
   /** Simulate receiving a message from the server */
   receiveMessage(data: Record<string, unknown>) {
@@ -57,8 +61,12 @@ class MockDataChannel {
     this.label = label
   }
 
-  send(data: string) { this.sent.push(data) }
-  close() { this.readyState = 'closed' }
+  send(data: string) {
+    this.sent.push(data)
+  }
+  close() {
+    this.readyState = 'closed'
+  }
 
   simulateOpen() {
     this.readyState = 'open'
@@ -107,23 +115,34 @@ class MockRTCPeerConnection {
 
   async setRemoteDescription(_desc: unknown) {}
   async addIceCandidate(_candidate: unknown) {}
-  close() { this.connectionState = 'closed' }
+  close() {
+    this.connectionState = 'closed'
+  }
 }
 
 // ── Setup global mocks ──────────────────────────────────────────
 
 vi.stubGlobal('WebSocket', MockWebSocket)
 vi.stubGlobal('RTCPeerConnection', MockRTCPeerConnection)
-vi.stubGlobal('RTCSessionDescription', class {
-  constructor(public desc: unknown) {}
-})
-vi.stubGlobal('RTCIceCandidate', class {
-  constructor(public candidate: unknown) {}
-})
+vi.stubGlobal(
+  'RTCSessionDescription',
+  class {
+    constructor(public desc: unknown) {}
+  },
+)
+vi.stubGlobal(
+  'RTCIceCandidate',
+  class {
+    constructor(public candidate: unknown) {}
+  },
+)
 
 // ── Test helpers ────────────────────────────────────────────────
 
-const flushMicrotasks = () => new Promise<void>(r => { queueMicrotask(r) })
+const flushMicrotasks = () =>
+  new Promise<void>((r) => {
+    queueMicrotask(r)
+  })
 const flushAsync = async (n = 5) => {
   for (let i = 0; i < n; i++) await flushMicrotasks()
 }

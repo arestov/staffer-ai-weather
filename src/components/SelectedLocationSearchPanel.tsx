@@ -1,4 +1,4 @@
-import { memo, useId, type FormEvent } from 'react'
+import { type FormEvent, memo, useId } from 'react'
 import type { LocationSearchResult } from '../models/WeatherLocation'
 
 type SelectedLocationSearchPanelProps = {
@@ -72,7 +72,11 @@ export const SelectedLocationSearchPanel = memo(function SelectedLocationSearchP
             </div>
           </div>
 
-          <form className="selected-location-search__form" onSubmit={onSubmitSearch} data-location-search-form>
+          <form
+            className="selected-location-search__form"
+            onSubmit={onSubmitSearch}
+            data-location-search-form
+          >
             <label className="selected-location-search__field" htmlFor={searchInputId}>
               <span className="selected-location-search__label">City or region</span>
             </label>
@@ -202,7 +206,8 @@ export const SelectedLocationSearchPanel = memo(function SelectedLocationSearchP
                   >
                     <strong>{result.name}</strong>
                     <span>
-                      {result.subtitle || `${result.latitude.toFixed(2)}, ${result.longitude.toFixed(2)}`}
+                      {result.subtitle ||
+                        `${result.latitude.toFixed(2)}, ${result.longitude.toFixed(2)}`}
                     </span>
                   </button>
                 </li>
@@ -211,10 +216,7 @@ export const SelectedLocationSearchPanel = memo(function SelectedLocationSearchP
           ) : null}
         </div>
 
-        <aside
-          className="selected-location-search__sidebar"
-          aria-labelledby={savedTitleId}
-        >
+        <aside className="selected-location-search__sidebar" aria-labelledby={savedTitleId}>
           <div>
             <h3 id={savedTitleId} className="mini-section-label">
               Saved picks
@@ -236,7 +238,8 @@ export const SelectedLocationSearchPanel = memo(function SelectedLocationSearchP
                   >
                     <strong>{result.name}</strong>
                     <span>
-                      {result.subtitle || `${result.latitude.toFixed(2)}, ${result.longitude.toFixed(2)}`}
+                      {result.subtitle ||
+                        `${result.latitude.toFixed(2)}, ${result.longitude.toFixed(2)}`}
                     </span>
                   </button>
 
@@ -262,4 +265,3 @@ export const SelectedLocationSearchPanel = memo(function SelectedLocationSearchP
     </section>
   )
 })
-

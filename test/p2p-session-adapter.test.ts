@@ -8,11 +8,12 @@
  *   - Server mode: virtual transports for remote peers
  *   - Role transition wiring (undecided → client/server)
  */
+
+import type { DomSyncTransportLike } from 'dkt/dom-sync/transport.js'
 import { afterEach, describe, expect, test, vi } from 'vitest'
+import type { WorkerP2PBridgeConfig, WorkerP2PBridgeEvents } from '../src/p2p/WorkerP2PBridge'
 import type { ReactSyncTransportMessage } from '../src/shared/messageTypes'
 import { APP_MSG } from '../src/shared/messageTypes'
-import type { DomSyncTransportLike } from 'dkt/dom-sync/transport.js'
-import type { WorkerP2PBridgeConfig, WorkerP2PBridgeEvents } from '../src/p2p/WorkerP2PBridge'
 
 // ── Mock WorkerP2PBridge ───────────────────────────────────────────
 
@@ -49,17 +50,27 @@ const { createWorkerP2PBridge } = vi.hoisted(() => {
       let destroyed = false
 
       const instance: MockBridgeInstance = {
-        get role() { return role },
-        set role(r) { role = r },
+        get role() {
+          return role
+        },
+        set role(r) {
+          role = r
+        },
         events: config.events,
         serverMessages,
         peerMessages,
         broadcastMessages,
         peerId,
-        get destroyed() { return destroyed },
-        set destroyed(v) { destroyed = v },
+        get destroyed() {
+          return destroyed
+        },
+        set destroyed(v) {
+          destroyed = v
+        },
         pendingToServer,
-        get dcOpen() { return dcOpen },
+        get dcOpen() {
+          return dcOpen
+        },
         simulateDCOpen() {
           dcOpen = true
           for (const msg of pendingToServer) {
@@ -72,7 +83,9 @@ const { createWorkerP2PBridge } = vi.hoisted(() => {
       mockBridgeInstance = instance
 
       return {
-        get role() { return role },
+        get role() {
+          return role
+        },
         peerId,
         sendToServer(msg: ReactSyncTransportMessage) {
           if (role !== 'client') return
@@ -124,7 +137,9 @@ const createMockTransport = (): DomSyncTransportLike<ReactSyncTransportMessage> 
     },
     listen(listener: TransportListener) {
       listeners.add(listener)
-      return () => { listeners.delete(listener) }
+      return () => {
+        listeners.delete(listener)
+      }
     },
     destroy() {
       listeners.clear()
@@ -433,8 +448,9 @@ describe('P2PSessionAdapter', () => {
 
     bridge.events.onFailover()
 
-    const lostMsg = transport._sent.find(m => m.type === APP_MSG.P2P_SESSION_LOST) as
-      { type: string; reason: string } | undefined
+    const lostMsg = transport._sent.find((m) => m.type === APP_MSG.P2P_SESSION_LOST) as
+      | { type: string; reason: string }
+      | undefined
     expect(lostMsg).toBeDefined()
     expect(lostMsg!.reason).toBe('failover')
 

@@ -1,20 +1,17 @@
-import { SYNCR_TYPES } from 'dkt-all/libs/provoda/SyncR_TYPES.js'
 import type { DomSyncTransportLike } from 'dkt/dom-sync/transport.js'
+import { SYNCR_TYPES } from 'dkt-all/libs/provoda/SyncR_TYPES.js'
 import { ReactSyncReceiver } from '../dkt-react-sync/receiver/ReactSyncReceiver'
-import type {
-  PageRootSnapshot,
-  PageSyncRuntime,
-} from '../dkt-react-sync/runtime/PageSyncRuntime'
 import { createSyncStore } from '../dkt-react-sync/runtime/createSyncStore'
+import type { PageRootSnapshot, PageSyncRuntime } from '../dkt-react-sync/runtime/PageSyncRuntime'
 import type { ReactScopeRuntime } from '../dkt-react-sync/runtime/ReactScopeRuntime'
 import type { ReactSyncScopeHandle } from '../dkt-react-sync/scope/ScopeHandle'
 import {
+  type ReactTransportShape,
   ShapeRegistry,
   type ShapeRegistryRuntime,
-  type ReactTransportShape,
 } from '../dkt-react-sync/shape/ShapeRegistry'
-import { APP_MSG, RUNTIME_LOG_SCOPE } from '../shared/messageTypes'
 import type { ReactSyncTransportMessage } from '../shared/messageTypes'
+import { APP_MSG, RUNTIME_LOG_SCOPE } from '../shared/messageTypes'
 
 type RootAttrsCacheEntry = {
   rootNodeId: string | null
@@ -132,21 +129,13 @@ export const createPageSyncReceiverRuntime = ({
     readOne(scope: ReactSyncScopeHandle, relName: string) {
       return syncReceiver.readOneScope(scope, relName)
     },
-    subscribeOne(
-      scope: ReactSyncScopeHandle,
-      relName: string,
-      listener: () => void,
-    ) {
+    subscribeOne(scope: ReactSyncScopeHandle, relName: string, listener: () => void) {
       return syncReceiver.subscribeNodeRel(scope._nodeId, relName, listener)
     },
     readMany(scope: ReactSyncScopeHandle, relName: string) {
       return syncReceiver.readManyScopes(scope, relName)
     },
-    subscribeMany(
-      scope: ReactSyncScopeHandle,
-      relName: string,
-      listener: () => void,
-    ) {
+    subscribeMany(scope: ReactSyncScopeHandle, relName: string, listener: () => void) {
       return syncReceiver.subscribeNodeList(scope._nodeId, relName, listener)
     },
   }
@@ -259,8 +248,7 @@ export const createPageSyncReceiverRuntime = ({
 
     let cached = scopeDispatchCache.get(scope)
     if (!cached) {
-      cached = (actionName: string, payload?: unknown) =>
-        dispatchAction(actionName, payload, scope)
+      cached = (actionName: string, payload?: unknown) => dispatchAction(actionName, payload, scope)
       scopeDispatchCache.set(scope, cached)
     }
 
@@ -293,7 +281,7 @@ export const createPageSyncReceiverRuntime = ({
             sessionId: message.session_id ?? current.sessionId,
             sessionKey:
               'session_key' in message
-                ? message.session_key ?? current.sessionKey
+                ? (message.session_key ?? current.sessionKey)
                 : current.sessionKey,
             rootNodeId: message.root_node_id ?? syncReceiver.getRootNodeId(),
             ready: Boolean(message.root_node_id ?? syncReceiver.getRootNodeId()),
@@ -363,11 +351,7 @@ export const createPageSyncReceiverRuntime = ({
     subscribeMany: (scope, relName, listener) =>
       syncReceiver.subscribeNodeList(scope._nodeId, relName, listener),
     mountShape: (scope, shape) => shapeRegistry.mount(shapeRuntime, scope, shape),
-    dispatch: (
-      actionName: string,
-      payload?: unknown,
-      scope?: ReactSyncScopeHandle | null,
-    ) => {
+    dispatch: (actionName: string, payload?: unknown, scope?: ReactSyncScopeHandle | null) => {
       dispatchAction(actionName, payload, scope)
     },
     getDispatch,
@@ -391,7 +375,3 @@ export const createPageSyncReceiverRuntime = ({
     },
   }
 }
-
-
-
-

@@ -1,5 +1,5 @@
-import { weatherCodeToMeteocon } from '../lottie/weatherCodeToMeteocon'
 import { useLottieWeatherIcon } from '../lottie/useLottieWeatherIcon'
+import { weatherCodeToMeteocon } from '../lottie/weatherCodeToMeteocon'
 
 export function WeatherConditionIcon({
   weatherCode,
@@ -29,10 +29,6 @@ function WeatherConditionIconInner({
   const containerRef = useLottieWeatherIcon(iconName)
 
   return (
-    <div
-      ref={containerRef}
-      className={className ?? 'weather-condition-icon'}
-      aria-hidden="true"
-    />
+    <div ref={containerRef} className={className ?? 'weather-condition-icon'} aria-hidden="true" />
   )
 }

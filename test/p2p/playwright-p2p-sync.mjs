@@ -12,10 +12,10 @@
  *   5. Server broadcasts → all clients receive
  */
 import assert from 'node:assert/strict'
-import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
-import { fileURLToPath } from 'node:url'
+import { createServer } from 'node:http'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { WebSocketServer } from 'ws'
 
@@ -34,7 +34,11 @@ const startSignalRelay = (port) => {
 
     ws.on('message', (raw) => {
       let msg
-      try { msg = JSON.parse(raw.toString()) } catch { return }
+      try {
+        msg = JSON.parse(raw.toString())
+      } catch {
+        return
+      }
 
       if (msg.action === 'join') {
         currentRoom = msg.roomId
@@ -55,7 +59,13 @@ const startSignalRelay = (port) => {
         ws.send(JSON.stringify({ action: 'members', members }))
         for (const peer of room) {
           if (peer !== ws && peer.readyState === 1) {
-            peer.send(JSON.stringify({ action: 'member-joined', peerId: currentPeerId, joinedAt: ws.__joinedAt }))
+            peer.send(
+              JSON.stringify({
+                action: 'member-joined',
+                peerId: currentPeerId,
+                joinedAt: ws.__joinedAt,
+              }),
+            )
           }
         }
         return
@@ -96,7 +106,12 @@ const startSignalRelay = (port) => {
     })
   })
 
-  return { wss, close() { wss.close() } }
+  return {
+    wss,
+    close() {
+      wss.close()
+    },
+  }
 }
 
 // ── Static file server ──────────────────────────────────────────────
@@ -116,7 +131,12 @@ const startStaticServer = (port) => {
 
   return new Promise((resolve) => {
     server.listen(port, '127.0.0.1', () => {
-      resolve({ server, close() { server.close() } })
+      resolve({
+        server,
+        close() {
+          server.close()
+        },
+      })
     })
   })
 }
@@ -128,21 +148,22 @@ const waitFor = async (read, predicate, message, timeoutMs = 20000) => {
   while (Date.now() - start < timeoutMs) {
     const value = await read()
     if (predicate(value)) return value
-    await new Promise(r => setTimeout(r, 100))
+    await new Promise((r) => setTimeout(r, 100))
   }
   const last = await read()
   throw new Error(`${message} (last value: ${JSON.stringify(last)})`)
 }
 
-const getP2P = (page) => page.evaluate(() => ({
-  peerId: window.__p2p.peerId,
-  role: window.__p2p.role,
-  serverPeerId: window.__p2p.serverPeerId,
-  peerCount: window.__p2p.peerCount,
-  connectedPeers: window.__p2p.connectedPeers,
-  receivedMessages: window.__p2p.receivedMessages,
-  status: window.__p2p.status,
-}))
+const getP2P = (page) =>
+  page.evaluate(() => ({
+    peerId: window.__p2p.peerId,
+    role: window.__p2p.role,
+    serverPeerId: window.__p2p.serverPeerId,
+    peerCount: window.__p2p.peerCount,
+    connectedPeers: window.__p2p.connectedPeers,
+    receivedMessages: window.__p2p.receivedMessages,
+    status: window.__p2p.status,
+  }))
 
 // ── Main test ───────────────────────────────────────────────────────
 
@@ -169,19 +190,19 @@ const main = async () => {
 
     await page1.goto(makeUrl(), { waitUntil: 'domcontentloaded' })
     // Small delay so page1 is clearly first
-    await new Promise(r => setTimeout(r, 800))
+    await new Promise((r) => setTimeout(r, 800))
     await page2.goto(makeUrl(), { waitUntil: 'domcontentloaded' })
 
     // Wait for both to have a role
     const state1 = await waitFor(
       () => getP2P(page1),
-      s => s.role !== 'undecided',
+      (s) => s.role !== 'undecided',
       'page1 did not decide role',
     )
 
     const state2 = await waitFor(
       () => getP2P(page2),
-      s => s.role !== 'undecided',
+      (s) => s.role !== 'undecided',
       'page2 did not decide role',
     )
 
@@ -194,13 +215,13 @@ const main = async () => {
     // Wait for WebRTC data channel to open
     await waitFor(
       () => getP2P(state1.role === 'server' ? page1 : page2),
-      s => s.peerCount >= 1,
+      (s) => s.peerCount >= 1,
       'server did not connect to client via WebRTC',
     )
 
     await waitFor(
       () => getP2P(state1.role === 'client' ? page1 : page2),
-      s => s.peerCount >= 1,
+      (s) => s.peerCount >= 1,
       'client did not connect to server via WebRTC',
     )
 
@@ -218,7 +239,7 @@ const main = async () => {
 
     const clientState = await waitFor(
       () => getP2P(clientPage),
-      s => s.receivedMessages.length >= 1,
+      (s) => s.receivedMessages.length >= 1,
       'client did not receive server message',
     )
 
@@ -236,7 +257,7 @@ const main = async () => {
 
     const serverState = await waitFor(
       () => getP2P(serverPage),
-      s => s.receivedMessages.length >= 1,
+      (s) => s.receivedMessages.length >= 1,
       'server did not receive client message',
     )
 
@@ -253,7 +274,7 @@ const main = async () => {
 
     const state3 = await waitFor(
       () => getP2P(page3),
-      s => s.role === 'client' && s.peerCount >= 1,
+      (s) => s.role === 'client' && s.peerCount >= 1,
       'page3 did not become client with connection',
     )
 
@@ -262,7 +283,7 @@ const main = async () => {
     // Server should now have 2 connected peers
     const serverAfter3 = await waitFor(
       () => getP2P(serverPage),
-      s => s.peerCount >= 2,
+      (s) => s.peerCount >= 2,
       'server did not see 2 connected peers',
     )
 
@@ -282,13 +303,13 @@ const main = async () => {
 
     const client1Msgs = await waitFor(
       () => getP2P(clientPage),
-      s => s.receivedMessages.length >= 1,
+      (s) => s.receivedMessages.length >= 1,
       'client1 did not receive broadcast',
     )
 
     const client2Msgs = await waitFor(
       () => getP2P(page3),
-      s => s.receivedMessages.length >= 1,
+      (s) => s.receivedMessages.length >= 1,
       'page3 did not receive broadcast',
     )
 

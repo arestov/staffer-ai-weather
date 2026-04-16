@@ -96,14 +96,8 @@ const installDomGlobals = (window) => {
   defineGlobal('MouseEvent', window.MouseEvent)
   defineGlobal('FocusEvent', window.FocusEvent)
   defineGlobal('getComputedStyle', window.getComputedStyle.bind(window))
-  defineGlobal(
-    'requestAnimationFrame',
-    window.requestAnimationFrame.bind(window),
-  )
-  defineGlobal(
-    'cancelAnimationFrame',
-    window.cancelAnimationFrame.bind(window),
-  )
+  defineGlobal('requestAnimationFrame', window.requestAnimationFrame.bind(window))
+  defineGlobal('cancelAnimationFrame', window.cancelAnimationFrame.bind(window))
 }
 
 const createBundle = async () => {
@@ -152,9 +146,7 @@ const summarizeGraph = (graph) => {
         modelName,
         {
           attrsCount: Array.isArray(model.attrs) ? model.attrs.length : undefined,
-          relNames: Array.isArray(model.rels)
-            ? model.rels.map((rel) => rel.name)
-            : undefined,
+          relNames: Array.isArray(model.rels) ? model.rels.map((rel) => rel.name) : undefined,
         },
       ]),
     )
@@ -195,9 +187,7 @@ const summarizeAppState = (models) => {
       modelName: model.modelName,
       attrs: model.attrs
         ? Object.fromEntries(
-            Object.entries(model.attrs).filter(([name]) =>
-              preferredAttrs.has(name),
-            ),
+            Object.entries(model.attrs).filter(([name]) => preferredAttrs.has(name)),
           )
         : {},
       rels: model.rels,

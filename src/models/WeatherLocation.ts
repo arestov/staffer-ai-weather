@@ -3,15 +3,12 @@ import { CurrentWeather } from './CurrentWeather'
 import { DailyForecastSeries } from './DailyForecastSeries'
 import { HourlyForecastSeries } from './HourlyForecastSeries'
 import {
-  CURRENT_WEATHER_CREATION_SHAPE,
-  FORECAST_SERIES_CREATION_SHAPE,
-} from './weatherSeed'
-import {
   formatDailyLabel,
   formatHourlyLabel,
   formatTemperature,
   weatherCodeToSummary,
 } from './weatherFormat'
+import { CURRENT_WEATHER_CREATION_SHAPE, FORECAST_SERIES_CREATION_SHAPE } from './weatherSeed'
 
 export type TimeInterface = {
   setTimeout: typeof globalThis.setTimeout
@@ -19,8 +16,8 @@ export type TimeInterface = {
   Date: typeof globalThis.Date
 }
 
-const LIVE_UPDATE_INTERVAL_MS = 10 * 60 * 1000  // 10 minutes
-const LIVE_UPDATE_RETRY_MS = 30 * 1000           // 30 seconds on error
+const LIVE_UPDATE_INTERVAL_MS = 10 * 60 * 1000 // 10 minutes
+const LIVE_UPDATE_RETRY_MS = 30 * 1000 // 30 seconds on error
 
 export type ApplyWeatherPayload = {
   current: {
@@ -59,9 +56,7 @@ export type LocationSearchResult = {
   timezone: string | null
 }
 
-type WeatherDataResult =
-  | { ok: true; data: ApplyWeatherPayload }
-  | { ok: false; message: string }
+type WeatherDataResult = { ok: true; data: ApplyWeatherPayload } | { ok: false; message: string }
 
 export const isLocationSearchResult = (value: unknown): value is LocationSearchResult => {
   if (!value || typeof value !== 'object') {
@@ -78,7 +73,6 @@ export const isLocationSearchResult = (value: unknown): value is LocationSearchR
     typeof candidate.longitude === 'number'
   )
 }
-
 
 const asFiniteNumber = (value: unknown): number | null => {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
@@ -376,11 +370,7 @@ export const WeatherLocation = model({
         ['#weatherLoader'] as const,
         (weatherLoader: unknown) => weatherLoader,
       ],
-      time: [
-        ['_node_id'] as const,
-        ['#time'] as const,
-        (time: unknown) => time,
-      ],
+      time: [['_node_id'] as const, ['#time'] as const, (time: unknown) => time],
     },
     in: {
       loadWeather: {
@@ -391,7 +381,12 @@ export const WeatherLocation = model({
         fn: [
           ['latitude', 'longitude'] as const,
           async (
-            api: { loadByCoordinates: (input: { latitude: number; longitude: number }) => Promise<unknown> },
+            api: {
+              loadByCoordinates: (input: {
+                latitude: number
+                longitude: number
+              }) => Promise<unknown>
+            },
             _opts: unknown,
             lat: unknown,
             lon: unknown,
@@ -403,7 +398,10 @@ export const WeatherLocation = model({
               })
               return { ok: true as const, data }
             } catch (error) {
-              return { ok: false as const, message: error instanceof Error ? error.message : String(error) }
+              return {
+                ok: false as const,
+                message: error instanceof Error ? error.message : String(error),
+              }
             }
           },
         ],
@@ -417,9 +415,7 @@ export const WeatherLocation = model({
         create_when: {
           api_inits: true,
         },
-        fn: (
-          self: { requestState: (name: string) => unknown },
-        ) => {
+        fn: (self: { requestState: (name: string) => unknown }) => {
           self.requestState('weatherData')
         },
       },
@@ -460,13 +456,11 @@ export const WeatherLocation = model({
         create_when: {
           api_inits: true,
         },
-        fn: (
-          self: {
-            requestState: (name: string) => unknown
-            resetRequestedState: (name: string) => unknown
-            input: (callback: () => void) => unknown
-          },
-        ) => {
+        fn: (self: {
+          requestState: (name: string) => unknown
+          resetRequestedState: (name: string) => unknown
+          input: (callback: () => void) => unknown
+        }) => {
           self.resetRequestedState('weatherData')
           self.input(() => {
             self.requestState('weatherData')
@@ -517,5 +511,3 @@ export const WeatherLocation = model({
     },
   },
 })
-
-

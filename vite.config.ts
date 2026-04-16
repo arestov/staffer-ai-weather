@@ -1,6 +1,6 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
 import { fileURLToPath, URL } from 'node:url'
+import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite'
 
 const dktRoot = fileURLToPath(new URL('../tmp/dkt', import.meta.url))
 const dktRootDirect = fileURLToPath(new URL('../dkt/js', import.meta.url))

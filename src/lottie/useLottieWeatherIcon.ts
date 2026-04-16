@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react'
 import type LottieCanvasWorker from 'lottie-web/build/player/lottie_canvas_worker'
+import { useEffect, useRef } from 'react'
 import { loadMeteoconData } from './meteoconData'
 
 type LottieModule = typeof LottieCanvasWorker
@@ -22,9 +22,7 @@ const getLottieModule = (): Promise<LottieModule> | null => {
     lottieModulePromise = import(
       // @ts-expect-error — CJS module resolved by Vite
       'lottie-web/build/player/lottie_canvas_worker.js'
-    ).then(
-      (mod) => mod.default ?? mod,
-    )
+    ).then((mod) => mod.default ?? mod)
   }
   return lottieModulePromise
 }

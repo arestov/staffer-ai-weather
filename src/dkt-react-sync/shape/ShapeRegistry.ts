@@ -20,24 +20,10 @@ type CompiledShape = {
 export interface ShapeRegistryRuntime {
   publishShapeGraph(graph: Record<string, ReactTransportShape>): void
   requireNodeShapes(nodeId: string, shapeIds: readonly string[]): void
-  readOne(
-    scope: ReactSyncScopeHandle,
-    relName: string,
-  ): ReactSyncScopeHandle | null
-  subscribeOne(
-    scope: ReactSyncScopeHandle,
-    relName: string,
-    listener: Listener,
-  ): () => void
-  readMany(
-    scope: ReactSyncScopeHandle,
-    relName: string,
-  ): readonly ReactSyncScopeHandle[]
-  subscribeMany(
-    scope: ReactSyncScopeHandle,
-    relName: string,
-    listener: Listener,
-  ): () => void
+  readOne(scope: ReactSyncScopeHandle, relName: string): ReactSyncScopeHandle | null
+  subscribeOne(scope: ReactSyncScopeHandle, relName: string, listener: Listener): () => void
+  readMany(scope: ReactSyncScopeHandle, relName: string): readonly ReactSyncScopeHandle[]
+  subscribeMany(scope: ReactSyncScopeHandle, relName: string, listener: Listener): () => void
 }
 
 const EMPTY_CLEANUP = () => {}
@@ -55,8 +41,7 @@ const once = (cleanup: () => void) => {
   }
 }
 
-const freezeShapeGraph = (graph: Record<string, ReactTransportShape>) =>
-  Object.freeze({ ...graph })
+const freezeShapeGraph = (graph: Record<string, ReactTransportShape>) => Object.freeze({ ...graph })
 
 const toSortedUnique = (values: readonly string[]) =>
   Object.freeze(Array.from(new Set(values)).sort())
@@ -80,11 +65,7 @@ export class ShapeRegistry {
     this.requestedShapeSetsByNodeId = new Map()
   }
 
-  mount(
-    runtime: ShapeRegistryRuntime,
-    scope: ReactSyncScopeHandle,
-    shape: DefinedReactShape,
-  ) {
+  mount(runtime: ShapeRegistryRuntime, scope: ReactSyncScopeHandle, shape: DefinedReactShape) {
     const compiled = this.compileShape(shape)
 
     this.ensurePublished(runtime, compiled)
@@ -114,12 +95,10 @@ export class ShapeRegistry {
 
     try {
       const one = Object.entries(shape.one ?? {}).map(
-        ([relName, nestedShape]) =>
-          [relName, this.compileShape(nestedShape)] as const,
+        ([relName, nestedShape]) => [relName, this.compileShape(nestedShape)] as const,
       )
       const many = Object.entries(shape.many ?? {}).map(
-        ([relName, nestedShape]) =>
-          [relName, this.compileShape(nestedShape)] as const,
+        ([relName, nestedShape]) => [relName, this.compileShape(nestedShape)] as const,
       )
 
       const relNames = toSortedUnique([
@@ -301,11 +280,7 @@ export class ShapeRegistry {
     })
   }
 
-  private retainShape(
-    runtime: ShapeRegistryRuntime,
-    nodeId: string,
-    shapeId: string,
-  ) {
+  private retainShape(runtime: ShapeRegistryRuntime, nodeId: string, shapeId: string) {
     let nodeRefs = this.activeShapeRefsByNodeId.get(nodeId)
     if (!nodeRefs) {
       nodeRefs = new Map()
@@ -356,6 +331,3 @@ export class ShapeRegistry {
     runtime.requireNodeShapes(nodeId, shapeIds)
   }
 }
-
-
-

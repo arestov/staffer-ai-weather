@@ -1,6 +1,6 @@
-import type { ReactScopeRuntime } from './ReactScopeRuntime'
 import type { ReactSyncScopeHandle } from '../scope/ScopeHandle'
 import type { SyncStore } from './createSyncStore'
+import type { ReactScopeRuntime } from './ReactScopeRuntime'
 
 export interface PageRootSnapshot {
   booted: boolean
@@ -21,17 +21,10 @@ export interface PageSyncRuntime extends ReactScopeRuntime {
   debugDescribeNode(nodeId: string): unknown
   debugDumpGraph(): unknown
   debugMessages(): readonly unknown[]
-  dispatchAction(
-    actionName: string,
-    payload?: unknown,
-    scope?: ReactSyncScopeHandle | null,
-  ): void
+  dispatchAction(actionName: string, payload?: unknown, scope?: ReactSyncScopeHandle | null): void
   destroy(): void
   getSnapshot(): PageRootSnapshot
   getRootAttrs(attrNames: readonly string[]): Record<string, unknown>
   subscribe(listener: () => void): () => void
-  subscribeRootAttrs(
-    attrNames: readonly string[],
-    listener: () => void,
-  ): () => void
+  subscribeRootAttrs(attrNames: readonly string[], listener: () => void): () => void
 }

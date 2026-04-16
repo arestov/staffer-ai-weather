@@ -1,15 +1,15 @@
 import { vi } from 'vitest'
 import type { LocationSearchResult } from '../../src/app/rels/location-models'
-import backendWorker, {
-  SavedPlacesDurableObject,
-  SearchCacheDurableObject,
-} from '../../weather-backend/src/index'
 import type {
   DurableObjectNamespaceLike,
   DurableObjectStateLike,
   DurableObjectStorageLike,
   WorkerEnv,
 } from '../../weather-backend/src/contracts'
+import backendWorker, {
+  SavedPlacesDurableObject,
+  SearchCacheDurableObject,
+} from '../../weather-backend/src/index'
 
 type SearchFixture = {
   results?: LocationSearchResult[]
@@ -44,8 +44,7 @@ class MemoryState implements DurableObjectStateLike {
   }
 }
 
-class FakeDurableObjectNamespace<TEnv>
-  implements DurableObjectNamespaceLike {
+class FakeDurableObjectNamespace<TEnv> implements DurableObjectNamespaceLike {
   private readonly instances = new Map<string, DurableObjectInstance>()
 
   constructor(
@@ -70,9 +69,7 @@ class FakeDurableObjectNamespace<TEnv>
 
     return {
       fetch: async (request: Request | string) => {
-        const nextRequest = typeof request === 'string'
-          ? new Request(request)
-          : request
+        const nextRequest = typeof request === 'string' ? new Request(request) : request
 
         return instance.fetch(nextRequest)
       },
@@ -150,21 +147,22 @@ export const createWeatherBackendTestHarness = (options?: {
   const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const urlValue = toUrlString(input)
     const url = new URL(urlValue, 'http://weather.test')
-    const request = input instanceof Request
-      ? input
-      : new Request(url.toString(), init)
+    const request = input instanceof Request ? input : new Request(url.toString(), init)
 
     if (url.pathname.startsWith('/api/')) {
       const query = normalizeQuery(url.searchParams.get('q') ?? '')
       const cacheFailureStatus = request.method === 'GET' ? cacheLookupFailures[query] : null
 
       if (cacheFailureStatus) {
-        return new Response(JSON.stringify({ error: `Weather backend responded with ${cacheFailureStatus}` }), {
-          status: cacheFailureStatus,
-          headers: {
-            'content-type': 'application/json',
+        return new Response(
+          JSON.stringify({ error: `Weather backend responded with ${cacheFailureStatus}` }),
+          {
+            status: cacheFailureStatus,
+            headers: {
+              'content-type': 'application/json',
+            },
           },
-        })
+        )
       }
 
       return await backendWorker.fetch(request, env as WorkerEnv)

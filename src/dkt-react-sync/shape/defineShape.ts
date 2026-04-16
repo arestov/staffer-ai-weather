@@ -1,4 +1,4 @@
-import { createElement, type ComponentProps, type ComponentType } from 'react'
+import { type ComponentProps, type ComponentType, createElement } from 'react'
 import { MountedShape } from './MountedShape'
 
 const SHAPE_META = Symbol.for('weather.react_sync.shape')
@@ -28,10 +28,7 @@ export const defineShape = (shape: ReactShapeSpec): DefinedReactShape => {
   return normalized
 }
 
-export const shapeOf = <T extends ComponentType<any>>(
-  component: T,
-  shape: DefinedReactShape,
-) => {
+export const shapeOf = <T extends ComponentType<any>>(component: T, shape: DefinedReactShape) => {
   Object.defineProperty(component, SHAPE_META, {
     value: shape,
     configurable: true,
@@ -43,8 +40,7 @@ export const shapeOf = <T extends ComponentType<any>>(
       children: createElement(component as ComponentType<any>, props),
     })
 
-  WrappedComponent.displayName =
-    component.displayName || component.name || 'ShapedComponent'
+  WrappedComponent.displayName = component.displayName || component.name || 'ShapedComponent'
 
   Object.defineProperty(WrappedComponent, SHAPE_META, {
     value: shape,
@@ -55,8 +51,8 @@ export const shapeOf = <T extends ComponentType<any>>(
 }
 
 export const getShapeOf = (component: ComponentType<any>) =>
-  (component as ComponentType<any> & {
-    [SHAPE_META]?: DefinedReactShape
-  })[SHAPE_META] ?? null
-
-
+  (
+    component as ComponentType<any> & {
+      [SHAPE_META]?: DefinedReactShape
+    }
+  )[SHAPE_META] ?? null

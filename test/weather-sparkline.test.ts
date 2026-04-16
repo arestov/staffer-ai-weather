@@ -1,38 +1,37 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { createWeatherTestHarness, type WeatherTestHarness } from './harness/createWeatherTestHarness'
+import {
+  createWeatherTestHarness,
+  type WeatherTestHarness,
+} from './harness/createWeatherTestHarness'
 
-const {
-  fetchWeatherFromOpenMeteo,
-} = vi.hoisted(() => ({
-  fetchWeatherFromOpenMeteo: vi.fn(
-    async (latitude: number, longitude: number) => ({
-      current: {
-        temperatureC: Math.round(latitude),
-        apparentTemperatureC: Math.round(latitude) - 1,
-        weatherCode: 1,
-        isDay: true,
-        windSpeed10m: Math.abs(Math.round(longitude)),
-      },
-      hourly: Array.from({ length: 12 }, (_, i) => ({
-        time: `2026-04-15T${String(i).padStart(2, '0')}:00`,
-        temperatureC: 10 + i * 2,
-        precipitationProbability: i * 5,
-        weatherCode: i < 6 ? 1 : 2,
-        windSpeed10m: 3 + i,
-      })),
-      daily: Array.from({ length: 5 }, (_, i) => ({
-        date: `2026-04-${15 + i}`,
-        weatherCode: i < 3 ? 1 : 3,
-        temperatureMaxC: 20 + i * 3,
-        temperatureMinC: 5 + i,
-        precipitationProbabilityMax: 10 + i * 5,
-        windSpeedMax: 8 + i,
-        sunrise: `2026-04-${15 + i}T05:30:00`,
-        sunset: `2026-04-${15 + i}T19:00:00`,
-      })),
-      fetchedAt: '2026-04-15T06:00:00.000Z',
-    }),
-  ),
+const { fetchWeatherFromOpenMeteo } = vi.hoisted(() => ({
+  fetchWeatherFromOpenMeteo: vi.fn(async (latitude: number, longitude: number) => ({
+    current: {
+      temperatureC: Math.round(latitude),
+      apparentTemperatureC: Math.round(latitude) - 1,
+      weatherCode: 1,
+      isDay: true,
+      windSpeed10m: Math.abs(Math.round(longitude)),
+    },
+    hourly: Array.from({ length: 12 }, (_, i) => ({
+      time: `2026-04-15T${String(i).padStart(2, '0')}:00`,
+      temperatureC: 10 + i * 2,
+      precipitationProbability: i * 5,
+      weatherCode: i < 6 ? 1 : 2,
+      windSpeed10m: 3 + i,
+    })),
+    daily: Array.from({ length: 5 }, (_, i) => ({
+      date: `2026-04-${15 + i}`,
+      weatherCode: i < 3 ? 1 : 3,
+      temperatureMaxC: 20 + i * 3,
+      temperatureMinC: 5 + i,
+      precipitationProbabilityMax: 10 + i * 5,
+      windSpeedMax: 8 + i,
+      sunrise: `2026-04-${15 + i}T05:30:00`,
+      sunset: `2026-04-${15 + i}T19:00:00`,
+    })),
+    fetchedAt: '2026-04-15T06:00:00.000Z',
+  })),
 }))
 
 vi.mock('../src/worker/weather-api', () => ({
@@ -58,19 +57,23 @@ vi.mock('../src/worker/geo-location-api', () => ({
   createGeoLocationApi: () => ({
     source_name: 'geoLocation',
     errors_fields: [],
-    detectLocation: vi.fn(async () => { throw new Error('disabled') }),
-    detectLocationByCoordinates: vi.fn(async ({ latitude, longitude }: { latitude: number; longitude: number }) => ({
-      id: `coords-${latitude}-${longitude}`,
-      name: '',
-      subtitle: '',
-      latitude,
-      longitude,
-      timezone: null,
-    })),
+    detectLocation: vi.fn(async () => {
+      throw new Error('disabled')
+    }),
+    detectLocationByCoordinates: vi.fn(
+      async ({ latitude, longitude }: { latitude: number; longitude: number }) => ({
+        id: `coords-${latitude}-${longitude}`,
+        name: '',
+        subtitle: '',
+        latitude,
+        longitude,
+        timezone: null,
+      }),
+    ),
   }),
 }))
 
-const waitFor = async <T,>(
+const waitFor = async <T>(
   read: () => Promise<T> | T,
   predicate: (value: T) => boolean,
   message: string,
@@ -85,9 +88,10 @@ const waitFor = async <T,>(
 
 const waitForWeatherLoaded = async (harness: WeatherTestHarness) => {
   await waitFor(
-    async () => (await harness.appRuntime.debugDumpAppState()) as {
-      runtimeModels: Array<{ modelName: string; attrs: Record<string, unknown> }>
-    } | null,
+    async () =>
+      (await harness.appRuntime.debugDumpAppState()) as {
+        runtimeModels: Array<{ modelName: string; attrs: Record<string, unknown> }>
+      } | null,
     (state) => {
       const locs = state?.runtimeModels.filter((m) => m.modelName === 'weather_location')
       return Boolean(locs?.length && locs.every((m) => m.attrs.loadStatus === 'ready'))

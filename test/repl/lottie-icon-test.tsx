@@ -41,7 +41,11 @@ function TestCard({
       }}
       data-testcard={label}
     >
-      <WeatherConditionIcon weatherCode={weatherCode} isDay={isDay} className="weather-condition-icon" />
+      <WeatherConditionIcon
+        weatherCode={weatherCode}
+        isDay={isDay}
+        className="weather-condition-icon"
+      />
       <span style={{ fontSize: 12 }}>{label}</span>
     </div>
   )
