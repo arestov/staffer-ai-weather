@@ -11,7 +11,7 @@ const dktProvodaRootDirect = fileURLToPath(
 export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
-    include: ['lottie-web/build/player/lottie_canvas_worker.js'],
+    include: ['lottie-web/build/player/esm/lottie_canvas.min.js'],
   },
   server: {
     host: '0.0.0.0',

@@ -29,3 +29,9 @@ declare module 'lottie-web/build/player/lottie_canvas_worker' {
   const lottie: LottieCanvasWorker
   export default lottie
 }
+
+declare module 'lottie-web/build/player/esm/lottie_canvas.min.js' {
+  import type LottieCanvasWorker from 'lottie-web/build/player/lottie_canvas_worker'
+  const lottie: typeof LottieCanvasWorker
+  export default lottie
+}
