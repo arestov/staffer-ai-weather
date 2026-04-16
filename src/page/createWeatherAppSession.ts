@@ -3,6 +3,7 @@ import { createPageP2PManager, type PageP2PManager } from '../p2p/PageP2PManager
 import { createSharedWorkerTransport } from '../shared/createSharedWorkerTransport'
 import { APP_MSG, type ReactSyncTransportMessage } from '../shared/messageTypes'
 import { createPageSyncReceiverRuntime } from './createPageSyncReceiverRuntime'
+import sharedWorkerScriptUrl from '../worker/shared-worker.ts?sharedworker&url'
 
 export type WeatherAppP2PStatus = 'disabled' | 'undecided' | 'server' | 'client'
 
@@ -94,7 +95,7 @@ export const createWeatherAppSession = (): WeatherAppSession => {
     throw new Error('SharedWorker is required in this browser')
   }
 
-  const workerUrl = new URL('../worker/shared-worker.ts', import.meta.url)
+  const workerUrl = new URL(sharedWorkerScriptUrl, import.meta.url)
   const weatherBackendBaseUrl =
     typeof import.meta.env.VITE_WEATHER_BACKEND_URL === 'string' &&
     import.meta.env.VITE_WEATHER_BACKEND_URL.trim()
