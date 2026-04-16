@@ -1,639 +1,516 @@
 /**
- * Tests P2P integration with model-runtime.
+ * Tests PageP2PManager — the page-context P2P coordinator.
  *
- * Mocks WorkerP2PBridge to avoid real WebRTC/WebSocket dependencies.
- * Verifies:
- *   - model-runtime creates P2P adapters per session key
- *   - Server mode: pages connect normally, state syncs
- *   - Client mode: page connections relay through the adapter
- *   - Remote peers (server mode) connect through virtual transports
+ * Mocks WebSocket + RTCPeerConnection to verify:
+ *   - Server role: onBecomeServer fires when this peer is elected leader
+ *   - Client role: onBecomeClient fires with a DataChannel-backed transport
+ *   - Server proxying: remote client DC messages forwarded to dedicated worker port
+ *   - Cleanup: destroy() tears down all connections
+ *   - Session lost: DC close triggers onSessionLost
+ *   - Signaling error fallback: falls back to server mode
  */
-import { afterEach, describe, expect, test, vi } from 'vitest'
-import type { ReactSyncTransportMessage } from '../src/shared/messageTypes'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { APP_MSG } from '../src/shared/messageTypes'
-import type { DomSyncTransportLike } from 'dkt/dom-sync/transport.js'
+import type { ReactSyncTransportMessage } from '../src/shared/messageTypes'
 
-// ── Mock WorkerP2PBridge ───────────────────────────────────────────
+// ── Mock WebSocket ──────────────────────────────────────────────
 
-type BridgeRole = 'server' | 'client' | 'undecided'
+type WSHandler = (...args: unknown[]) => void
 
-/**
- * Mocked bridge instance: controls role externally.
- * Events are captured so tests can trigger them later.
- */
-type MockBridge = {
-  /** Force the bridge role */
-  setRole(role: BridgeRole): void
-  /** Read captured events (callbacks given at creation) */
-  events: {
-    onBecomeServer: () => void
-    onBecomeClient: () => void
-    onRemotePeerConnected: (remotePeerId: string) => {
-      receive(msg: ReactSyncTransportMessage): void
-      destroy(): void
+let wsInstances: MockWebSocket[] = []
+
+class MockWebSocket {
+  static OPEN = 1
+  static CLOSED = 3
+  readyState = MockWebSocket.OPEN
+  sent: string[] = []
+  onopen: WSHandler | null = null
+  onmessage: WSHandler | null = null
+  onerror: WSHandler | null = null
+  onclose: WSHandler | null = null
+
+  constructor(_url: string) {
+    wsInstances.push(this)
+    queueMicrotask(() => this.onopen?.({}))
+  }
+
+  send(data: string) { this.sent.push(data) }
+  close() { this.readyState = MockWebSocket.CLOSED }
+
+  receiveMessage(data: Record<string, unknown>) {
+    this.onmessage?.({ data: JSON.stringify(data) })
+  }
+}
+
+// ── Mock RTCPeerConnection + DataChannel ────────────────────────
+
+type DCHandler = (...args: unknown[]) => void
+
+class MockDataChannel {
+  label: string
+  readyState = 'connecting'
+  onopen: DCHandler | null = null
+  onclose: DCHandler | null = null
+  onmessage: DCHandler | null = null
+  onerror: DCHandler | null = null
+  sent: string[] = []
+
+  constructor(label: string) {
+    this.label = label
+  }
+
+  send(data: string) { this.sent.push(data) }
+  close() { this.readyState = 'closed' }
+
+  simulateOpen() {
+    this.readyState = 'open'
+    this.onopen?.({})
+  }
+
+  simulateMessage(data: unknown) {
+    this.onmessage?.({ data: JSON.stringify(data) })
+  }
+
+  simulateClose() {
+    this.readyState = 'closed'
+    this.onclose?.({})
+  }
+}
+
+let pcInstances: MockRTCPeerConnection[] = []
+
+class MockRTCPeerConnection {
+  connectionState = 'new'
+  localDescription: { toJSON: () => Record<string, unknown> } | null = null
+  createdChannels: MockDataChannel[] = []
+  receivedChannels: MockDataChannel[] = []
+
+  onicecandidate: DCHandler | null = null
+  ondatachannel: DCHandler | null = null
+  onconnectionstatechange: DCHandler | null = null
+
+  constructor(_config?: unknown) {
+    pcInstances.push(this)
+  }
+
+  createDataChannel(label: string, _opts?: unknown) {
+    const dc = new MockDataChannel(label)
+    this.createdChannels.push(dc)
+    return dc
+  }
+
+  simulateDataChannel(label: string) {
+    const dc = new MockDataChannel(label)
+    this.receivedChannels.push(dc)
+    this.ondatachannel?.({ channel: dc })
+    return dc
+  }
+
+  async createOffer() {
+    return { type: 'offer', sdp: 'mock-sdp-offer' }
+  }
+
+  async createAnswer() {
+    return { type: 'answer', sdp: 'mock-sdp-answer' }
+  }
+
+  async setLocalDescription(desc: unknown) {
+    this.localDescription = {
+      toJSON: () => desc as Record<string, unknown>,
     }
-    onRemotePeerDisconnected: (remotePeerId: string) => void
-    onRemoteMessage: (msg: ReactSyncTransportMessage) => void
-    onFailover: () => void
-    onError: (error: unknown) => void
   }
-  /** Messages sent to server (client mode) */
-  serverMessages: ReactSyncTransportMessage[]
-  /** Messages sent to specific peers (server mode) */
-  peerMessages: Map<string, ReactSyncTransportMessage[]>
-  /** Broadcast messages (server mode) */
-  broadcastMessages: ReactSyncTransportMessage[]
-  destroy: () => void
+
+  async setRemoteDescription(_desc: unknown) {}
+  async addIceCandidate(_candidate: unknown) {}
+  close() { this.connectionState = 'closed' }
 }
 
-let lastMockBridge: MockBridge | null = null
-const allMockBridges: MockBridge[] = []
+// ── Mock SharedWorker (for proxy ports) ─────────────────────────
 
-const { createWorkerP2PBridge } = vi.hoisted(() => {
-  return {
-    createWorkerP2PBridge: vi.fn((config: {
-      roomId: string
-      createSignaling: unknown
-      events: MockBridge['events']
-    }) => {
-      let role: BridgeRole = 'undecided'
-      const peerId = `mock-peer-${Math.random().toString(36).slice(2, 8)}`
-      const serverMessages: ReactSyncTransportMessage[] = []
-      const peerMessages = new Map<string, ReactSyncTransportMessage[]>()
-      const broadcastMessages: ReactSyncTransportMessage[] = []
+class MockMessagePort {
+  onmessage: ((ev: { data: unknown }) => void) | null = null
+  sent: unknown[] = []
+  started = false
 
-      const bridge = {
-        get role() { return role },
-        peerId,
-        sendToServer(msg: ReactSyncTransportMessage) {
-          serverMessages.push(msg)
-        },
-        sendToRemotePeer(remotePeerId: string, msg: ReactSyncTransportMessage) {
-          if (!peerMessages.has(remotePeerId)) peerMessages.set(remotePeerId, [])
-          peerMessages.get(remotePeerId)!.push(msg)
-        },
-        broadcastToRemotePeers(msg: ReactSyncTransportMessage) {
-          broadcastMessages.push(msg)
-        },
-        destroy: vi.fn(),
-      }
-
-      const mock: MockBridge = {
-        setRole(newRole: BridgeRole) {
-          role = newRole
-          if (newRole === 'server') {
-            config.events.onBecomeServer()
-          } else if (newRole === 'client') {
-            config.events.onBecomeClient()
-          }
-        },
-        events: config.events,
-        serverMessages,
-        peerMessages,
-        broadcastMessages,
-        destroy: bridge.destroy,
-      }
-
-      // @ts-expect-error -- expose mock for test access
-      lastMockBridge = mock
-      // @ts-expect-error -- expose mock for test access
-      allMockBridges.push(mock)
-
-      return bridge
-    }),
+  postMessage(data: unknown) { this.sent.push(data) }
+  start() { this.started = true }
+  close() {}
+  addEventListener(type: string, handler: (ev: { data: unknown }) => void) {
+    if (type === 'message') this.onmessage = handler
   }
+  removeEventListener() {}
+}
+
+let sharedWorkerInstances: MockSharedWorker[] = []
+
+class MockSharedWorker {
+  port: MockMessagePort
+  constructor(_url: string | URL, _opts?: unknown) {
+    this.port = new MockMessagePort()
+    sharedWorkerInstances.push(this)
+  }
+}
+
+// ── Setup global mocks ──────────────────────────────────────────
+
+vi.stubGlobal('WebSocket', MockWebSocket)
+vi.stubGlobal('RTCPeerConnection', MockRTCPeerConnection)
+vi.stubGlobal('RTCSessionDescription', class {
+  constructor(public desc: unknown) {}
 })
+vi.stubGlobal('RTCIceCandidate', class {
+  constructor(public candidate: unknown) {}
+})
+vi.stubGlobal('SharedWorker', MockSharedWorker)
 
-vi.mock('../src/p2p/WorkerP2PBridge', () => ({
-  createWorkerP2PBridge,
-}))
+// ── Test helpers ────────────────────────────────────────────────
 
-// Mock weather API to avoid real HTTP requests
-const { fetchWeatherFromOpenMeteo } = vi.hoisted(() => ({
-  fetchWeatherFromOpenMeteo: vi.fn(async () => ({
-    current: { temperatureC: 20, apparentTemperatureC: 19, weatherCode: 1, isDay: true, windSpeed10m: 5 },
-    hourly: [{ time: '2026-01-01T00:00:00Z', temperatureC: 20, precipitationProbability: 0, weatherCode: 1, windSpeed10m: 5 }],
-    daily: [{ date: '2026-01-01', weatherCode: 1, temperatureMaxC: 22, temperatureMinC: 18, precipitationProbabilityMax: 10, windSpeedMax: 8, sunrise: '2026-01-01T06:00:00Z', sunset: '2026-01-01T18:00:00Z' }],
-    fetchedAt: '2026-01-01T12:00:00.000Z',
-  })),
-}))
-
-vi.mock('../src/worker/weather-api', () => ({
-  fetchWeatherFromOpenMeteo,
-  createWeatherLoaderApi: () => ({
-    source_name: 'weatherLoader',
-    errors_fields: [],
-    loadByCoordinates: () => fetchWeatherFromOpenMeteo(0, 0),
-  }),
-}))
-
-// ── Helpers ────────────────────────────────────────────────────────
-
-type TransportListener = (msg: ReactSyncTransportMessage) => void
-
-const createMockTransport = (): DomSyncTransportLike<ReactSyncTransportMessage> & {
-  _sent: ReactSyncTransportMessage[]
-  _listeners: Set<TransportListener>
-  _receive(msg: ReactSyncTransportMessage): void
-} => {
-  const listeners = new Set<TransportListener>()
-  const sent: ReactSyncTransportMessage[] = []
-
-  return {
-    _sent: sent,
-    _listeners: listeners,
-    _receive(msg: ReactSyncTransportMessage) {
-      for (const fn of listeners) fn(msg)
-    },
-    send(msg: ReactSyncTransportMessage) {
-      sent.push(msg)
-    },
-    listen(listener: TransportListener) {
-      listeners.add(listener)
-      return () => { listeners.delete(listener) }
-    },
-    destroy() {
-      listeners.clear()
-    },
-  }
+const flushMicrotasks = () => new Promise<void>(r => { queueMicrotask(r) })
+const flushAsync = async (n = 5) => {
+  for (let i = 0; i < n; i++) await flushMicrotasks()
 }
 
-const waitForImmediate = () => new Promise<void>(r => { setImmediate(r) })
-const flushAsync = async (count = 10) => {
-  for (let i = 0; i < count; i++) await waitForImmediate()
-}
+// ── Tests ──────────────────────────────────────────────────────
 
-// ── Tests ──────────────────────────────────────────────────────────
-
-describe('P2P worker integration', () => {
-  let runtime: ReturnType<typeof import('../src/worker/model-runtime')['createWeatherModelRuntime']> | null = null
+describe('PageP2PManager', () => {
+  beforeEach(() => {
+    wsInstances = []
+    pcInstances = []
+    sharedWorkerInstances = []
+  })
 
   afterEach(() => {
-    runtime = null
-    lastMockBridge = null
-    allMockBridges.length = 0
-    createWorkerP2PBridge.mockClear()
+    wsInstances = []
+    pcInstances = []
+    sharedWorkerInstances = []
   })
 
-  const createRuntime = async () => {
-    const { createWeatherModelRuntime } = await import('../src/worker/model-runtime')
-    return createWeatherModelRuntime({
-      weatherBackendBaseUrl: null,
-      p2pSignalUrl: 'ws://127.0.0.1:8790',
-    })
-  }
+  const createManager = async () => {
+    const { createPageP2PManager } = await import('../src/p2p/PageP2PManager')
 
-  const createRuntimeWithoutP2P = async () => {
-    const { createWeatherModelRuntime } = await import('../src/worker/model-runtime')
-    return createWeatherModelRuntime({
-      weatherBackendBaseUrl: null,
-    })
-  }
+    const events = {
+      onBecomeServer: vi.fn(),
+      onBecomeClient: vi.fn(),
+      onSessionLost: vi.fn(),
+      onError: vi.fn(),
+    }
 
-  test('without p2pSignalUrl, no P2P adapter is created', async () => {
-    runtime = await createRuntimeWithoutP2P()
-
-    const transport = createMockTransport()
-    runtime.connect(transport)
-
-    // Send bootstrap
-    transport._receive({
-      type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
-      session_key: 'test-no-p2p',
-    } as ReactSyncTransportMessage)
-
-    await flushAsync(30)
-
-    // No bridge was created
-    expect(createWorkerP2PBridge).not.toHaveBeenCalled()
-
-    // Session booted normally
-    const sessionBooted = transport._sent.find(m => m.type === APP_MSG.SESSION_BOOTED)
-    expect(sessionBooted).toBeDefined()
-    expect((sessionBooted as Record<string, unknown>)?.session_key).toBe('test-no-p2p')
-  })
-
-  test('server mode: session bootstraps normally through P2P adapter', async () => {
-    runtime = await createRuntime()
-
-    const transport = createMockTransport()
-    runtime.connect(transport)
-
-    // Pre-set the mock bridge role to 'server' before bootstrap sees it
-    // Bootstrap triggers adapter creation; we resolve server immediately
-    createWorkerP2PBridge.mockImplementationOnce((config: Parameters<typeof createWorkerP2PBridge>[0]) => {
-      const peerId = `server-${Math.random().toString(36).slice(2, 8)}`
-      const bridge = {
-        get role(): BridgeRole { return 'server' },
-        peerId,
-        sendToServer: vi.fn(),
-        sendToRemotePeer: vi.fn(),
-        broadcastToRemotePeers: vi.fn(),
-        destroy: vi.fn(),
-      }
-
-      // Immediately call onBecomeServer
-      queueMicrotask(() => config.events.onBecomeServer())
-
-      lastMockBridge = {
-        setRole: () => {},
-        events: config.events,
-        serverMessages: [],
-        peerMessages: new Map(),
-        broadcastMessages: [],
-        destroy: bridge.destroy,
-      }
-      allMockBridges.push(lastMockBridge)
-
-      return bridge
-    })
-
-    transport._receive({
-      type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
-      session_key: 'test-server',
-    } as ReactSyncTransportMessage)
-
-    await flushAsync(50)
-
-    // Bridge was created for this session key
-    expect(createWorkerP2PBridge).toHaveBeenCalledTimes(1)
-    expect(createWorkerP2PBridge).toHaveBeenCalledWith(
-      expect.objectContaining({
-        roomId: 'test-server',
-        createSignaling: expect.any(Function),
-      }),
+    const manager = createPageP2PManager(
+      {
+        sessionKey: 'test-room',
+        signalUrl: 'ws://127.0.0.1:8790',
+        workerUrl: 'http://localhost:5173/worker/shared-worker.ts',
+      },
+      events,
     )
 
-    // Session booted normally (server mode doesn't change bootstrap flow)
-    const sessionBooted = transport._sent.find(m => m.type === APP_MSG.SESSION_BOOTED)
-    expect(sessionBooted).toBeDefined()
-    expect((sessionBooted as Record<string, unknown>)?.session_key).toBe('test-server')
-  })
+    return { manager, events }
+  }
 
-  test('client mode: page connection is relayed through P2P adapter', async () => {
-    runtime = await createRuntime()
+  test('onBecomeServer fires when this peer is elected leader', async () => {
+    const { manager, events } = await createManager()
+    await flushAsync()
 
-    const transport = createMockTransport()
-    runtime.connect(transport)
+    const ws = wsInstances[0]
+    expect(ws).toBeDefined()
+    expect(ws.sent).toHaveLength(1)
+    const joinMsg = JSON.parse(ws.sent[0])
+    expect(joinMsg.type).toBe('join')
 
-    let capturedEvents: MockBridge['events'] | null = null
-    const serverMessages: ReactSyncTransportMessage[] = []
+    const myPeerId = joinMsg.peerId
 
-    // Mock bridge that resolves as 'client'
-    createWorkerP2PBridge.mockImplementationOnce((config: Parameters<typeof createWorkerP2PBridge>[0]) => {
-      capturedEvents = config.events
-      const peerId = `client-${Math.random().toString(36).slice(2, 8)}`
-
-      const bridge = {
-        get role(): BridgeRole { return 'client' },
-        peerId,
-        sendToServer(msg: ReactSyncTransportMessage) { serverMessages.push(msg) },
-        sendToRemotePeer: vi.fn(),
-        broadcastToRemotePeers: vi.fn(),
-        destroy: vi.fn(),
-      }
-
-      lastMockBridge = {
-        setRole: () => {},
-        events: config.events,
-        serverMessages,
-        peerMessages: new Map(),
-        broadcastMessages: [],
-        destroy: bridge.destroy,
-      }
-      allMockBridges.push(lastMockBridge)
-
-      return bridge
+    // DO assigns this peer as leader
+    ws.receiveMessage({
+      type: 'room-state',
+      peers: [myPeerId],
+      leaderPeerId: myPeerId,
+      epoch: 1,
     })
 
-    // Send bootstrap — adapter will determine role=client
-    transport._receive({
-      type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
-      session_key: 'test-client',
-    } as ReactSyncTransportMessage)
+    await flushAsync()
 
-    await flushAsync(50)
+    expect(manager.role).toBe('server')
+    expect(events.onBecomeServer).toHaveBeenCalledTimes(1)
+    expect(events.onBecomeClient).not.toHaveBeenCalled()
 
-    // Bridge was created
-    expect(createWorkerP2PBridge).toHaveBeenCalledTimes(1)
+    manager.destroy()
+  })
 
-    // In client mode, session should NOT boot locally
-    const sessionBooted = transport._sent.find(m => m.type === APP_MSG.SESSION_BOOTED)
-    expect(sessionBooted).toBeUndefined()
+  test('onBecomeClient fires when another peer is leader, with DC transport', async () => {
+    const { manager, events } = await createManager()
+    await flushAsync()
 
-    // The bootstrap message was forwarded to the remote server via adapter
-    const forwardedBootstrap = serverMessages.find(
-      m => m.type === APP_MSG.CONTROL_BOOTSTRAP_SESSION,
-    )
-    expect(forwardedBootstrap).toBeDefined()
-    expect((forwardedBootstrap as Record<string, unknown>)?.session_key).toBe('test-client')
+    const ws = wsInstances[0]
+    const myPeerId = JSON.parse(ws.sent[0]).peerId
 
-    // Simulate remote server sending a response back
-    expect(capturedEvents).not.toBeNull()
-    const mockResponse: ReactSyncTransportMessage = {
+    // Another peer is the leader
+    ws.receiveMessage({
+      type: 'room-state',
+      peers: [myPeerId, 'remote-server'],
+      leaderPeerId: 'remote-server',
+      epoch: 1,
+    })
+
+    await flushAsync()
+
+    expect(manager.role).toBe('client')
+    // PC was created, DC was created
+    expect(pcInstances).toHaveLength(1)
+    const dc = pcInstances[0].createdChannels[0]
+    expect(dc).toBeDefined()
+
+    // Simulate DC open → onBecomeClient fires with transport
+    dc.simulateOpen()
+
+    expect(events.onBecomeClient).toHaveBeenCalledTimes(1)
+    const transport = events.onBecomeClient.mock.calls[0][0]
+    expect(transport).toBeDefined()
+    expect(typeof transport.send).toBe('function')
+    expect(typeof transport.listen).toBe('function')
+    expect(typeof transport.destroy).toBe('function')
+
+    manager.destroy()
+  })
+
+  test('client DC transport relays messages bidirectionally', async () => {
+    const { manager, events } = await createManager()
+    await flushAsync()
+
+    const ws = wsInstances[0]
+    const myPeerId = JSON.parse(ws.sent[0]).peerId
+
+    ws.receiveMessage({
+      type: 'room-state',
+      peers: [myPeerId, 'remote-server'],
+      leaderPeerId: 'remote-server',
+      epoch: 1,
+    })
+
+    await flushAsync()
+
+    const dc = pcInstances[0].createdChannels[0]
+    dc.simulateOpen()
+
+    const transport = events.onBecomeClient.mock.calls[0][0]
+
+    // Send through transport → goes to DC
+    transport.send({ type: APP_MSG.CONTROL_BOOTSTRAP_SESSION, session_key: 'test-room' })
+    expect(dc.sent).toHaveLength(1)
+    expect(JSON.parse(dc.sent[0]).type).toBe(APP_MSG.CONTROL_BOOTSTRAP_SESSION)
+
+    // Receive from DC → goes to transport listeners
+    const received: ReactSyncTransportMessage[] = []
+    transport.listen((msg: ReactSyncTransportMessage) => { received.push(msg) })
+
+    dc.simulateMessage({
       type: APP_MSG.SESSION_BOOTED,
-      session_id: 'remote-session-1',
-      session_key: 'test-client',
-      root_node_id: 'remote-root-1',
-    } as ReactSyncTransportMessage
-
-    capturedEvents!.onRemoteMessage(mockResponse)
-
-    // The response should arrive at the page transport
-    const relayedResponse = transport._sent.find(m =>
-      m.type === APP_MSG.SESSION_BOOTED &&
-      (m as Record<string, unknown>).session_key === 'test-client',
-    )
-    expect(relayedResponse).toBeDefined()
-
-    // Verify subsequent page messages go through relay (not local handling)
-    transport._receive({
-      type: APP_MSG.CONTROL_DISPATCH_APP_ACTION,
-      action_name: 'testAction',
-      payload: { value: 42 },
-    } as ReactSyncTransportMessage)
-
-    await flushAsync(10)
-
-    const forwardedAction = serverMessages.find(
-      m => m.type === APP_MSG.CONTROL_DISPATCH_APP_ACTION,
-    )
-    expect(forwardedAction).toBeDefined()
-    expect((forwardedAction as Record<string, unknown>)?.action_name).toBe('testAction')
-  })
-
-  test('server mode: remote peer connects and receives state', async () => {
-    runtime = await createRuntime()
-
-    const pageTransport = createMockTransport()
-    runtime.connect(pageTransport)
-
-    let capturedEvents: MockBridge['events'] | null = null
-
-    createWorkerP2PBridge.mockImplementationOnce((config: Parameters<typeof createWorkerP2PBridge>[0]) => {
-      capturedEvents = config.events
-      const peerId = `server-${Math.random().toString(36).slice(2, 8)}`
-
-      const bridge = {
-        get role(): BridgeRole { return 'server' },
-        peerId,
-        sendToServer: vi.fn(),
-        sendToRemotePeer: vi.fn(),
-        broadcastToRemotePeers: vi.fn(),
-        destroy: vi.fn(),
-      }
-
-      queueMicrotask(() => config.events.onBecomeServer())
-
-      lastMockBridge = {
-        setRole: () => {},
-        events: config.events,
-        serverMessages: [],
-        peerMessages: new Map(),
-        broadcastMessages: [],
-        destroy: bridge.destroy,
-      }
-      allMockBridges.push(lastMockBridge)
-
-      return bridge
+      session_id: 's1',
+      session_key: 'test-room',
+      root_node_id: 'root-1',
     })
 
-    pageTransport._receive({
-      type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
-      session_key: 'test-remote-peer',
-    } as ReactSyncTransportMessage)
+    expect(received).toHaveLength(1)
+    expect(received[0].type).toBe(APP_MSG.SESSION_BOOTED)
 
-    await flushAsync(50)
-
-    // Local page bootstrapped
-    const sessionBooted = pageTransport._sent.find(m => m.type === APP_MSG.SESSION_BOOTED)
-    expect(sessionBooted).toBeDefined()
-
-    // Now simulate a remote peer connecting
-    expect(capturedEvents).not.toBeNull()
-
-    const remotePeerId = 'remote-peer-abc'
-    const remotePeerCallbacks = capturedEvents!.onRemotePeerConnected(remotePeerId)
-
-    // The adapter creates a virtual transport and connects to model-runtime.
-    // Remote peer then sends a bootstrap message through the virtual transport.
-    remotePeerCallbacks.receive({
-      type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
-      session_key: 'test-remote-peer',
-    } as ReactSyncTransportMessage)
-
-    await flushAsync(50)
-
-    // The remote peer's bootstrap was handled by model-runtime
-    // (We can verify this by checking that the bridge's sendToRemotePeer was called
-    //  with SESSION_BOOTED — but that depends on the virtual transport → bridge wiring)
-    // For now, verify no errors and the bridge was used
-    expect(createWorkerP2PBridge).toHaveBeenCalledTimes(1)
+    manager.destroy()
   })
 
-  test('separate session keys use separate P2P adapters', async () => {
-    runtime = await createRuntime()
+  test('server mode: incoming offer creates proxy for remote client', async () => {
+    const { manager, events } = await createManager()
+    await flushAsync()
 
-    let bridgeCount = 0
+    const ws = wsInstances[0]
+    const myPeerId = JSON.parse(ws.sent[0]).peerId
 
-    createWorkerP2PBridge.mockImplementation((config: Parameters<typeof createWorkerP2PBridge>[0]) => {
-      bridgeCount++
-      const peerId = `peer-${bridgeCount}`
-
-      const bridge = {
-        get role(): BridgeRole { return 'server' },
-        peerId,
-        sendToServer: vi.fn(),
-        sendToRemotePeer: vi.fn(),
-        broadcastToRemotePeers: vi.fn(),
-        destroy: vi.fn(),
-      }
-
-      queueMicrotask(() => config.events.onBecomeServer())
-      return bridge
+    // Become server
+    ws.receiveMessage({
+      type: 'room-state',
+      peers: [myPeerId],
+      leaderPeerId: myPeerId,
+      epoch: 1,
     })
 
-    const transport1 = createMockTransport()
-    const transport2 = createMockTransport()
-    runtime.connect(transport1)
-    runtime.connect(transport2)
+    await flushAsync()
+    expect(events.onBecomeServer).toHaveBeenCalledTimes(1)
 
-    transport1._receive({
-      type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
-      session_key: 'session-alpha',
-    } as ReactSyncTransportMessage)
+    // Remote client sends an offer
+    ws.receiveMessage({
+      type: 'offer',
+      from: 'remote-client-1',
+      to: myPeerId,
+      sdp: { type: 'offer', sdp: 'remote-offer-sdp' },
+      ts: Date.now(),
+    })
 
-    await flushAsync(50)
+    await flushAsync()
 
-    transport2._receive({
-      type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
-      session_key: 'session-beta',
-    } as ReactSyncTransportMessage)
+    // Server should have created an RTCPeerConnection for this client
+    expect(pcInstances).toHaveLength(1)
+    const pc = pcInstances[0]
 
-    await flushAsync(50)
+    // Simulate the client's DataChannel arriving at the server
+    const remoteDC = pc.simulateDataChannel('sync')
+    remoteDC.simulateOpen()
 
-    // Two separate bridges for two session keys
-    expect(bridgeCount).toBe(2)
-    expect(createWorkerP2PBridge).toHaveBeenCalledWith(
-      expect.objectContaining({ roomId: 'session-alpha' }),
-    )
-    expect(createWorkerP2PBridge).toHaveBeenCalledWith(
-      expect.objectContaining({ roomId: 'session-beta' }),
-    )
+    // A proxy SharedWorker should have been created for this client
+    // (filter out the first SharedWorker which may be the main one — in our test we only mock)
+    expect(sharedWorkerInstances.length).toBeGreaterThanOrEqual(1)
+
+    // Server should have sent an answer back via signaling
+    const answerMsg = ws.sent.find((s) => {
+      try { return JSON.parse(s).type === 'answer' } catch { return false }
+    })
+    expect(answerMsg).toBeDefined()
+
+    manager.destroy()
   })
 
-  test('same session key reuses existing P2P adapter', async () => {
-    runtime = await createRuntime()
+  test('server mode: proxy bridges DC ↔ worker port', async () => {
+    const { manager, events } = await createManager()
+    await flushAsync()
 
-    let bridgeCount = 0
+    const ws = wsInstances[0]
+    const myPeerId = JSON.parse(ws.sent[0]).peerId
 
-    createWorkerP2PBridge.mockImplementation((config: Parameters<typeof createWorkerP2PBridge>[0]) => {
-      bridgeCount++
-      const peerId = `peer-${bridgeCount}`
-
-      const bridge = {
-        get role(): BridgeRole { return 'server' },
-        peerId,
-        sendToServer: vi.fn(),
-        sendToRemotePeer: vi.fn(),
-        broadcastToRemotePeers: vi.fn(),
-        destroy: vi.fn(),
-      }
-
-      queueMicrotask(() => config.events.onBecomeServer())
-      return bridge
+    ws.receiveMessage({
+      type: 'room-state',
+      peers: [myPeerId],
+      leaderPeerId: myPeerId,
+      epoch: 1,
     })
 
-    const transport1 = createMockTransport()
-    const transport2 = createMockTransport()
-    runtime.connect(transport1)
-    runtime.connect(transport2)
+    await flushAsync()
 
-    transport1._receive({
+    // Remote client connects
+    ws.receiveMessage({
+      type: 'offer',
+      from: 'remote-client-1',
+      to: myPeerId,
+      sdp: { type: 'offer', sdp: 'offer-sdp' },
+      ts: Date.now(),
+    })
+
+    await flushAsync()
+
+    const pc = pcInstances[0]
+    const remoteDC = pc.simulateDataChannel('sync')
+    remoteDC.simulateOpen()
+
+    // Get the proxy worker's port
+    const proxyWorker = sharedWorkerInstances[sharedWorkerInstances.length - 1]
+    const proxyPort = proxyWorker.port
+
+    // Client sends message through DC → should be forwarded to proxy worker port
+    remoteDC.simulateMessage({
       type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
-      session_key: 'shared-session',
-    } as ReactSyncTransportMessage)
+      session_key: 'test-room',
+    })
 
-    await flushAsync(50)
+    expect(proxyPort.sent).toHaveLength(1)
+    expect((proxyPort.sent[0] as ReactSyncTransportMessage).type).toBe(APP_MSG.CONTROL_BOOTSTRAP_SESSION)
 
-    transport2._receive({
-      type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
-      session_key: 'shared-session',
-    } as ReactSyncTransportMessage)
+    // Worker sends message through proxy port → should be forwarded to DC
+    proxyPort.onmessage?.({
+      data: {
+        type: APP_MSG.SESSION_BOOTED,
+        session_id: 's1',
+        session_key: 'test-room',
+        root_node_id: 'root-1',
+      },
+    })
 
-    await flushAsync(50)
+    expect(remoteDC.sent).toHaveLength(1)
+    const dcMsg = JSON.parse(remoteDC.sent[0])
+    expect(dcMsg.type).toBe(APP_MSG.SESSION_BOOTED)
 
-    // Only one bridge for the same session key
-    expect(bridgeCount).toBe(1)
+    manager.destroy()
   })
 
-  test('failover: client becomes server and pages get P2P_SESSION_LOST', async () => {
-    runtime = await createRuntime()
+  test('client: onSessionLost fires when DC closes', async () => {
+    const { manager, events } = await createManager()
+    await flushAsync()
 
-    const transport = createMockTransport()
-    runtime.connect(transport)
+    const ws = wsInstances[0]
+    const myPeerId = JSON.parse(ws.sent[0]).peerId
 
-    let capturedEvents: MockBridge['events'] | null = null
-    const serverMessages: ReactSyncTransportMessage[] = []
-
-    createWorkerP2PBridge.mockImplementationOnce((config: Parameters<typeof createWorkerP2PBridge>[0]) => {
-      capturedEvents = config.events
-      const peerId = `client-failover-${Math.random().toString(36).slice(2, 8)}`
-
-      const bridge = {
-        get role(): BridgeRole { return 'client' },
-        peerId,
-        sendToServer(msg: ReactSyncTransportMessage) { serverMessages.push(msg) },
-        sendToRemotePeer: vi.fn(),
-        broadcastToRemotePeers: vi.fn(),
-        destroy: vi.fn(),
-      }
-
-      lastMockBridge = {
-        setRole: () => {},
-        events: config.events,
-        serverMessages,
-        peerMessages: new Map(),
-        broadcastMessages: [],
-        destroy: bridge.destroy,
-      }
-      allMockBridges.push(lastMockBridge)
-
-      return bridge
+    ws.receiveMessage({
+      type: 'room-state',
+      peers: [myPeerId, 'remote-server'],
+      leaderPeerId: 'remote-server',
+      epoch: 1,
     })
 
-    transport._receive({
-      type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
-      session_key: 'test-failover',
-    } as ReactSyncTransportMessage)
+    await flushAsync()
 
-    await flushAsync(50)
+    const dc = pcInstances[0].createdChannels[0]
+    dc.simulateOpen()
 
-    expect(capturedEvents).not.toBeNull()
+    expect(events.onBecomeClient).toHaveBeenCalledTimes(1)
 
-    // Trigger failover — this simulates the remote server disappearing
-    capturedEvents!.onFailover()
-    await flushAsync(10)
+    // DC closes — server went away
+    dc.simulateClose()
 
-    // Page should receive P2P_SESSION_LOST with reason='failover'
-    const lostMsg = transport._sent.find(m => m.type === APP_MSG.P2P_SESSION_LOST) as
-      { type: string; reason: string } | undefined
-    expect(lostMsg).toBeDefined()
-    expect(lostMsg!.reason).toBe('failover')
+    expect(events.onSessionLost).toHaveBeenCalledTimes(1)
+    expect(events.onSessionLost).toHaveBeenCalledWith('server-gone')
+
+    manager.destroy()
   })
 
-  test('failed signaling connection: bridge falls back to server mode', async () => {
-    runtime = await createRuntime()
+  test('signaling error before role decided falls back to server', async () => {
+    const { manager, events } = await createManager()
+    await flushAsync()
 
-    const transport = createMockTransport()
-    runtime.connect(transport)
+    const ws = wsInstances[0]
 
-    let capturedEvents: MockBridge['events'] | null = null
+    // Simulate signaling error before any room-state
+    ws.onclose?.({})
 
-    createWorkerP2PBridge.mockImplementationOnce((config: Parameters<typeof createWorkerP2PBridge>[0]) => {
-      capturedEvents = config.events
-      const peerId = `fallback-${Math.random().toString(36).slice(2, 8)}`
+    await flushAsync()
 
-      const bridge = {
-        get role(): BridgeRole { return 'server' },
-        peerId,
-        sendToServer: vi.fn(),
-        sendToRemotePeer: vi.fn(),
-        broadcastToRemotePeers: vi.fn(),
-        destroy: vi.fn(),
-      }
+    // Should fall back to server
+    expect(manager.role).toBe('server')
+    expect(events.onBecomeServer).toHaveBeenCalledTimes(1)
 
-      // Simulate: signaling error fires before any connection
-      queueMicrotask(() => {
-        config.events.onError(new Error('Signaling connection refused'))
-      })
+    manager.destroy()
+  })
 
-      lastMockBridge = {
-        setRole: () => {},
-        events: config.events,
-        serverMessages: [],
-        peerMessages: new Map(),
-        broadcastMessages: [],
-        destroy: bridge.destroy,
-      }
-      allMockBridges.push(lastMockBridge)
+  test('destroy cleans up signaling, connections, and proxies', async () => {
+    const { manager } = await createManager()
+    await flushAsync()
 
-      return bridge
+    const ws = wsInstances[0]
+    const myPeerId = JSON.parse(ws.sent[0]).peerId
+
+    ws.receiveMessage({
+      type: 'room-state',
+      peers: [myPeerId],
+      leaderPeerId: myPeerId,
+      epoch: 1,
     })
 
-    transport._receive({
-      type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
-      session_key: 'test-signal-fail',
-    } as ReactSyncTransportMessage)
+    await flushAsync()
 
-    await flushAsync(50)
+    // Add a remote client
+    ws.receiveMessage({
+      type: 'offer',
+      from: 'remote-client-1',
+      to: myPeerId,
+      sdp: { type: 'offer', sdp: 'offer-sdp' },
+      ts: Date.now(),
+    })
 
-    // The bridge was created
-    expect(createWorkerP2PBridge).toHaveBeenCalledTimes(1)
+    await flushAsync()
 
-    // Despite signaling failure, session should boot (fallback to server)
-    const sessionBooted = transport._sent.find(m => m.type === APP_MSG.SESSION_BOOTED)
-    expect(sessionBooted).toBeDefined()
-    expect((sessionBooted as Record<string, unknown>)?.session_key).toBe('test-signal-fail')
+    const pc = pcInstances[0]
+
+    manager.destroy()
+
+    // PC should be closed
+    expect(pc.connectionState).toBe('closed')
+    // WS should have sent bye and closed
+    const byeMsg = ws.sent.find(s => {
+      try { return JSON.parse(s).type === 'bye' } catch { return false }
+    })
+    expect(byeMsg).toBeDefined()
   })
 })
