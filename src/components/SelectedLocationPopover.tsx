@@ -11,9 +11,6 @@ import { readBooleanAttr, readNullableStringAttr, readStringAttr } from '../shar
 import { SelectedLocationSearchPanel } from './SelectedLocationSearchPanel'
 import {
   CurrentWeatherCard,
-  ForecastCard,
-  ForecastEmpty,
-  POPOVER_FORECAST_LIMIT,
   PopoverForecastColumns,
   PopoverWeatherSectionFallback,
   WeatherReadoutError,
@@ -638,9 +635,10 @@ function SelectedLocationPopoverCurrentWeatherFallback({
         <WeatherReadoutError
           message={`Weather load failed: ${weatherLoadError}`}
           onRetry={onRetryWeather}
+          variant="popover"
         />
       ) : (
-        <WeatherReadoutFallback />
+        <WeatherReadoutFallback variant="popover" />
       )}
     </>
   )

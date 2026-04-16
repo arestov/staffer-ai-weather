@@ -79,8 +79,9 @@ function SelectedLocationPopoverCurrentWeatherFallback({
     <WeatherReadoutError
       message={`Weather load failed: ${weatherLoadError}`}
       onRetry={onRetryWeather}
+      variant="popover"
     />
   ) : (
-    <WeatherReadoutFallback />
+    <WeatherReadoutFallback variant="popover" />
   )
 }

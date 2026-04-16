@@ -23,37 +23,45 @@ SessionRoot (pioneer)
 
 ```
 <App session>
-│  useSyncRoot(runtime) → snapshot { booted, rootNodeId, sessionId }
-│
-├── <header> (boot state, root node, session ID)
-│
 └── <RootScope runtime>    ← provides ReactScopeRuntimeContext + ScopeContext(rootScope)
     │
     └── <One rel="pioneer" fallback={GraphFallback}>              [Scope: SessionRoot]
         │
-        ├── <One rel="mainLocation" fallback={LocationFallback(featured)}>  [Scope: SelectedLocation]
-        │   └── <FeaturedLocationCard>
-        │       └── <WeatherLocationInner featured>
-        │           │  useAttrs(['loadStatus','lastError','weatherFetchedAt'])  ← reads from SelectedLocation scope (always empty)
-        │           │
-        │           └── <div.location-card.location-card--featured>
-        │               └── <One rel="weatherLocation" fallback={LocationFallback(featured)}>  [Scope: WeatherLocation]
-        │                   └── <div.location-card__body>
-        │                       ├── <One rel="currentWeather" fallback={LocationFallback(featured)}>  [Scope: CurrentWeather]
-        │                       │   └── <article.weather-readout>
-        │                       │       └── <CurrentWeatherCard>  ← shapeOf, useAttrs
-        │                       │
-        │                       └── {featured &&
-        │                           <div.forecast-panels>
-        │                             ├── "Hourly forecast"
-        │                             │   └── <Many rel="hourlyForecastSeries" item={ForecastCard} empty={ForecastEmpty}>
-        │                             └── "Daily forecast"
-        │                                 └── <Many rel="dailyForecastSeries" item={ForecastCard} empty={ForecastEmpty}>
-        │                           }
-        │
-        └── <Many rel="additionalLocations" item={AdditionalLocationCard} empty={LocationCardsFallback(3)}>
-            └── <AdditionalLocationCard>
-                └── <WeatherLocationInner>  (featured=false, no forecast panels)
+    ├── <WeatherUpdateTimestamp />
+    │
+    ├── <section.main-stage>
+    │   └── <One rel="mainLocation" fallback={<LocationFallback featured forecastLimit={...} />}>  [Scope: SelectedLocation]
+    │       └── <FeaturedLocationCard>
+    │           └── <WeatherLocationInner featured>
+    │               └── <div.selected-location-shell--featured>
+    │                   └── <div.selected-location-card-button>
+    │                       └── <div.location-card.location-card--featured>
+    │                           └── <One rel="weatherLocation" fallback={weatherLocationBodyFallback}>  [Scope: WeatherLocation]
+    │                               └── <div.location-card__body>
+    │                                   ├── <One rel="currentWeather" fallback={<WeatherReadoutFallback />}>  [Scope: CurrentWeather]
+    │                                   │   └── <article.weather-readout>
+    │                                   │       └── <CurrentWeatherCard>  ← shapeOf, useAttrs
+    │                                   │
+    │                                   └── {featured &&
+    │                                       <div.forecast-panels>
+    │                                         ├── <HourlySparklineSection />
+    │                                         └── <DailySparklineSection />
+    │                                       }
+    │
+    └── <section.secondary-stage>
+      └── <div.location-grid>
+        └── <Many rel="additionalLocations" item={AdditionalLocationCard} empty={<LocationCardsFallback count={3} />}>
+          └── <AdditionalLocationCard>
+            └── <WeatherLocationInner>
+              └── same shell/card/body structure as featured, without forecast panels
+
+<SelectedLocationPopoverLayer>
+└── <div.selected-location-popover__surface>
+  └── <One rel="weatherLocation" fallback={<PopoverWeatherSectionFallback />}>
+    └── <div.selected-location-popover__body>
+      ├── <One rel="currentWeather" fallback={<WeatherReadoutFallback variant="popover" />}>
+      │   └── <article.weather-readout--popover>
+      └── <PopoverForecastColumns />
 ```
 
 ## Loading Stages
@@ -90,31 +98,14 @@ SessionRoot (pioneer)
 - `SelectedLocation` node synced, `<One rel="mainLocation">` resolves
 - Renders `FeaturedLocationCard` → `WeatherLocationInner(featured=true)`
 - `WeatherLocationInner` wraps in `<div class="location-card location-card--featured">`
-- `<One rel="weatherLocation">` — not yet synced → **LocationFallback(featured)**
-
-> **BUG: Double card wrapping.** `WeatherLocationInner` already provides a `<div.location-card>` wrapper, but `LocationFallback` renders another `<article.location-card>` inside it:
-> ```html
-> <div class="location-card location-card--featured">         ← WeatherLocationInner
->   <article class="location-card location-card--featured     ← LocationFallback
->            location-card--placeholder">
->     <div class="location-card__body">...</div>
->   </article>
-> </div>
-> ```
+- `<One rel="weatherLocation">` — not yet synced → `weatherLocationBodyFallback` inside the same shell/card wrapper
+- The fallback now keeps the same outer geometry as the resolved card and only substitutes the inner body
 
 ### Stage 5 — weatherLocation Synced, currentWeather Not Created
 - `WeatherLocation` node synced (loadStatus='idle'), `<One rel="weatherLocation">` resolves
 - `currentWeather` rel is `null` (not yet created — created by `applyWeather` action)
-- `<One rel="currentWeather" fallback={LocationFallback(featured)}>` → **LocationFallback(featured)** (full card with forecast panels!)
-- Sibling `{featured && <div.forecast-panels>...}` also renders:
-  - `<Many rel="hourlyForecastSeries" empty={ForecastEmpty}>` → **ForecastEmpty**
-  - `<Many rel="dailyForecastSeries" empty={ForecastEmpty}>` → **ForecastEmpty**
-
-> **BUG: Double forecast display.** Two sets of "Hourly forecast" + "Daily forecast":
-> 1. From `LocationFallback` (currentWeather fallback) — wrapped in its own card body
-> 2. From the sibling forecast panels — with `ForecastEmpty` placeholders
->
-> The user sees this as two skeletons, with the upper one wrapped in an extra component.
+- `<One rel="currentWeather" fallback={<WeatherReadoutFallback />}>` replaces only the readout block
+- Sibling forecast panels remain separate and render their own loading state until each series resolves
 
 ### Stage 6 — Weather API Fetch
 - Worker calls `fetchWeatherForAllLocations()`:
@@ -143,9 +134,9 @@ SessionRoot (pioneer)
 5. `ReactSyncReceiver` processes incoming sync batches → updates nodes → notifies subscribers
 6. `useSyncExternalStore` triggers re-render when `readOne`/`readMany` returns new data
 
-## Summary of Issues
+## Fallback Contract
 
-| Stage | Issue | Root Cause |
-|-------|-------|------------|
-| 4 | Double card wrapping | `LocationFallback` used as `weatherLocation` fallback includes `<article.location-card>` inside `WeatherLocationInner`'s `<div.location-card>` |
-| 5 | Double forecast display | `LocationFallback` used as `currentWeather` fallback includes forecast panels; real forecast panels render as siblings |
+- `LocationFallback` now mirrors the real selected-location shell: `selected-location-shell` → `selected-location-card-button` → `location-card` → `location-card__body`.
+- `LocationCardsFallback` therefore matches the actual additional locations grid in both width and height, instead of rendering a different standalone card shape.
+- `WeatherReadoutFallback` has a compact `variant="popover"` mode so the popover fallback matches the smaller popover readout geometry.
+- `PopoverWeatherSectionFallback` now uses a dedicated popover columns fallback instead of the featured-card forecast chips fallback.

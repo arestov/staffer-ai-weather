@@ -74,6 +74,13 @@ const ForecastShape = defineShape({
   attrs: ['label', 'temperatureText', 'summary'],
 })
 
+type WeatherReadoutFallbackVariant = 'location' | 'popover'
+
+const getWeatherReadoutFallbackClassName = (variant: WeatherReadoutFallbackVariant) =>
+  variant === 'popover'
+    ? 'weather-readout weather-readout--popover weather-readout--placeholder'
+    : 'weather-readout weather-readout--location weather-readout--placeholder'
+
 export const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
   loadStatus,
   loadNote,
@@ -130,12 +137,17 @@ export const CurrentWeatherCard = shapeOf(function CurrentWeatherCard({
 export function WeatherReadoutError({
   message,
   onRetry,
+  variant = 'location',
 }: {
   message: string
   onRetry?: () => void
+  variant?: WeatherReadoutFallbackVariant
 }) {
   return (
-    <div className="weather-readout weather-readout--location weather-readout--error" role="alert">
+    <div
+      className={`${getWeatherReadoutFallbackClassName(variant)} weather-readout--error`}
+      role="alert"
+    >
       <div className="weather-readout__label">Weather unavailable</div>
       <div className="weather-readout__value weather-readout__value--placeholder">
         -- <span className="temp-unit">°C</span>
@@ -165,9 +177,13 @@ export const ForecastCard = shapeOf(function ForecastCard() {
   )
 }, ForecastShape)
 
-export const WeatherReadoutFallback = memo(function WeatherReadoutFallback() {
+export const WeatherReadoutFallback = memo(function WeatherReadoutFallback({
+  variant = 'location',
+}: {
+  variant?: WeatherReadoutFallbackVariant
+}) {
   return (
-    <div className="weather-readout weather-readout--location weather-readout--placeholder">
+    <div className={getWeatherReadoutFallbackClassName(variant)}>
       <span className="sr-only">Loading weather information.</span>
       <div className="weather-readout__label" aria-hidden="true">
         <span className="skeleton skeleton-line skeleton-line--label" />
@@ -240,20 +256,29 @@ export function LocationFallback({
   forecastLimit?: number
 }) {
   return (
-    <article
+    <div
       className={
         featured
-          ? 'location-card location-card--featured location-card--placeholder'
-          : 'location-card location-card--placeholder'
+          ? 'selected-location-shell selected-location-shell--featured'
+          : 'selected-location-shell'
       }
       aria-busy="true"
-      aria-label="Loading weather card"
     >
-      <div className="location-card__body">
-        <WeatherReadoutFallback />
-        {featured ? <ForecastPanelsFallback forecastLimit={forecastLimit} /> : null}
+      <div className="selected-location-card-button" aria-hidden="true">
+        <div
+          className={
+            featured
+              ? 'location-card location-card--featured location-card--placeholder'
+              : 'location-card location-card--placeholder'
+          }
+        >
+          <div className="location-card__body">
+            <WeatherReadoutFallback />
+            {featured ? <ForecastPanelsFallback forecastLimit={forecastLimit} /> : null}
+          </div>
+        </div>
       </div>
-    </article>
+    </div>
   )
 }
 
@@ -278,11 +303,51 @@ export function PopoverForecastColumns() {
   )
 }
 
+function PopoverForecastColumnsFallback() {
+  return (
+    <div className="selected-location-popover__forecasts" aria-hidden="true">
+      <SparklineSectionFallback heading="Hourly" detailWidth="6.4rem" />
+      <SparklineSectionFallback heading="Daily" detailWidth="7.2rem" />
+    </div>
+  )
+}
+
+function SparklineSectionFallback({
+  heading,
+  detailWidth,
+}: {
+  heading: string
+  detailWidth: string
+}) {
+  return (
+    <div className="sparkline-section">
+      <h3 className="sparkline-title">
+        <span className="sparkline-title__heading">{heading}</span>
+        <span className="sparkline-title__detail">
+          <span className="skeleton skeleton-line skeleton-line--meta" style={{ width: detailWidth }} />
+        </span>
+      </h3>
+      <div className="sparkline-panel">
+        <div className="sparkline-endpoints">
+          <span className="sparkline-endpoint">
+            <span className="skeleton skeleton-line skeleton-line--meta" style={{ width: '4.4rem' }} />
+          </span>
+          <span className="sparkline-endpoint sparkline-endpoint--end">
+            <span className="skeleton skeleton-line skeleton-line--meta" style={{ width: '4.4rem' }} />
+          </span>
+        </div>
+        <div className="sparkline-svg skeleton" aria-hidden="true" />
+      </div>
+      <div className="sparkline-icon-track" aria-hidden="true" />
+    </div>
+  )
+}
+
 export function PopoverWeatherSectionFallback() {
   return (
     <div className="selected-location-popover__body">
-      <WeatherReadoutFallback />
-      <ForecastPanelsFallback forecastLimit={POPOVER_FORECAST_LIMIT} />
+      <WeatherReadoutFallback variant="popover" />
+      <PopoverForecastColumnsFallback />
     </div>
   )
 }
