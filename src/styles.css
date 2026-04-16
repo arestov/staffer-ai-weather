@@ -1210,6 +1210,7 @@ h1 {
   background: rgb(var(--color-ink-rgb) / 0.05);
   border: 1px solid rgb(var(--color-ink-rgb) / 0.08);
   text-align: left;
+  min-width: 15rem;
 }
 
 .selected-location-search__result strong {
