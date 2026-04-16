@@ -57,14 +57,13 @@ export const SELECTED_LOCATION_CREATION_SHAPE = {
 
 export const CURRENT_WEATHER_CREATION_SHAPE = {
   attrs: [
-    'location', 'status', 'temperatureText', 'summary', 'updatedAt',
+    'location', 'updatedAt',
     'temperatureC', 'apparentTemperatureC', 'weatherCode', 'isDay', 'windSpeed10m',
   ],
 }
 
 export const FORECAST_SERIES_CREATION_SHAPE = {
   attrs: [
-    'label', 'temperatureText', 'summary',
     'time', 'date', 'temperatureC', 'temperatureMaxC', 'temperatureMinC',
     'precipitationProbability', 'precipitationProbabilityMax',
     'weatherCode', 'windSpeed10m', 'windSpeedMax', 'sunrise', 'sunset',

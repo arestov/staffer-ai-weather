@@ -1,11 +1,9 @@
 import { model } from 'dkt/model.js'
+import { formatTemperature, formatDailyLabel, weatherCodeToSummary } from './weatherFormat'
 
 export const DailyForecastSeries = model({
   model_name: 'weather_daily_forecast_series',
   attrs: {
-    label: ['input', ''],
-    temperatureText: ['input', '-- \u00b0C'],
-    summary: ['input', ''],
     date: ['input', null],
     temperatureMaxC: ['input', null],
     temperatureMinC: ['input', null],
@@ -14,5 +12,17 @@ export const DailyForecastSeries = model({
     windSpeedMax: ['input', null],
     sunrise: ['input', null],
     sunset: ['input', null],
+    label: ['comp', ['date'], formatDailyLabel],
+    temperatureText: [
+      'comp',
+      ['temperatureMinC', 'temperatureMaxC'],
+      (min: unknown, max: unknown) =>
+        `${formatTemperature(min as number | null | undefined)} / ${formatTemperature(max as number | null | undefined)}`,
+    ],
+    summary: [
+      'comp',
+      ['weatherCode'],
+      (weatherCode: unknown) => weatherCodeToSummary(weatherCode as number | null | undefined, true),
+    ],
   },
 })

@@ -299,9 +299,6 @@ export const WeatherLocation = model({
             currentWeather: {
               attrs: {
                 location: name,
-                status: 'ready',
-                temperatureText: formatTemperature(c.temperatureC),
-                summary: weatherCodeToSummary(c.weatherCode, c.isDay),
                 updatedAt: payload.fetchedAt,
                 temperatureC: c.temperatureC,
                 apparentTemperatureC: c.apparentTemperatureC,
@@ -312,9 +309,6 @@ export const WeatherLocation = model({
             },
             hourlyForecastSeries: payload.hourly.map((h) => ({
               attrs: {
-                label: formatHourlyLabel(h.time),
-                temperatureText: formatTemperature(h.temperatureC),
-                summary: weatherCodeToSummary(h.weatherCode, true),
                 time: h.time,
                 temperatureC: h.temperatureC,
                 precipitationProbability: h.precipitationProbability,
@@ -324,9 +318,6 @@ export const WeatherLocation = model({
             })),
             dailyForecastSeries: payload.daily.map((d) => ({
               attrs: {
-                label: formatDailyLabel(d.date),
-                temperatureText: `${formatTemperature(d.temperatureMinC)} / ${formatTemperature(d.temperatureMaxC)}`,
-                summary: weatherCodeToSummary(d.weatherCode, true),
                 date: d.date,
                 temperatureMaxC: d.temperatureMaxC,
                 temperatureMinC: d.temperatureMinC,
