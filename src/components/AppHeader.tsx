@@ -5,10 +5,7 @@ type AppHeaderProps = {
   rootNodeId: string | null
   sessionId: string | null
   sessionKey: string | null
-  weatherLoadStatus: string
-  weatherLoadError: string | null
   p2pStatusLabel: string
-  onRefreshWeather: () => void
 }
 
 export function AppHeader({
@@ -16,10 +13,7 @@ export function AppHeader({
   rootNodeId,
   sessionId,
   sessionKey,
-  weatherLoadStatus,
-  weatherLoadError,
   p2pStatusLabel,
-  onRefreshWeather,
 }: AppHeaderProps) {
   const [isOpen, setIsOpen] = useState(false)
   const shellRef = useRef<HTMLDivElement | null>(null)
@@ -95,19 +89,6 @@ export function AppHeader({
           </div>
         </div>
 
-        {weatherLoadStatus === 'error' && weatherLoadError ? (
-          <div className="app-header-error" data-weather-load-error-banner role="alert">
-            <p>Weather load failed: {weatherLoadError}</p>
-            <button
-              type="button"
-              className="secondary"
-              onClick={onRefreshWeather}
-              data-weather-retry
-            >
-              Retry weather
-            </button>
-          </div>
-        ) : null}
       </header>
     </div>
   )

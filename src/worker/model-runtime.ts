@@ -62,6 +62,11 @@ type WeatherRuntimeLike = {
       weatherLoaderSource: ReturnType<typeof createWeatherLoaderApi>
       weatherBackendSource?: WeatherBackendApi
       geoLocationSource?: ReturnType<typeof createGeoLocationApi>
+      time?: {
+        setTimeout: typeof globalThis.setTimeout
+        clearTimeout: typeof globalThis.clearTimeout
+        Date: typeof globalThis.Date
+      }
     }
   }) => Promise<{
     app_model: RuntimeModelLike
@@ -91,25 +96,18 @@ type AppEntry = {
   app: WeatherAppRuntime
   sessionManager: ReturnType<typeof createSessionManager>
   streamIds: Set<string>
-  liveUpdateTimer: ReturnType<typeof setTimeout> | null
-  weatherFetchStarted: boolean
   status: 'active' | 'closing'
-
 }
 
 const SESSION_IMPORTANT_REL_PATHS = Object.freeze([
   Object.freeze(['pioneer']),
 ])
 
-const LIVE_UPDATE_INTERVAL_MS = 10 * 60 * 1000  // 10 minutes
-const LIVE_UPDATE_RETRY_MS = 30 * 1000           // 30 seconds on error
-const LIVE_UPDATE_MAX_RETRIES = 3
 const APP_CLEANUP_DELAY_MS = 30 * 1000
 const SESSION_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/
 
 const refreshWeatherForAllLocations = async (
   app: WeatherAppRuntime,
-  weatherStateReporter?: (status: string, error: string | null) => void,
 ) => {
   const appModel = app.inited.app_model
   const locationRel = _getCurrentRel(appModel, 'weatherLocation') as RuntimeModelLike[] | null
@@ -126,53 +124,9 @@ const refreshWeatherForAllLocations = async (
     return
   }
 
-  weatherStateReporter?.('loading', null)
-
   await Promise.allSettled(
     entries.map((location) => location.refreshState('weatherData')),
   )
-
-  weatherStateReporter?.('ready', null)
-}
-
-const waitForInitialWeatherLoad = (
-  app: WeatherAppRuntime,
-  onSettled: (status: string, error: string | null) => void,
-) => {
-  const appModel = app.inited.app_model
-  const locationRel = _getCurrentRel(appModel, 'weatherLocation') as RuntimeModelLike[] | null
-  const locations: RuntimeModelLike[] = Array.isArray(locationRel) ? locationRel : []
-
-  if (!locations.length) {
-    return
-  }
-
-  onSettled('loading', null)
-
-  let attempts = 0
-  const maxAttempts = 600
-
-  const check = () => {
-    attempts += 1
-    const allSettled = locations.every((loc) => {
-      const status = loc.states?.loadStatus
-      return status === 'ready' || status === 'error'
-    })
-
-    if (!allSettled && attempts < maxAttempts) {
-      setTimeout(check, 50)
-      return
-    }
-
-    const errorLoc = locations.find((loc) => loc.states?.loadStatus === 'error')
-    if (errorLoc) {
-      onSettled('error', String(errorLoc.states?.lastError ?? 'Weather load failed'))
-    } else {
-      onSettled('ready', null)
-    }
-  }
-
-  setTimeout(check, 0)
 }
 
 const runtimeEnv =
@@ -289,64 +243,6 @@ export const createWeatherModelRuntime = (options?: {
     emitForConnection(connection, message)
   }
 
-  const broadcastToApp = (
-    appEntry: AppEntry,
-    message: ReactSyncTransportMessage,
-  ) => {
-    for (const streamId of appEntry.streamIds) {
-      emitToStreamId(streamId, message)
-    }
-  }
-
-  const broadcastWeatherLoadState = (
-    appEntry: AppEntry,
-    status: string,
-    error: string | null,
-  ) => {
-    broadcastToApp(appEntry, {
-      type: APP_MSG.WEATHER_LOAD_STATE,
-      status,
-      error,
-    })
-  }
-
-  const stopLiveUpdate = (appEntry: AppEntry) => {
-    if (appEntry.liveUpdateTimer != null) {
-      clearTimeout(appEntry.liveUpdateTimer)
-      appEntry.liveUpdateTimer = null
-    }
-
-    appEntry.weatherFetchStarted = false
-  }
-
-  const startLiveUpdate = (appEntry: AppEntry) => {
-    if (appEntry.liveUpdateTimer != null) {
-      return
-    }
-
-    let retryCount = 0
-
-    const tick = async () => {
-      appEntry.liveUpdateTimer = null
-
-      try {
-        await refreshWeatherForAllLocations(appEntry.app, (status, error) => {
-          broadcastWeatherLoadState(appEntry, status, error)
-        })
-        retryCount = 0
-        appEntry.liveUpdateTimer = setTimeout(tick, LIVE_UPDATE_INTERVAL_MS)
-      } catch {
-        retryCount += 1
-        const delay = retryCount <= LIVE_UPDATE_MAX_RETRIES
-          ? LIVE_UPDATE_RETRY_MS
-          : LIVE_UPDATE_INTERVAL_MS
-        appEntry.liveUpdateTimer = setTimeout(tick, delay)
-      }
-    }
-
-    appEntry.liveUpdateTimer = setTimeout(tick, LIVE_UPDATE_INTERVAL_MS)
-  }
-
   const cancelAppCleanup = (sessionKey: string) => {
     const timer = appCleanupTimersBySessionKey.get(sessionKey)
     if (!timer) {
@@ -370,7 +266,6 @@ export const createWeatherModelRuntime = (options?: {
           return
         }
 
-        stopLiveUpdate(appEntry)
         appEntriesBySessionKey.delete(sessionKey)
       }, APP_CLEANUP_DELAY_MS),
     )
@@ -444,6 +339,11 @@ export const createWeatherModelRuntime = (options?: {
           weatherLoaderSource: createWeatherLoaderApi(),
           ...(scopedWeatherBackend ? { weatherBackendSource: scopedWeatherBackend } : {}),
           geoLocationSource: createGeoLocationApi(),
+          time: {
+            setTimeout: globalThis.setTimeout.bind(globalThis),
+            clearTimeout: globalThis.clearTimeout.bind(globalThis),
+            Date: globalThis.Date,
+          },
         },
       })
 
@@ -455,8 +355,6 @@ export const createWeatherModelRuntime = (options?: {
         },
         sessionManager: createSessionManager(),
         streamIds: new Set(),
-        liveUpdateTimer: null,
-        weatherFetchStarted: false,
         status: 'active',
       }
 
@@ -626,14 +524,6 @@ export const createWeatherModelRuntime = (options?: {
     })
 
     appendLog(connection, `session booted -> ${session.sessionId} @ ${appEntry.sessionKey}`)
-
-    if (!appEntry.weatherFetchStarted) {
-      appEntry.weatherFetchStarted = true
-      waitForInitialWeatherLoad(appEntry.app, (status, error) => {
-        broadcastWeatherLoadState(appEntry, status, error)
-      })
-      startLiveUpdate(appEntry)
-    }
   }
 
   const handleMessage = async (
@@ -690,9 +580,7 @@ export const createWeatherModelRuntime = (options?: {
           throw new Error('worker connection is not attached to a session key')
         }
 
-        refreshWeatherForAllLocations(appEntry.app, (status, error) => {
-          broadcastWeatherLoadState(appEntry, status, error)
-        }).catch((error) => {
+        refreshWeatherForAllLocations(appEntry.app).catch((error) => {
           appendLog(connection, `refresh weather failed: ${error}`)
         })
         return

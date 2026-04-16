@@ -28,8 +28,6 @@ const createEmptySnapshot = (): PageRootSnapshot => ({
   rootNodeId: null,
   sessionId: null,
   sessionKey: null,
-  weatherLoadStatus: 'ready',
-  weatherLoadError: null,
 })
 
 const createSnapshotWithVersion = (
@@ -218,8 +216,6 @@ export const createPageSyncReceiverRuntime = ({
           rootNodeId: null,
           sessionId: null,
           sessionKey: options?.sessionKey ?? null,
-          weatherLoadStatus: 'ready',
-          weatherLoadError: null,
         }),
       )
     }
@@ -315,16 +311,6 @@ export const createPageSyncReceiverRuntime = ({
         emitLog(`${message.scope}: ${message.message}`)
         return
       }
-      case APP_MSG.WEATHER_LOAD_STATE: {
-        const current = store.getSnapshot()
-        store.setSnapshot(
-          createSnapshotWithVersion(current, {
-            weatherLoadStatus: message.status,
-            weatherLoadError: message.error,
-          }),
-        )
-        return
-      }
       case APP_MSG.RUNTIME_ERROR: {
         emitError(message.message)
         return
@@ -346,8 +332,6 @@ export const createPageSyncReceiverRuntime = ({
             ready: false,
             rootNodeId: null,
             sessionId: null,
-            weatherLoadStatus: 'ready',
-            weatherLoadError: null,
           }),
         )
         // Re-bootstrap to get a fresh session from the (now-local) server

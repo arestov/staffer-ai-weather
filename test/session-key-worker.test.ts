@@ -236,34 +236,28 @@ describe('worker app pool by session key', () => {
     const betaClient = await createWorkerClient(appRuntime, 'beta-user')
 
     try {
-      alphaClient.pageRuntime.dispatchAction('setWeatherLoadState', {
-        status: 'error',
-        error: 'alpha-only',
-      }, appRootScope)
+      alphaClient.pageRuntime.dispatchAction('failAutoGeoDetection', 'alpha-only', appRootScope)
 
       await waitFor(
-        async () => getAppRoot((await appRuntime.debugDumpAppState('alpha-user')) as DebugAppState).attrs.weatherLoadError,
+        async () => getAppRoot((await appRuntime.debugDumpAppState('alpha-user')) as DebugAppState).attrs.autoGeoError,
         (value) => value === 'alpha-only',
         'alpha app did not receive the alpha-specific state update',
       )
 
       expect(
-        getAppRoot((await appRuntime.debugDumpAppState('beta-user')) as DebugAppState).attrs.weatherLoadError,
+        getAppRoot((await appRuntime.debugDumpAppState('beta-user')) as DebugAppState).attrs.autoGeoError,
       ).toBe(null)
 
-      betaClient.pageRuntime.dispatchAction('setWeatherLoadState', {
-        status: 'error',
-        error: 'beta-only',
-      }, appRootScope)
+      betaClient.pageRuntime.dispatchAction('failAutoGeoDetection', 'beta-only', appRootScope)
 
       await waitFor(
-        async () => getAppRoot((await appRuntime.debugDumpAppState('beta-user')) as DebugAppState).attrs.weatherLoadError,
+        async () => getAppRoot((await appRuntime.debugDumpAppState('beta-user')) as DebugAppState).attrs.autoGeoError,
         (value) => value === 'beta-only',
         'beta app did not receive the beta-specific state update',
       )
 
       expect(
-        getAppRoot((await appRuntime.debugDumpAppState('alpha-user')) as DebugAppState).attrs.weatherLoadError,
+        getAppRoot((await appRuntime.debugDumpAppState('alpha-user')) as DebugAppState).attrs.autoGeoError,
       ).toBe('alpha-only')
 
       alphaClient.pageRuntime.bootstrap({ sessionKey: 'beta-user' })
@@ -274,19 +268,16 @@ describe('worker app pool by session key', () => {
         'alpha client did not switch to beta session key',
       )
 
-      alphaClient.pageRuntime.dispatchAction('setWeatherLoadState', {
-        status: 'error',
-        error: 'beta-after-switch',
-      }, appRootScope)
+      alphaClient.pageRuntime.dispatchAction('failAutoGeoDetection', 'beta-after-switch', appRootScope)
 
       await waitFor(
-        async () => getAppRoot((await appRuntime.debugDumpAppState('beta-user')) as DebugAppState).attrs.weatherLoadError,
+        async () => getAppRoot((await appRuntime.debugDumpAppState('beta-user')) as DebugAppState).attrs.autoGeoError,
         (value) => value === 'beta-after-switch',
         'switched client did not dispatch into the beta app entry',
       )
 
       expect(
-        getAppRoot((await appRuntime.debugDumpAppState('alpha-user')) as DebugAppState).attrs.weatherLoadError,
+        getAppRoot((await appRuntime.debugDumpAppState('alpha-user')) as DebugAppState).attrs.autoGeoError,
       ).toBe('alpha-only')
       expect(appRuntime.debugListSessionKeys()).toEqual(['alpha-user', 'beta-user'])
     } finally {

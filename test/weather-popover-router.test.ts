@@ -956,7 +956,7 @@ describe('SelectedLocation popover router', () => {
     )
   })
 
-  test('startup weather error shows a retry button and recovers on refresh', async () => {
+  test('startup weather error recovers on refresh', async () => {
     harness = await createWeatherTestHarness()
     const startupError = new Error('weather offline')
 
@@ -970,13 +970,7 @@ describe('SelectedLocation popover router', () => {
 
     await waitForMainWeatherLoadError(harness, mainLocationId, startupError.message)
 
-    const retryButton = await waitFor(
-      () => document.body.querySelector('[data-weather-retry]'),
-      (element) => Boolean(element),
-      'weather retry button did not appear for the startup error',
-    )
-
-    clickElement(retryButton as Element)
+    harness.session.refreshWeather()
 
     const recoveredState = await waitForWeatherLoaded(harness)
     const recoveredWeather = getWeatherLocationForSelectedLocation(recoveredState, mainLocationId)

@@ -38,10 +38,7 @@ export default function App({
         rootNodeId={snapshot.rootNodeId}
         sessionId={snapshot.sessionId}
         sessionKey={snapshot.sessionKey}
-        weatherLoadStatus={snapshot.weatherLoadStatus}
-        weatherLoadError={snapshot.weatherLoadError}
         p2pStatusLabel={p2pStatusLabel}
-        onRefreshWeather={session.refreshWeather}
       />
 
       <div id="main-content">

@@ -11,7 +11,6 @@ export const APP_MSG = {
   RUNTIME_LOG: 'runtime:log',
   RUNTIME_ERROR: 'runtime:error',
   RUNTIME_READY: 'runtime:ready',
-  WEATHER_LOAD_STATE: 'weather:load-state',
 
   SYNC_HANDLE: 'sync:handle',
   SYNC_RPC: 'sync:rpc',
@@ -89,12 +88,6 @@ export type ReactSyncRuntimeReadyMessage = {
   type: typeof APP_MSG.RUNTIME_READY
 }
 
-export type ReactSyncWeatherLoadStateMessage = {
-  type: typeof APP_MSG.WEATHER_LOAD_STATE
-  status: string
-  error: string | null
-}
-
 export type ReactSyncSyncHandleMessage = {
   type: typeof APP_MSG.SYNC_HANDLE
   sync_type: number
@@ -134,7 +127,6 @@ export type ReactSyncTransportMessage =
   | ReactSyncRuntimeLogMessage
   | ReactSyncRuntimeErrorMessage
   | ReactSyncRuntimeReadyMessage
-  | ReactSyncWeatherLoadStateMessage
   | ReactSyncSyncHandleMessage
   | ReactSyncSyncRpcMessage
   | ReactSyncSyncUpdateStructureUsageMessage

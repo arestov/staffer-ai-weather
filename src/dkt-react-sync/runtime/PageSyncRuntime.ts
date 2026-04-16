@@ -9,8 +9,6 @@ export interface PageRootSnapshot {
   rootNodeId: string | null
   sessionId: string | null
   sessionKey: string | null
-  weatherLoadStatus: string
-  weatherLoadError: string | null
 }
 
 export interface PageSyncRuntime extends ReactScopeRuntime {

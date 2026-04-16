@@ -202,8 +202,31 @@ const app_props = mergeDcl({
       ['< @all:weatherFetchedAt < weatherLocation', '< @all:name < weatherLocation'],
       buildWeatherUpdatedSummary,
     ],
-    weatherLoadStatus: ['input', 'ready'],
-    weatherLoadError: ['input', null],
+    weatherLoadStatus: [
+      'comp',
+      ['< @all:loadStatus < weatherLocation'],
+      (statuses: unknown[]) => {
+        const values = Array.isArray(statuses) ? statuses : []
+        if (values.some((s) => s === 'loading')) return 'loading'
+        if (values.some((s) => s === 'error')) return 'error'
+        if (values.every((s) => s === 'ready')) return 'ready'
+        return 'ready'
+      },
+    ],
+    weatherLoadError: [
+      'comp',
+      ['< @all:loadStatus < weatherLocation', '< @all:lastError < weatherLocation'],
+      (statuses: unknown[], errors: unknown[]) => {
+        const statusValues = Array.isArray(statuses) ? statuses : []
+        const errorValues = Array.isArray(errors) ? errors : []
+        for (let i = 0; i < statusValues.length; i++) {
+          if (statusValues[i] === 'error' && typeof errorValues[i] === 'string') {
+            return errorValues[i]
+          }
+        }
+        return null
+      },
+    ],
     savedSearchLocations: ['input', []],
     savedSearchLocationsSyncStatus: ['input', 'idle'],
     savedSearchLocationsSyncError: ['input', null],
@@ -215,16 +238,6 @@ const app_props = mergeDcl({
     autoDetectedLocation: ['input', null],
   },
   actions: {
-    setWeatherLoadState: {
-      to: {
-        weatherLoadStatus: ['weatherLoadStatus'],
-        weatherLoadError: ['weatherLoadError'],
-      },
-      fn: (payload: { status: string; error: string | null }) => ({
-        weatherLoadStatus: payload.status,
-        weatherLoadError: payload.error,
-      }),
-    },
     handleInit: [
       {
         to: {

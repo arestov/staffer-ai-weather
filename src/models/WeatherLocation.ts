@@ -13,6 +13,15 @@ import {
   weatherCodeToSummary,
 } from './weatherFormat'
 
+export type TimeInterface = {
+  setTimeout: typeof globalThis.setTimeout
+  clearTimeout: typeof globalThis.clearTimeout
+  Date: typeof globalThis.Date
+}
+
+const LIVE_UPDATE_INTERVAL_MS = 10 * 60 * 1000  // 10 minutes
+const LIVE_UPDATE_RETRY_MS = 30 * 1000           // 30 seconds on error
+
 export type ApplyWeatherPayload = {
   current: {
     temperatureC: number
@@ -211,6 +220,7 @@ const buildDailySparkline = (
 
 export const WeatherLocation = model({
   model_name: 'weather_location',
+  use_extra: true,
   attrs: {
     name: ['input', ''],
     latitude: ['input', null],
@@ -350,6 +360,11 @@ export const WeatherLocation = model({
         ['#weatherLoader'] as const,
         (weatherLoader: unknown) => weatherLoader,
       ],
+      time: [
+        ['_node_id'] as const,
+        ['#time'] as const,
+        (time: unknown) => time,
+      ],
     },
     in: {
       loadWeather: {
@@ -418,6 +433,44 @@ export const WeatherLocation = model({
               await self.dispatch('applyWeather', wd.data)
             } else {
               await self.dispatch('failWeather', { message: wd.message })
+            }
+          },
+        ],
+      },
+      scheduleNextRefresh: {
+        api: ['self', 'time'],
+        trigger: ['loadStatus'],
+        require: ['loadStatus'],
+        create_when: {
+          api_inits: true,
+        },
+        fn: [
+          ['loadStatus'] as const,
+          (
+            self: {
+              refreshState: (name: string) => unknown
+              extra: Record<string, unknown>
+            },
+            time: TimeInterface,
+            _task: unknown,
+            loadStatus: unknown,
+          ) => {
+            const existingTimer = self.extra._refreshTimer as ReturnType<typeof setTimeout> | undefined
+            if (existingTimer != null) {
+              time.clearTimeout(existingTimer)
+              self.extra._refreshTimer = undefined
+            }
+
+            if (loadStatus === 'ready') {
+              self.extra._refreshTimer = time.setTimeout(() => {
+                self.extra._refreshTimer = undefined
+                self.refreshState('weatherData')
+              }, LIVE_UPDATE_INTERVAL_MS)
+            } else if (loadStatus === 'error') {
+              self.extra._refreshTimer = time.setTimeout(() => {
+                self.extra._refreshTimer = undefined
+                self.refreshState('weatherData')
+              }, LIVE_UPDATE_RETRY_MS)
             }
           },
         ],
