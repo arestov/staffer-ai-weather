@@ -467,17 +467,13 @@ export const SelectedLocationPopoverRouter = model({
         (
           payload: { next_value?: unknown; prev_value?: unknown },
           noop: unknown,
-          activeSearchRequestId: unknown,
+          activeSearchRequestId: number,
         ) => {
           if (payload.next_value === payload.prev_value) {
             return noop
           }
 
-          const currentRequestId = typeof activeSearchRequestId === 'number'
-            ? activeSearchRequestId
-            : 0
-
-          return buildSearchResetState(currentRequestId + 1)
+          return buildSearchResetState(activeSearchRequestId + 1)
         },
       ],
     },
@@ -496,11 +492,8 @@ export const SelectedLocationPopoverRouter = model({
       },
       fn: [
         ['activeSearchRequestId'] as const,
-        (payload: unknown, activeSearchRequestId: unknown) => {
-          const currentRequestId = typeof activeSearchRequestId === 'number'
-            ? activeSearchRequestId
-            : 0
-          return buildSearchResetState(currentRequestId + 1, {
+        (payload: unknown, activeSearchRequestId: number) => {
+          return buildSearchResetState(activeSearchRequestId + 1, {
             isEditingLocation: true,
             searchQuery: normalizeSearchInput(payload),
           })
@@ -520,17 +513,13 @@ export const SelectedLocationPopoverRouter = model({
       },
       fn: [
         ['activeSearchRequestId'] as const,
-        (payload: unknown, activeSearchRequestId: unknown) => {
-          const currentRequestId = typeof activeSearchRequestId === 'number'
-            ? activeSearchRequestId
-            : 0
-
+        (payload: unknown, activeSearchRequestId: number) => {
           return {
             searchQuery: normalizeSearchInput(payload).trim(),
             searchStatus: 'idle',
             searchError: null,
             searchRequest: null,
-            activeSearchRequestId: currentRequestId + 1,
+            activeSearchRequestId: activeSearchRequestId + 1,
           }
         },
       ],
@@ -554,11 +543,8 @@ export const SelectedLocationPopoverRouter = model({
           payload: unknown,
           searchQuery: unknown,
           searchResults: unknown,
-          activeSearchRequestId: unknown,
+          activeSearchRequestId: number,
         ) => {
-          const currentRequestId = typeof activeSearchRequestId === 'number'
-            ? activeSearchRequestId
-            : 0
           const query = normalizeSearchRequestQuery(payload) || normalizeSearchRequestQuery(searchQuery)
 
           if (query.length < MIN_LOCATION_SEARCH_QUERY_LENGTH) {
@@ -567,7 +553,7 @@ export const SelectedLocationPopoverRouter = model({
 
           return buildSearchingState(
             query,
-            currentRequestId + 1,
+            activeSearchRequestId + 1,
             Array.isArray(searchResults) ? searchResults.filter((item) => Boolean(item)) : [],
           )
         },
@@ -588,12 +574,8 @@ export const SelectedLocationPopoverRouter = model({
       },
       fn: [
         ['activeSearchRequestId'] as const,
-        (_payload: unknown, activeSearchRequestId: unknown) => {
-          const currentRequestId = typeof activeSearchRequestId === 'number'
-            ? activeSearchRequestId
-            : 0
-
-          return buildSearchResetState(currentRequestId + 1)
+        (_payload: unknown, activeSearchRequestId: number) => {
+          return buildSearchResetState(activeSearchRequestId + 1)
         },
       ],
     },
@@ -605,10 +587,9 @@ export const SelectedLocationPopoverRouter = model({
       },
       fn: [
         ['$noop', 'activeSearchRequestId'] as const,
-        (payload: unknown, noop: unknown, activeSearchRequestId: unknown) => {
+        (payload: unknown, noop: unknown, activeSearchRequestId: number) => {
           if (
             !isSearchResponsePayload(payload) ||
-            typeof activeSearchRequestId !== 'number' ||
             payload.requestId !== activeSearchRequestId
           ) {
             return noop
@@ -630,10 +611,9 @@ export const SelectedLocationPopoverRouter = model({
       },
       fn: [
         ['$noop', 'activeSearchRequestId'] as const,
-        (payload: unknown, noop: unknown, activeSearchRequestId: unknown) => {
+        (payload: unknown, noop: unknown, activeSearchRequestId: number) => {
           if (
             !isSearchFailurePayload(payload) ||
-            typeof activeSearchRequestId !== 'number' ||
             payload.requestId !== activeSearchRequestId
           ) {
             return noop
@@ -656,16 +636,14 @@ export const SelectedLocationPopoverRouter = model({
       },
       fn: [
         ['$noop', 'activeCurrentLocationRequestId'] as const,
-        (payload: unknown, noop: unknown, activeCurrentLocationRequestId: unknown) => {
+        (payload: unknown, noop: unknown, activeCurrentLocationRequestId: number) => {
           const coordinates = normalizeBrowserCoordinates(payload)
 
           if (!coordinates) {
             return noop
           }
 
-          const requestId = typeof activeCurrentLocationRequestId === 'number'
-            ? activeCurrentLocationRequestId + 1
-            : 1
+          const requestId = activeCurrentLocationRequestId + 1
 
           return {
             currentLocationStatus: 'loading',
@@ -690,10 +668,8 @@ export const SelectedLocationPopoverRouter = model({
       },
       fn: [
         ['activeCurrentLocationRequestId'] as const,
-        (_payload: unknown, activeCurrentLocationRequestId: unknown) => {
-          const requestId = typeof activeCurrentLocationRequestId === 'number'
-            ? activeCurrentLocationRequestId + 1
-            : 1
+        (_payload: unknown, activeCurrentLocationRequestId: number) => {
+          const requestId = activeCurrentLocationRequestId + 1
 
           return {
             currentLocationStatus: 'loading',
@@ -726,23 +702,18 @@ export const SelectedLocationPopoverRouter = model({
         (
           payload: unknown,
           noop: unknown,
-          activeCurrentLocationRequestId: unknown,
-          activeSearchRequestId: unknown,
+          activeCurrentLocationRequestId: number,
+          activeSearchRequestId: number,
         ) => {
           if (
             !isCurrentLocationResponsePayload(payload) ||
-            typeof activeCurrentLocationRequestId !== 'number' ||
             payload.requestId !== activeCurrentLocationRequestId
           ) {
             return noop
           }
 
-          const currentSearchRequestId = typeof activeSearchRequestId === 'number'
-            ? activeSearchRequestId
-            : 0
-
           return {
-            ...buildSearchResetState(currentSearchRequestId + 1),
+            ...buildSearchResetState(activeSearchRequestId + 1),
             replaceWeatherLocation: payload.result,
           }
         },
@@ -756,10 +727,9 @@ export const SelectedLocationPopoverRouter = model({
       },
       fn: [
         ['$noop', 'activeCurrentLocationRequestId'] as const,
-        (payload: unknown, noop: unknown, activeCurrentLocationRequestId: unknown) => {
+        (payload: unknown, noop: unknown, activeCurrentLocationRequestId: number) => {
           if (
             !isCurrentLocationFailurePayload(payload) ||
-            typeof activeCurrentLocationRequestId !== 'number' ||
             payload.requestId !== activeCurrentLocationRequestId
           ) {
             return noop
@@ -789,17 +759,13 @@ export const SelectedLocationPopoverRouter = model({
       },
       fn: [
         ['$noop', 'activeSearchRequestId'] as const,
-        (payload: unknown, noop: unknown, activeSearchRequestId: unknown) => {
+        (payload: unknown, noop: unknown, activeSearchRequestId: number) => {
           if (!isLocationSearchResult(payload)) {
             return noop
           }
 
-          const currentRequestId = typeof activeSearchRequestId === 'number'
-            ? activeSearchRequestId
-            : 0
-
           return {
-            ...buildSearchResetState(currentRequestId + 1),
+            ...buildSearchResetState(activeSearchRequestId + 1),
             replaceWeatherLocation: payload,
           }
         },

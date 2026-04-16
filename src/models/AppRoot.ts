@@ -452,11 +452,10 @@ const app_props = mergeDcl({
         (
           payload: unknown,
           noop: unknown,
-          activeSavedSearchLocationsSyncRequestId: unknown,
+          activeSavedSearchLocationsSyncRequestId: number,
         ) => {
           if (
             !isSavedSearchLocationsSyncResponsePayload(payload) ||
-            typeof activeSavedSearchLocationsSyncRequestId !== 'number' ||
             payload.requestId !== activeSavedSearchLocationsSyncRequestId
           ) {
             return noop
@@ -482,11 +481,10 @@ const app_props = mergeDcl({
         (
           payload: unknown,
           noop: unknown,
-          activeSavedSearchLocationsSyncRequestId: unknown,
+          activeSavedSearchLocationsSyncRequestId: number,
         ) => {
           if (
             !isSavedSearchLocationsSyncFailurePayload(payload) ||
-            typeof activeSavedSearchLocationsSyncRequestId !== 'number' ||
             payload.requestId !== activeSavedSearchLocationsSyncRequestId
           ) {
             return noop
