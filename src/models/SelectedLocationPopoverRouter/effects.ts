@@ -204,4 +204,4 @@ export const popoverRouterEffects = {
       ],
     },
   },
-}
+} as const

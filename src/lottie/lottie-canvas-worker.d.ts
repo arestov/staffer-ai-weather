@@ -4,6 +4,7 @@ declare module 'lottie-web/build/player/lottie_canvas_worker' {
     play(): void
     pause(): void
     stop(): void
+    addEventListener(name: 'DOMLoaded', callback: () => void): void
     setSpeed(speed: number): void
     goToAndStop(value: number, isFrame?: boolean): void
     goToAndPlay(value: number, isFrame?: boolean): void

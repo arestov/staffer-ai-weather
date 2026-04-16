@@ -7,6 +7,7 @@
  */
 import type { ReactSyncTransportMessage } from '../shared/messageTypes'
 import type { BridgeSignaling, BridgeSignalingFactory } from './BridgeSignaling'
+import type { SignalMessage } from './types'
 
 export type P2PBridgeRole = 'server' | 'client' | 'undecided'
 
@@ -274,12 +275,7 @@ export const createWorkerP2PBridge = (config: WorkerP2PBridgeConfig): WorkerP2PB
 
   // ── Signaling (via BridgeSignaling abstraction) ───────────────
 
-  const handleSignal = async (msg: {
-    kind: string
-    fromPeerId: string
-    toPeerId?: string
-    [key: string]: unknown
-  }) => {
+  const handleSignal = async (msg: SignalMessage) => {
     if (msg.fromPeerId === peerId) return
     if (msg.toPeerId && msg.toPeerId !== peerId) return
 
@@ -417,9 +413,7 @@ export const createWorkerP2PBridge = (config: WorkerP2PBridgeConfig): WorkerP2PB
 
       onSignal(msg) {
         if (destroyed) return
-        handleSignal(
-          msg as { kind: string; fromPeerId: string; toPeerId?: string; [key: string]: unknown },
-        )
+        handleSignal(msg)
       },
 
       onConnected() {
