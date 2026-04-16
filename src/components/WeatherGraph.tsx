@@ -1,10 +1,19 @@
-import { lazy, Suspense, useCallback, useMemo } from 'react'
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { Many } from '../dkt-react-sync/components/Many'
 import { One } from '../dkt-react-sync/components/One'
 import { useActions } from '../dkt-react-sync/hooks/useActions'
 import { useAttrs } from '../dkt-react-sync/hooks/useAttrs'
 import { useNamedSessionRouter } from '../dkt-react-sync/hooks/useNamedSessionRouter'
 import { useScope } from '../dkt-react-sync/hooks/useScope'
+import type { WeatherAppSession } from '../page/createWeatherAppSession'
 import { readNullableStringAttr, readStringAttr } from '../shared/attrReaders'
 import {
   SELECTED_LOCATION_POPOVER_ID,
@@ -31,13 +40,15 @@ export { DEFAULT_FORECAST_LIMIT }
 
 export function WeatherGraph({
   forecastLimit = DEFAULT_FORECAST_LIMIT,
+  dispatchAppAction,
 }: {
   forecastLimit?: number
+  dispatchAppAction: WeatherAppSession['dispatchAppAction']
 }) {
   return (
     <>
       <One rel="pioneer" fallback={<GraphFallback />}>
-        <WeatherUpdateTimestamp />
+        <WeatherUpdateTimestamp dispatchAppAction={dispatchAppAction} />
 
         <section className="main-stage">
           <One
@@ -209,7 +220,13 @@ function WeatherLocationErrorNotice() {
   )
 }
 
-function WeatherUpdateTimestamp() {
+function WeatherUpdateTimestamp({
+  dispatchAppAction,
+}: {
+  dispatchAppAction: WeatherAppSession['dispatchAppAction']
+}) {
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
+  const [isInteractive, setIsInteractive] = useState(false)
   const attrs = useAttrs(['weatherUpdatedSummary'])
   const summary = attrs.weatherUpdatedSummary as {
     dateTime: string | null
@@ -217,18 +234,50 @@ function WeatherUpdateTimestamp() {
     title: string
   } | null
 
+  useLayoutEffect(() => {
+    if (!summary) {
+      return
+    }
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      const button = buttonRef.current
+      const target = event.target
+
+      if (!button || !(target instanceof Element)) {
+        return
+      }
+
+      if (target !== button && !button.contains(target)) {
+        return
+      }
+
+      dispatchAppAction('retryWeatherLoad')
+    }
+
+    document.addEventListener('click', handleDocumentClick)
+    setIsInteractive(true)
+
+    return () => {
+      document.removeEventListener('click', handleDocumentClick)
+    }
+  }, [dispatchAppAction, summary])
+
   if (!summary) {
     return null
   }
 
   return (
-    <time
+    <button
+      ref={buttonRef}
       className="weather-global-timestamp"
-      dateTime={typeof summary.dateTime === 'string' ? summary.dateTime : undefined}
-      title={summary.title}
+      type="button"
+      aria-label={`${summary.title}. Refresh weather for all locations`}
+      title={`${summary.title}. Refresh weather for all locations`}
+      data-weather-global-timestamp
+      data-weather-global-ready={isInteractive ? 'true' : undefined}
     >
-      {summary.shortText}
-    </time>
+      <span aria-hidden="true">{summary.shortText}</span>
+    </button>
   )
 }
 

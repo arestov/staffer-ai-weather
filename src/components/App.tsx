@@ -43,7 +43,10 @@ export default function App({
 
       <div id="main-content">
         <RootScope runtime={session.runtime}>
-          <WeatherGraph forecastLimit={forecastLimit} />
+          <WeatherGraph
+            forecastLimit={forecastLimit}
+            dispatchAppAction={session.dispatchAppAction}
+          />
         </RootScope>
       </div>
     </main>

@@ -459,11 +459,12 @@ export const WeatherLocation = model({
         fn: (self: {
           requestState: (name: string) => unknown
           resetRequestedState: (name: string) => unknown
+          refreshState: (name: string) => unknown
           input: (callback: () => void) => unknown
         }) => {
           self.resetRequestedState('weatherData')
           self.input(() => {
-            self.requestState('weatherData')
+            self.refreshState('weatherData')
           })
           return
         },

@@ -425,12 +425,34 @@ h1 {
   top: clamp(0.95rem, 2vw, 1.3rem);
   right: clamp(0.95rem, 2vw, 1.3rem);
   z-index: 12;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
   color: var(--text-muted);
   font-family: var(--font-family-label);
   font-size: 0.68rem;
   letter-spacing: 0.04em;
-  opacity: 0.5;
+  line-height: 1;
+  opacity: 0.58;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
   white-space: nowrap;
+  transition:
+    color 120ms ease,
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.weather-global-timestamp:hover,
+.weather-global-timestamp:focus-visible {
+  color: var(--text-primary);
+  opacity: 1;
+}
+
+.weather-global-timestamp:active {
+  transform: translateY(1px);
 }
 
 .weather-readout--location {

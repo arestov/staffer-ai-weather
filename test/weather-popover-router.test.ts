@@ -976,6 +976,31 @@ describe('SelectedLocation popover router', () => {
     expect(recoveredWeather?.attrs.lastError).toBeNull()
   })
 
+  test('global weather timestamp is accessible', async () => {
+    harness = await createWeatherTestHarness()
+
+    await harness.whenReady()
+    const readyState = await waitForWeatherLoaded(harness)
+
+    const timestampButton = await waitFor(
+      () =>
+        harness.rootElement.querySelector(
+          '[data-weather-global-timestamp][data-weather-global-ready="true"]',
+        ),
+      (element) => Boolean(element),
+      'global weather timestamp control did not render',
+    )
+
+    expect(timestampButton).not.toBeNull()
+    expect(timestampButton?.tagName).toBe('BUTTON')
+    expect(timestampButton?.getAttribute('aria-label')).toContain('Refresh weather for all locations')
+
+    ;(timestampButton as HTMLButtonElement).click()
+    harness.session.dispatchAppAction('retryWeatherLoad')
+
+    expect(readyState).not.toBeNull()
+  })
+
   test('search error shows a retry button and retries the current query', async () => {
     harness = await createWeatherTestHarness()
     vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined)
