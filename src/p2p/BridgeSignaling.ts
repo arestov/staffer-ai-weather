@@ -60,6 +60,7 @@ export const createDoSignalingFactory = (signalUrl: string): BridgeSignalingFact
     }
 
     let ws: WebSocket | null = new WebSocket(wsUrl)
+    let connected = false
 
     ws.onopen = () => {
       if (destroyed) return
@@ -98,6 +99,7 @@ export const createDoSignalingFactory = (signalUrl: string): BridgeSignalingFact
             }
           }
 
+          connected = true
           events.onLeaderAssigned(leaderPeerId, epoch)
           events.onConnected()
           break
@@ -138,6 +140,13 @@ export const createDoSignalingFactory = (signalUrl: string): BridgeSignalingFact
 
     ws.onerror = () => {
       if (destroyed) return
+      // Before connection is established, onerror + onclose both fire.
+      // Report only once: onerror takes precedence, onclose is suppressed.
+      if (!connected) {
+        destroyed = true
+        try { ws?.close() } catch { /* ignore */ }
+        ws = null
+      }
       events.onError(new Error('WebSocket signaling error'))
     }
 
