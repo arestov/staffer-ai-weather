@@ -1,7 +1,9 @@
 import { input as inputAttrs } from 'dkt/dcl/attrs/input.js'
 import { model } from 'dkt/model.js'
 import { Router as RouterCore } from 'dkt-all/models/Router.js'
+import { isLocationSearchResult } from './WeatherLocation'
 import type { LocationSearchResult } from './WeatherLocation'
+import { toErrorMessage } from './weatherFormat'
 
 type SearchStatus = 'idle' | 'loading' | 'ready' | 'error'
 
@@ -68,22 +70,6 @@ const normalizeSearchInput = (value: unknown) => {
 
 const normalizeSearchRequestQuery = (value: unknown) => {
   return normalizeSearchInput(value).trim()
-}
-
-const isLocationSearchResult = (value: unknown): value is LocationSearchResult => {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const candidate = value as Partial<LocationSearchResult>
-
-  return (
-    typeof candidate.id === 'string' &&
-    typeof candidate.name === 'string' &&
-    typeof candidate.subtitle === 'string' &&
-    typeof candidate.latitude === 'number' &&
-    typeof candidate.longitude === 'number'
-  )
 }
 
 const isSearchRequest = (value: unknown): value is SearchRequest => {
@@ -166,10 +152,6 @@ const buildSearchingState = (
   currentLocationError: null,
   currentLocationRequest: null,
 })
-
-const toErrorMessage = (error: unknown) => {
-  return error instanceof Error ? error.message : String(error)
-}
 
 const normalizeBrowserCoordinates = (value: unknown) => {
   if (!value || typeof value !== 'object') {

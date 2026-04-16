@@ -1,4 +1,5 @@
 import type { LocationSearchResult } from '../models/WeatherLocation'
+import { isLocationSearchResult } from '../models/WeatherLocation'
 
 type SearchResponse = {
   query: string
@@ -35,22 +36,6 @@ const DEFAULT_SAVED_PLACES_SCOPE = 'default'
 
 const runtimeEnv =
   typeof process !== 'undefined' && process?.env ? process.env : undefined
-
-const isLocationSearchResult = (value: unknown): value is LocationSearchResult => {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const candidate = value as Partial<LocationSearchResult>
-
-  return (
-    typeof candidate.id === 'string' &&
-    typeof candidate.name === 'string' &&
-    typeof candidate.subtitle === 'string' &&
-    typeof candidate.latitude === 'number' &&
-    typeof candidate.longitude === 'number'
-  )
-}
 
 const toLocationSearchResults = (value: unknown): LocationSearchResult[] => {
   if (!Array.isArray(value)) {

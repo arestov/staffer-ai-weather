@@ -3,8 +3,10 @@ import { merge as mergeDcl } from 'dkt/dcl/merge.js'
 import { SessionRoot } from './SessionRoot'
 import { SelectedLocation } from './SelectedLocation'
 import { WeatherLocation } from './WeatherLocation'
+import { isLocationSearchResult } from './WeatherLocation'
 import type { LocationSearchResult } from './WeatherLocation'
 import type { WeatherBackendApi } from '../worker/weather-backend-api'
+import { toErrorMessage } from './weatherFormat'
 import {
   SELECTED_LOCATION_CREATION_SHAPE,
   WEATHER_LOCATION_BASE_CREATION_SHAPE,
@@ -40,22 +42,6 @@ type SavedSearchLocationsSyncFailurePayload = {
   message: string
 }
 
-const isLocationSearchResult = (value: unknown): value is LocationSearchResult => {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const candidate = value as Partial<LocationSearchResult>
-
-  return (
-    typeof candidate.id === 'string' &&
-    typeof candidate.name === 'string' &&
-    typeof candidate.subtitle === 'string' &&
-    typeof candidate.latitude === 'number' &&
-    typeof candidate.longitude === 'number'
-  )
-}
-
 const normalizeLocation = (value: unknown, fallback: string) => {
   if (typeof value === 'string' && value.trim()) {
     return value.trim()
@@ -69,10 +55,6 @@ const normalizeLocation = (value: unknown, fallback: string) => {
   }
 
   return fallback
-}
-
-const toErrorMessage = (error: unknown) => {
-  return error instanceof Error ? error.message : String(error)
 }
 
 const getLocationSearchResults = (value: unknown) => {

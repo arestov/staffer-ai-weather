@@ -81,3 +81,7 @@ export const formatDailyLabel = (dateString: string | null | undefined): string 
 
   return date.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
 }
+
+export const toErrorMessage = (error: unknown): string => {
+  return error instanceof Error ? error.message : String(error)
+}
