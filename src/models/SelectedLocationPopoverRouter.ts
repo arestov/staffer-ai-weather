@@ -277,45 +277,47 @@ export const SelectedLocationPopoverRouter = model({
         },
       ],
     },
-    applyCurrentLocationLookupResponse: {
-      to: {
-        isEditingLocation: ['isEditingLocation'],
-        searchQuery: ['searchQuery'],
-        searchStatus: ['searchStatus'],
-        searchError: ['searchError'],
-        searchResults: ['searchResults'],
-        searchRequest: ['searchRequest'],
-        activeSearchRequestId: ['activeSearchRequestId'],
-        currentLocationStatus: ['currentLocationStatus'],
-        currentLocationError: ['currentLocationError'],
-        currentLocationRequest: ['currentLocationRequest'],
-        replaceWeatherLocation: [
-          '<< current_mp_md',
-          { action: 'replaceWeatherLocation', inline_subwalker: true },
+    applyCurrentLocationLookupResponse: [
+      {
+        to: {
+          isEditingLocation: ['isEditingLocation'],
+          searchQuery: ['searchQuery'],
+          searchStatus: ['searchStatus'],
+          searchError: ['searchError'],
+          searchResults: ['searchResults'],
+          searchRequest: ['searchRequest'],
+          activeSearchRequestId: ['activeSearchRequestId'],
+          currentLocationStatus: ['currentLocationStatus'],
+          currentLocationError: ['currentLocationError'],
+          currentLocationRequest: ['currentLocationRequest'],
+          replaceWeatherLocation: [
+            '<< current_mp_md',
+            { action: 'replaceWeatherLocation', inline_subwalker: true },
+          ],
+        },
+        fn: [
+          ['$noop', 'activeCurrentLocationRequestId', 'activeSearchRequestId'] as const,
+          (
+            payload: unknown,
+            noop: unknown,
+            activeCurrentLocationRequestId: number,
+            activeSearchRequestId: number,
+          ) => {
+            if (
+              !isCurrentLocationResponsePayload(payload) ||
+              payload.requestId !== activeCurrentLocationRequestId
+            ) {
+              return noop
+            }
+
+            return {
+              ...buildSearchResetState(activeSearchRequestId + 1),
+              replaceWeatherLocation: payload.result,
+            }
+          },
         ],
       },
-      fn: [
-        ['$noop', 'activeCurrentLocationRequestId', 'activeSearchRequestId'] as const,
-        (
-          payload: unknown,
-          noop: unknown,
-          activeCurrentLocationRequestId: number,
-          activeSearchRequestId: number,
-        ) => {
-          if (
-            !isCurrentLocationResponsePayload(payload) ||
-            payload.requestId !== activeCurrentLocationRequestId
-          ) {
-            return noop
-          }
-
-          return {
-            ...buildSearchResetState(activeSearchRequestId + 1),
-            replaceWeatherLocation: payload.result,
-          }
-        },
-      ],
-    },
+    ],
     failCurrentLocationLookupResponse: {
       to: {
         currentLocationStatus: ['currentLocationStatus'],
@@ -340,76 +342,82 @@ export const SelectedLocationPopoverRouter = model({
         },
       ],
     },
-    selectLocationSearchResult: {
-      to: {
-        isEditingLocation: ['isEditingLocation'],
-        searchQuery: ['searchQuery'],
-        searchStatus: ['searchStatus'],
-        searchError: ['searchError'],
-        searchResults: ['searchResults'],
-        searchRequest: ['searchRequest'],
-        activeSearchRequestId: ['activeSearchRequestId'],
-        currentLocationStatus: ['currentLocationStatus'],
-        currentLocationError: ['currentLocationError'],
-        currentLocationRequest: ['currentLocationRequest'],
-        replaceWeatherLocation: [
-          '<< current_mp_md',
-          { action: 'replaceWeatherLocation', inline_subwalker: true },
+    selectLocationSearchResult: [
+      {
+        to: {
+          isEditingLocation: ['isEditingLocation'],
+          searchQuery: ['searchQuery'],
+          searchStatus: ['searchStatus'],
+          searchError: ['searchError'],
+          searchResults: ['searchResults'],
+          searchRequest: ['searchRequest'],
+          activeSearchRequestId: ['activeSearchRequestId'],
+          currentLocationStatus: ['currentLocationStatus'],
+          currentLocationError: ['currentLocationError'],
+          currentLocationRequest: ['currentLocationRequest'],
+          replaceWeatherLocation: [
+            '<< current_mp_md',
+            { action: 'replaceWeatherLocation', inline_subwalker: true },
+          ],
+        },
+        fn: [
+          ['$noop', 'activeSearchRequestId'] as const,
+          (payload: unknown, noop: unknown, activeSearchRequestId: number) => {
+            if (!isLocationSearchResult(payload)) {
+              return noop
+            }
+
+            return {
+              ...buildSearchResetState(activeSearchRequestId + 1),
+              replaceWeatherLocation: payload,
+            }
+          },
         ],
       },
-      fn: [
-        ['$noop', 'activeSearchRequestId'] as const,
-        (payload: unknown, noop: unknown, activeSearchRequestId: number) => {
-          if (!isLocationSearchResult(payload)) {
-            return noop
-          }
-
-          return {
-            ...buildSearchResetState(activeSearchRequestId + 1),
-            replaceWeatherLocation: payload,
-          }
+    ],
+    saveLocationSearchResult: [
+      {
+        to: {
+          saveLocationSearchResult: [
+            '<<<< #',
+            { action: 'saveLocationSearchResult', inline_subwalker: true },
+          ],
         },
-      ],
-    },
-    saveLocationSearchResult: {
-      to: {
-        saveLocationSearchResult: [
-          '<<<< #',
-          { action: 'saveLocationSearchResult', inline_subwalker: true },
+        fn: [
+          ['$noop'] as const,
+          (payload: unknown, noop: unknown) => {
+            if (!isLocationSearchResult(payload)) {
+              return noop
+            }
+
+            return {
+              saveLocationSearchResult: payload,
+            }
+          },
         ],
       },
-      fn: [
-        ['$noop'] as const,
-        (payload: unknown, noop: unknown) => {
-          if (!isLocationSearchResult(payload)) {
-            return noop
-          }
-
-          return {
-            saveLocationSearchResult: payload,
-          }
+    ],
+    removeLocationSearchResult: [
+      {
+        to: {
+          removeLocationSearchResult: [
+            '<<<< #',
+            { action: 'removeLocationSearchResult', inline_subwalker: true },
+          ],
         },
-      ],
-    },
-    removeLocationSearchResult: {
-      to: {
-        removeLocationSearchResult: [
-          '<<<< #',
-          { action: 'removeLocationSearchResult', inline_subwalker: true },
+        fn: [
+          ['$noop'] as const,
+          (payload: unknown, noop: unknown) => {
+            if (!isLocationSearchResult(payload) && typeof payload !== 'string') {
+              return noop
+            }
+
+            return {
+              removeLocationSearchResult: typeof payload === 'string' ? payload : payload.id,
+            }
+          },
         ],
       },
-      fn: [
-        ['$noop'] as const,
-        (payload: unknown, noop: unknown) => {
-          if (!isLocationSearchResult(payload) && typeof payload !== 'string') {
-            return noop
-          }
-
-          return {
-            removeLocationSearchResult: typeof payload === 'string' ? payload : payload.id,
-          }
-        },
-      ],
-    },
+    ],
   },
 })

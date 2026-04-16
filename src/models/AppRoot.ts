@@ -466,27 +466,29 @@ const app_props = mergeDcl({
         },
       ],
     },
-    applyAutoDetectedLocation: {
-      to: {
-        autoGeoStatus: ['autoGeoStatus'],
-        autoGeoError: ['autoGeoError'],
-        applyAutoLocation: [
-          '<< mainLocation',
-          { action: 'applyAutoLocation', inline_subwalker: true },
-        ],
-      },
-      fn: (payload: unknown) => {
-        if (!isLocationSearchResult(payload)) {
-          return {}
-        }
+    applyAutoDetectedLocation: [
+      {
+        to: {
+          autoGeoStatus: ['autoGeoStatus'],
+          autoGeoError: ['autoGeoError'],
+          applyAutoLocation: [
+            '<< mainLocation',
+            { action: 'applyAutoLocation', inline_subwalker: true },
+          ],
+        },
+        fn: (payload: unknown) => {
+          if (!isLocationSearchResult(payload)) {
+            return {}
+          }
 
-        return {
-          autoGeoStatus: 'done',
-          autoGeoError: null,
-          applyAutoLocation: payload,
-        }
+          return {
+            autoGeoStatus: 'done',
+            autoGeoError: null,
+            applyAutoLocation: payload,
+          }
+        },
       },
-    },
+    ],
     failAutoGeoDetection: {
       to: {
         autoGeoStatus: ['autoGeoStatus'],
