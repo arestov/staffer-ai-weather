@@ -1,5 +1,23 @@
 ﻿@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&display=swap");
 
+@property --sparkline-gap {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 1.5%;
+}
+
+@property --weather-icon-size {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 48;
+}
+
+@property --weather-icon-speed {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+
 :root {
   color-scheme: light;
   --color-paper: #ece7e1;

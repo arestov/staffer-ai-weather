@@ -179,13 +179,11 @@ function SparklineIconTrack({
             className="sparkline-icon-track__icon"
             role="img"
             aria-label={summary}
-            style={
-              {
-                left: `${leftPct}%`,
-                width: `${stepPct}%`,
-                '--sparkline-gap': `${gapPct}%`,
-              } as React.CSSProperties
-            }
+            style={{
+              left: `${leftPct}%`,
+              width: `${stepPct}%`,
+              '--sparkline-gap': `${gapPct}%`,
+            }}
           >
             <Suspense fallback={null}>
               <LazyWeatherConditionIcon weatherCode={weatherCode} isDay={true} />
