@@ -3,7 +3,6 @@ export const APP_MSG = {
   CONTROL_BOOTSTRAP_SESSION: 'control:bootstrap-session',
   CONTROL_CLOSE_SESSION: 'control:close-session',
   CONTROL_DISPATCH_APP_ACTION: 'control:dispatch-app-action',
-  CONTROL_SET_LOCATION: 'control:set-location',
   CONTROL_REFRESH_WEATHER: 'control:refresh-weather',
 
   MODEL_BOOTED: 'model:booted',
@@ -44,12 +43,6 @@ export type ReactSyncControlCloseSessionMessage = {
 export type ReactSyncControlDispatchAppActionMessage = {
   type: typeof APP_MSG.CONTROL_DISPATCH_APP_ACTION
   action_name: string
-  payload?: unknown
-  scope_node_id?: string | null
-}
-
-export type ReactSyncControlSetLocationMessage = {
-  type: typeof APP_MSG.CONTROL_SET_LOCATION
   payload?: unknown
   scope_node_id?: string | null
 }
@@ -120,7 +113,6 @@ export type ReactSyncTransportMessage =
   | ReactSyncControlBootstrapSessionMessage
   | ReactSyncControlCloseSessionMessage
   | ReactSyncControlDispatchAppActionMessage
-  | ReactSyncControlSetLocationMessage
   | ReactSyncControlRefreshWeatherMessage
   | ReactSyncModelBootedMessage
   | ReactSyncSessionBootedMessage

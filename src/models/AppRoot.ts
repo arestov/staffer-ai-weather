@@ -26,21 +26,6 @@ type SavedSearchLocationsSyncFailurePayload = {
   message: string
 }
 
-const normalizeLocation = (value: unknown, fallback: string) => {
-  if (typeof value === 'string' && value.trim()) {
-    return value.trim()
-  }
-
-  if (value && typeof value === 'object') {
-    const candidate = (value as { location?: unknown }).location
-    if (typeof candidate === 'string' && candidate.trim()) {
-      return candidate.trim()
-    }
-  }
-
-  return fallback
-}
-
 const getLocationSearchResults = (value: unknown) => {
   return Array.isArray(value) ? value.filter(isLocationSearchResult) : []
 }
@@ -192,11 +177,6 @@ const app_props = mergeDcl({
     ],
   },
   attrs: {
-    location: ['input', 'pending'],
-    status: ['input', 'booting'],
-    temperatureText: ['input', '-- \u00b0C'],
-    summary: ['input', 'Waiting for backend weather data'],
-    updatedAt: ['input', null],
     weatherUpdatedSummary: [
       'comp',
       ['< @all:weatherFetchedAt < weatherLocation', '< @all:name < weatherLocation'],
@@ -345,29 +325,6 @@ const app_props = mergeDcl({
         }),
       },
     ],
-    setLocation: {
-      to: {
-        location: ['location'],
-        status: ['status'],
-        temperatureText: ['temperatureText'],
-        summary: ['summary'],
-        updatedAt: ['updatedAt'],
-      },
-      fn: [
-        ['location'],
-        (payload: unknown, currentLocation: string) => {
-          const nextLocation = normalizeLocation(payload, currentLocation)
-
-          return {
-            location: nextLocation,
-            status: 'loading',
-            temperatureText: '-- \u00b0C',
-            summary: 'Waiting for backend weather data',
-            updatedAt: null,
-          }
-        },
-      ],
-    },
     saveLocationSearchResult: {
       to: {
         savedSearchLocations: ['savedSearchLocations'],
@@ -507,27 +464,6 @@ const app_props = mergeDcl({
             savedSearchLocationsSyncStatus: 'error',
             savedSearchLocationsSyncError: payload.message,
             savedSearchLocationsSyncRequest: null,
-          }
-        },
-      ],
-    },
-    refreshWeather: {
-      to: {
-        location: ['location'],
-        status: ['status'],
-        temperatureText: ['temperatureText'],
-        summary: ['summary'],
-        updatedAt: ['updatedAt'],
-      },
-      fn: [
-        ['location'],
-        (_payload: unknown, currentLocation: string) => {
-          return {
-            location: currentLocation,
-            status: 'loading',
-            temperatureText: '-- \u00b0C',
-            summary: 'Waiting for backend weather data',
-            updatedAt: null,
           }
         },
       ],

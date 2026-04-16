@@ -565,15 +565,6 @@ export const createWeatherModelRuntime = (options?: {
         )
         return
       }
-      case APP_MSG.CONTROL_SET_LOCATION: {
-        await handleDispatchAction(
-          connection,
-          'setLocation',
-          message.payload,
-          message.scope_node_id,
-        )
-        return
-      }
       case APP_MSG.CONTROL_REFRESH_WEATHER: {
         const appEntry = getConnectionAppEntry(connection)
         if (!appEntry) {
