@@ -176,8 +176,29 @@ export const createWeatherAppSession = (): WeatherAppSession => {
 
   let p2pManager: PageP2PManager | null = null
   let activeP2PSessionKey: string | null = null
+  let p2pFallbackToWorkerOnly = false
+
+  const recoverToWorkerOnlyMode = () => {
+    p2pFallbackToWorkerOnly = true
+    p2pManager?.destroy()
+    p2pManager = null
+    activeP2PSessionKey = null
+    setP2PStatus('disabled')
+    bridgedTransport.connectTo(workerTransport)
+    bridgedTransport.receive({
+      type: APP_MSG.P2P_SESSION_LOST,
+      reason: 'server-gone',
+    })
+  }
 
   const startP2PForSession = (sessionKey: string) => {
+    if (p2pFallbackToWorkerOnly) {
+      activeP2PSessionKey = null
+      setP2PStatus('disabled')
+      bridgedTransport.connectTo(workerTransport)
+      return
+    }
+
     if (activeP2PSessionKey === sessionKey && p2pManager) return
 
     bridgedTransport.disconnect()
@@ -213,6 +234,7 @@ export const createWeatherAppSession = (): WeatherAppSession => {
         },
         onError(err) {
           console.error('[P2P]', err)
+          recoverToWorkerOnlyMode()
         },
       },
     )
@@ -228,6 +250,7 @@ export const createWeatherAppSession = (): WeatherAppSession => {
     if (nextSessionKey) {
       startP2PForSession(nextSessionKey)
     } else {
+      p2pFallbackToWorkerOnly = false
       p2pManager?.destroy()
       p2pManager = null
       activeP2PSessionKey = null
@@ -264,6 +287,7 @@ export const createWeatherAppSession = (): WeatherAppSession => {
       p2pManager?.destroy()
       p2pManager = null
       activeP2PSessionKey = null
+      p2pFallbackToWorkerOnly = false
       runtime.destroy()
     },
   }
