@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback } from 'react'
+import { Suspense, lazy, useCallback, useMemo } from 'react'
 import { Many } from '../dkt-react-sync/components/Many'
 import { One } from '../dkt-react-sync/components/One'
 import { useActions } from '../dkt-react-sync/hooks/useActions'
@@ -81,11 +81,14 @@ const WeatherLocationInner = ({
     ? `Open details for ${locationName}`
     : 'Open selected location details'
 
-  const weatherLocationBodyFallback = (
-    <div className="location-card__body">
-      <WeatherReadoutFallback />
-      {featured ? <ForecastPanelsFallback forecastLimit={forecastLimit} /> : null}
-    </div>
+  const weatherLocationBodyFallback = useMemo(
+    () => (
+      <div className="location-card__body">
+        <WeatherReadoutFallback />
+        {featured ? <ForecastPanelsFallback forecastLimit={forecastLimit} /> : null}
+      </div>
+    ),
+    [featured, forecastLimit],
   )
 
   const openPopover = useCallback(() => {
