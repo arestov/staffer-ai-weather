@@ -3,9 +3,12 @@ import { createSharedWorkerTransport } from '../shared/createSharedWorkerTranspo
 import { APP_MSG, type ReactSyncTransportMessage } from '../shared/messageTypes'
 import { createPageP2PManager, type PageP2PManager } from '../p2p/PageP2PManager'
 
+export type WeatherAppP2PStatus = 'disabled' | 'undecided' | 'server' | 'client'
+
 export interface WeatherAppSession {
   sessionId: string | null
   sessionKey: string | null
+  p2pStatus: WeatherAppP2PStatus
   worker: SharedWorker
   runtime: ReturnType<typeof createPageSyncReceiverRuntime>
   store: ReturnType<typeof createPageSyncReceiverRuntime>['store']
@@ -16,6 +19,7 @@ export interface WeatherAppSession {
   }): void
   dispatchAction(actionName: string, payload?: unknown): void
   refreshWeather(): void
+  subscribeP2PStatus(listener: () => void): () => void
   destroy(): void
 }
 
@@ -105,6 +109,20 @@ export const createWeatherAppSession = (): WeatherAppSession => {
     },
   )
   const workerTransport = createSharedWorkerTransport(worker)
+  const p2pStatusListeners = new Set<() => void>()
+  const p2pStatusInitial: WeatherAppP2PStatus = p2pSignalUrl ? 'undecided' : 'disabled'
+  let p2pStatus: WeatherAppP2PStatus = p2pStatusInitial
+
+  const setP2PStatus = (nextStatus: WeatherAppP2PStatus) => {
+    if (p2pStatus === nextStatus) {
+      return
+    }
+
+    p2pStatus = nextStatus
+    for (const listener of p2pStatusListeners) {
+      listener()
+    }
+  }
 
   // ── No P2P: simple direct connection (current behavior) ──
   if (!p2pSignalUrl) {
@@ -112,12 +130,17 @@ export const createWeatherAppSession = (): WeatherAppSession => {
     return {
       get sessionId() { return runtime.getSnapshot().sessionId },
       get sessionKey() { return runtime.getSnapshot().sessionKey },
+      get p2pStatus() { return p2pStatus },
       worker,
       runtime,
       store: runtime.store,
       bootstrap: runtime.bootstrap,
       dispatchAction: runtime.dispatchAction,
       refreshWeather: runtime.refreshWeather,
+      subscribeP2PStatus(listener) {
+        p2pStatusListeners.add(listener)
+        return () => { p2pStatusListeners.delete(listener) }
+      },
       destroy() { runtime.destroy() },
     }
   }
@@ -135,6 +158,7 @@ export const createWeatherAppSession = (): WeatherAppSession => {
     bridgedTransport.disconnect()
     p2pManager?.destroy()
     activeP2PSessionKey = sessionKey
+    setP2PStatus('undecided')
 
     p2pManager = createPageP2PManager(
       {
@@ -144,15 +168,18 @@ export const createWeatherAppSession = (): WeatherAppSession => {
       },
       {
         onBecomeServer() {
+          setP2PStatus('server')
           bridgedTransport.connectTo(workerTransport)
         },
         onBecomeClient(transport) {
+          setP2PStatus('client')
           bridgedTransport.connectTo(transport)
         },
         onSessionLost(reason) {
           p2pManager?.destroy()
           p2pManager = null
           activeP2PSessionKey = null
+          setP2PStatus('undecided')
           bridgedTransport.connectTo(workerTransport)
           bridgedTransport.receive({
             type: APP_MSG.P2P_SESSION_LOST,
@@ -179,6 +206,7 @@ export const createWeatherAppSession = (): WeatherAppSession => {
       p2pManager?.destroy()
       p2pManager = null
       activeP2PSessionKey = null
+      setP2PStatus(p2pSignalUrl ? 'undecided' : 'disabled')
       bridgedTransport.connectTo(workerTransport)
     }
 
@@ -188,12 +216,17 @@ export const createWeatherAppSession = (): WeatherAppSession => {
   return {
     get sessionId() { return runtime.getSnapshot().sessionId },
     get sessionKey() { return runtime.getSnapshot().sessionKey },
+    get p2pStatus() { return p2pStatus },
     worker,
     runtime,
     store: runtime.store,
     bootstrap: wrappedBootstrap,
     dispatchAction: runtime.dispatchAction,
     refreshWeather: runtime.refreshWeather,
+    subscribeP2PStatus(listener) {
+      p2pStatusListeners.add(listener)
+      return () => { p2pStatusListeners.delete(listener) }
+    },
     destroy() {
       p2pManager?.destroy()
       p2pManager = null

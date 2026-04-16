@@ -7,6 +7,7 @@ type AppHeaderProps = {
   sessionKey: string | null
   weatherLoadStatus: string
   weatherLoadError: string | null
+  p2pStatusLabel: string
   onRefreshWeather: () => void
 }
 
@@ -17,6 +18,7 @@ export function AppHeader({
   sessionKey,
   weatherLoadStatus,
   weatherLoadError,
+  p2pStatusLabel,
   onRefreshWeather,
 }: AppHeaderProps) {
   const [isOpen, setIsOpen] = useState(false)
@@ -71,6 +73,10 @@ export function AppHeader({
       <header id="app-header-panel" className="app-header" hidden={!isOpen}>
         <h2 className="sr-only">System status</h2>
         <div className="metric-strip">
+          <div className="metric-card">
+            <span>P2P status</span>
+            <strong> {p2pStatusLabel}</strong>
+          </div>
           <div className="metric-card">
             <span>Boot state</span>
             <strong>{bootedLabel}</strong>

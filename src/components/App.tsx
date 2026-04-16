@@ -3,6 +3,7 @@ import type { WeatherAppSession } from '../page/createWeatherAppSession'
 import { useSyncRoot } from '../dkt-react-sync/hooks/useSyncRoot'
 import { AppHeader } from './AppHeader'
 import { DEFAULT_FORECAST_LIMIT, WeatherGraph } from './WeatherGraph'
+import { useSyncExternalStore } from 'react'
 
 export default function App({
   session,
@@ -12,12 +13,25 @@ export default function App({
   forecastLimit?: number
 }) {
   const snapshot = useSyncRoot(session.runtime)
+  const subscribeP2PStatus = session.subscribeP2PStatus ?? (() => () => {})
+  const p2pStatus = useSyncExternalStore(
+    subscribeP2PStatus,
+    () => session.p2pStatus ?? 'disabled',
+    () => session.p2pStatus ?? 'disabled',
+  )
   const bootedLabel = snapshot.booted ? 'Booted' : 'Not booted'
+  const p2pStatusLabel =
+    p2pStatus === 'disabled'
+      ? 'Disabled'
+      : p2pStatus === 'undecided'
+        ? 'Negotiating'
+        : p2pStatus === 'server'
+          ? 'Server'
+          : 'Client'
 
   return (
     <main className="app-shell">
       <h1 className="sr-only">Weather dashboard</h1>
-      <a href="#main-content" className="skip-link">Skip to weather content</a>
 
       <AppHeader
         bootedLabel={bootedLabel}
@@ -26,6 +40,7 @@ export default function App({
         sessionKey={snapshot.sessionKey}
         weatherLoadStatus={snapshot.weatherLoadStatus}
         weatherLoadError={snapshot.weatherLoadError}
+        p2pStatusLabel={p2pStatusLabel}
         onRefreshWeather={session.refreshWeather}
       />
 
