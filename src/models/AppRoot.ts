@@ -323,10 +323,12 @@ const app_props = mergeDcl({
         to: {
           autoGeoStatus: ['autoGeoStatus'],
           autoGeoError: ['autoGeoError'],
+          _fxGeo: ['$fx_autoDetectedLocation', { intent: 'request' }],
         },
         fn: () => ({
           autoGeoStatus: 'pending',
           autoGeoError: null,
+          _fxGeo: {},
         }),
       },
     ],

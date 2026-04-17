@@ -133,27 +133,6 @@ export const appRootEffects = {
     },
   },
   out: {
-    triggerGeoDetection: {
-      api: ['self'],
-      trigger: ['autoGeoStatus'],
-      require: ['autoGeoStatus'],
-      create_when: {
-        api_inits: true,
-      },
-      fn: [
-        ['autoGeoStatus'] as const,
-        (
-          self: { requestState: (name: string) => unknown },
-          _task: unknown,
-          autoGeoStatus: unknown,
-        ) => {
-          if (autoGeoStatus !== 'pending') {
-            return
-          }
-          self.requestState('autoDetectedLocation')
-        },
-      ],
-    },
     applyDetectedGeoLocation: {
       api: ['self'],
       trigger: ['autoDetectedLocation'],
