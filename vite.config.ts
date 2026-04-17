@@ -15,6 +15,24 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (
+            id.includes('/dkt/') ||
+            id.includes('\\dkt\\') ||
+            id.includes('/dkt-all/') ||
+            id.includes('\\dkt-all\\')
+          ) {
+            return 'dkt'
+          }
+          if (
+            id.includes('node_modules/react') ||
+            id.includes('node_modules/react-dom')
+          ) {
+            return 'react'
+          }
+        },
+      },
       onwarn(warning, defaultHandler) {
         // lottie-web internally uses eval — nothing we can do about it
         if (warning.code === 'EVAL' && warning.id?.includes('lottie-web')) {
