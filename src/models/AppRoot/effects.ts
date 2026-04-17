@@ -157,24 +157,7 @@ export const appRootEffects = {
         },
       ],
     },
-    triggerSavedSearchLocationsSync: {
-      api: ['self'],
-      trigger: ['savedSearchLocationsSyncRequest'],
-      require: ['savedSearchLocationsSyncRequest'],
-      create_when: {
-        api_inits: true,
-      },
-      fn: (self: {
-        resetRequestedState: (name: string) => unknown
-        input: (callback: () => void) => unknown
-        requestState: (name: string) => unknown
-      }) => {
-        self.resetRequestedState('savedSearchLocationsSyncResult')
-        self.input(() => {
-          self.requestState('savedSearchLocationsSyncResult')
-        })
-      },
-    },
+
     applySavedSearchLocationsSyncData: {
       api: ['self'],
       trigger: ['savedSearchLocationsSyncResult'],

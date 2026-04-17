@@ -299,6 +299,7 @@ const app_props = mergeDcl({
           savedSearchLocationsSyncError: ['savedSearchLocationsSyncError'],
           savedSearchLocationsSyncRequest: ['savedSearchLocationsSyncRequest'],
           activeSavedSearchLocationsSyncRequestId: ['activeSavedSearchLocationsSyncRequestId'],
+          _fxSync: ['$fx_savedSearchLocationsSyncResult', { intent: 'reload' }],
         },
         fn: [
           ['activeSavedSearchLocationsSyncRequestId'] as const,
@@ -315,6 +316,7 @@ const app_props = mergeDcl({
                 kind: 'load',
               },
               activeSavedSearchLocationsSyncRequestId: requestId,
+              _fxSync: {},
             }
           },
         ],
@@ -339,16 +341,18 @@ const app_props = mergeDcl({
         savedSearchLocationsSyncError: ['savedSearchLocationsSyncError'],
         savedSearchLocationsSyncRequest: ['savedSearchLocationsSyncRequest'],
         activeSavedSearchLocationsSyncRequestId: ['activeSavedSearchLocationsSyncRequestId'],
+        _fxSync: ['$fx_savedSearchLocationsSyncResult', { intent: 'reload' }],
       },
       fn: [
-        ['savedSearchLocations', 'activeSavedSearchLocationsSyncRequestId'] as const,
+        ['$noop', 'savedSearchLocations', 'activeSavedSearchLocationsSyncRequestId'] as const,
         (
           payload: unknown,
+          noop: unknown,
           savedSearchLocations: unknown,
           activeSavedSearchLocationsSyncRequestId: unknown,
         ) => {
           if (!isLocationSearchResult(payload)) {
-            return {}
+            return noop
           }
 
           const currentSavedLocations = getLocationSearchResults(savedSearchLocations)
@@ -369,6 +373,7 @@ const app_props = mergeDcl({
               place: payload,
             },
             activeSavedSearchLocationsSyncRequestId: requestId,
+            _fxSync: {},
           }
         },
       ],
@@ -380,11 +385,13 @@ const app_props = mergeDcl({
         savedSearchLocationsSyncError: ['savedSearchLocationsSyncError'],
         savedSearchLocationsSyncRequest: ['savedSearchLocationsSyncRequest'],
         activeSavedSearchLocationsSyncRequestId: ['activeSavedSearchLocationsSyncRequestId'],
+        _fxSync: ['$fx_savedSearchLocationsSyncResult', { intent: 'reload' }],
       },
       fn: [
-        ['savedSearchLocations', 'activeSavedSearchLocationsSyncRequestId'] as const,
+        ['$noop', 'savedSearchLocations', 'activeSavedSearchLocationsSyncRequestId'] as const,
         (
           payload: unknown,
+          noop: unknown,
           savedSearchLocations: unknown,
           activeSavedSearchLocationsSyncRequestId: unknown,
         ) => {
@@ -396,7 +403,7 @@ const app_props = mergeDcl({
                 : ''
 
           if (!id) {
-            return {}
+            return noop
           }
 
           const currentSavedLocations = getLocationSearchResults(savedSearchLocations)
@@ -414,6 +421,7 @@ const app_props = mergeDcl({
               placeId: id,
             },
             activeSavedSearchLocationsSyncRequestId: requestId,
+            _fxSync: {},
           }
         },
       ],
