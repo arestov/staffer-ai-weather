@@ -224,7 +224,7 @@ export const WeatherLocation = model({
     lastError: ['input', null],
     weatherFetchedAt: ['input', null],
     weatherData: ['input', null],
-    retryRequestedAt: ['input', null],
+
     hourlySparkline: [
       'comp',
       [
@@ -266,7 +266,6 @@ export const WeatherLocation = model({
         loadStatus: ['loadStatus'],
         lastError: ['lastError'],
         weatherFetchedAt: ['weatherFetchedAt'],
-        retryRequestedAt: ['retryRequestedAt'],
         currentWeather: [
           '<< currentWeather',
           {
@@ -301,7 +300,6 @@ export const WeatherLocation = model({
           return {
             loadStatus: 'ready',
             lastError: null,
-            retryRequestedAt: null,
             weatherFetchedAt: payload.fetchedAt,
             currentWeather: {
               attrs: {
@@ -343,24 +341,19 @@ export const WeatherLocation = model({
       to: {
         loadStatus: ['loadStatus'],
         lastError: ['lastError'],
-        retryRequestedAt: ['retryRequestedAt'],
       },
       fn: (payload: { message: string }) => ({
         loadStatus: 'error',
         lastError: payload.message,
-        retryRequestedAt: null,
       }),
     },
     retryWeatherLoad: {
       to: {
-        retryRequestedAt: ['retryRequestedAt'],
+        _fx: ['$fx_weatherData', { intent: 'reload' }],
       },
-      fn: [
-        ['$now'] as const,
-        (_payload: unknown, retryRequestedAt: number) => ({
-          retryRequestedAt,
-        }),
-      ],
+      fn: () => ({
+        _fx: {},
+      }),
     },
   },
   effects: {
@@ -449,26 +442,7 @@ export const WeatherLocation = model({
           },
         ],
       },
-      triggerWeatherRetry: {
-        api: ['self'],
-        trigger: ['retryRequestedAt'],
-        require: ['retryRequestedAt'],
-        create_when: {
-          api_inits: true,
-        },
-        fn: (self: {
-          requestState: (name: string) => unknown
-          resetRequestedState: (name: string) => unknown
-          refreshState: (name: string) => unknown
-          input: (callback: () => void) => unknown
-        }) => {
-          self.resetRequestedState('weatherData')
-          self.input(() => {
-            self.refreshState('weatherData')
-          })
-          return
-        },
-      },
+
       scheduleNextRefresh: {
         api: ['self', 'time'],
         trigger: ['loadStatus'],
