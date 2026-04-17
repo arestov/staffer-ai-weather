@@ -10,15 +10,16 @@
 1. **Структура модели** — attrs (input/comp), actions, effects (api/in/out), rels
 2. **Actions — чистые data-descriptors** — без side effects, без await, без `self.dispatch`
 3. **3-tier effects** — `effects.api` → `effects.in` → `effects.out` для всей async-логики
-4. **comp attrs для производных данных** — формулы вместо записи в actions
-5. **state_request lifecycle** — request → parse → attrs, с cancellation через reset
-6. **API injection через effects.api** — не importировать сервисы напрямую
-7. **Организация файлов** — shell + effects + helpers для больших моделей
-8. **Refs для create-and-link** — `hold_ref_id` / `use_ref_id` в actions
-9. **Именование и идентификаторы** — state_request name, effect keys, states[]
-10. **Root model — особый случай** — timing API, handleInit, interface availability
-11. **Типизация** — обход TS-ограничений в DKT declarations
-12. **Тестирование** — 92 теста, never break the suite
+4. **`$fx_` — декларативный запуск effects из actions** — замена trigger out-effects
+5. **comp attrs для производных данных** — формулы вместо записи в actions
+6. **state_request lifecycle** — request → parse → attrs, с cancellation через reset
+7. **API injection через effects.api** — не importировать сервисы напрямую
+8. **Организация файлов** — shell + effects + helpers для больших моделей
+9. **Refs для create-and-link** — `hold_ref_id` / `use_ref_id` в actions
+10. **Именование и идентификаторы** — state_request name, effect keys, states[]
+11. **Root model — особый случай** — timing API, handleInit, interface availability
+12. **Типизация** — обход TS-ограничений в DKT declarations
+13. **Тестирование** — 98 тестов, never break the suite
 
 ---
 
@@ -135,6 +136,8 @@ effects.api  →  effects.in (state_request)  →  effects.out (trigger/apply)
  (lifecycle)      (async fetch)                 (orchestration)
 ```
 
+> **Примечание**: trigger out-effects для запуска state_request из actions заменены на `$fx_` targets (см. раздел 4). Out-effects по-прежнему нужны для: обработки результатов (dispatch result), периодического refresh по таймеру, реакции на изменения attrs из любого источника.
+
 ### effects.api — объявление внешних сервисов
 
 ```ts
@@ -235,7 +238,155 @@ effects: {
 
 ---
 
-## 4. comp attrs для производных данных
+## 4. `$fx_` — декларативный запуск effects из actions
+
+### Проблема: trigger out-effect boilerplate
+
+Старый паттерн требовал цепочку `action → attr → out-effect trigger → self.requestState()`:
+
+```ts
+// ❌ Старый паттерн — лишний boilerplate
+actions: {
+  startLoading: {
+    fn: () => ({ loadStatus: 'loading' }),
+  },
+},
+effects: {
+  out: {
+    triggerWeatherLoad: {
+      api: ['self'],
+      trigger: ['loadStatus'],
+      require: ['loadStatus'],
+      fn: [['loadStatus'], (self, _task, status) => {
+        if (status === 'loading') self.requestState('weatherData')
+      }],
+    },
+  },
+}
+```
+
+### Решение: `$fx_` target в action `to:`
+
+`$fx_` позволяет запустить state_request прямо из action descriptor — без промежуточного attr и out-effect:
+
+```ts
+// ✅ Декларативный запуск — action напрямую вызывает effect
+actions: {
+  retryWeatherLoad: {
+    to: {
+      _fx: ['$fx_weatherData', { intent: 'reload' }],
+    },
+    fn: () => ({
+      _fx: {},
+    }),
+  },
+}
+```
+
+### Имя `$fx_` target
+
+Имя эффекта строится из `states[]` массива в state_request: `$fx_` + имя attr.
+
+```ts
+effects: {
+  in: {
+    loadWeather: {
+      type: 'state_request',
+      states: ['weatherData'],      // ← отсюда
+      // ...
+    },
+  },
+}
+// → target: '$fx_weatherData'
+```
+
+### Intents
+
+| Intent | Описание |
+|---|---|
+| `request` | Запросить если ещё не загружено (первичная загрузка) |
+| `refresh` | Перезапросить, сохраняя текущее значение (stale-while-revalidate) |
+| `reload` | Сбросить и запросить заново |
+| `reset` | Только сбросить, без нового запроса |
+| `append` | Добавить данные (только для `nest_request`) |
+| `call` | Безусловный вызов |
+
+### Cross-model `$fx_` — таргетирование эффекта на child-модели
+
+**Ключевой паттерн**: `$fx_` можно комбинировать с rel-путём для запуска эффекта на дочерней модели из action родителя. Вместо `inline_subwalker` + промежуточный action на child — прямой адрес:
+
+```ts
+// ✅ Родитель напрямую запускает загрузку на child weatherLocation
+actions: {
+  handleInit: [
+    // step 1: создать weatherLocation
+    { /* ... create children ... */ },
+    // step 2: запустить $fx_ на child
+    {
+      to: {
+        _fxWeather: ['< $fx_weatherData < weatherLocation', { intent: 'request' }],
+      },
+      fn: [
+        ['$now'] as const,
+        (_payload: unknown, now: number) => ({
+          _fxWeather: { at: now },
+        }),
+      ],
+    },
+  ],
+}
+```
+
+Синтаксис адреса: `< $fx_{attrName} < {relName}` — multiPath с `$fx_` в позиции state и rel-путём для навигации к целевой модели.
+
+### `$now` для повторных вызовов
+
+DKT оптимизирует повторные вызовы: если fn возвращает тот же объект — действие пропускается. `$now` гарантирует уникальность при каждом вызове:
+
+```ts
+fn: [
+  ['$now'] as const,
+  (_payload: unknown, now: number) => ({
+    _fxWeather: { at: now },  // уникальное значение каждый раз
+  }),
+],
+```
+
+### Multi-step action с create + $fx_
+
+Когда нужно создать ноду и сразу запустить загрузку — используй multi-step action (массив шагов):
+
+```ts
+// SelectedLocation: создать WeatherLocation + запустить загрузку
+actions: {
+  replaceWeatherLocation: [
+    {
+      to: { /* create + link via hold_ref_id/use_ref_id */ },
+      fn: (payload) => ({ /* creation descriptor */ }),
+    },
+    {
+      to: {
+        _fxWeather: ['< $fx_weatherData < weatherLocation', { intent: 'request' }],
+      },
+      fn: () => ({ _fxWeather: {} }),
+    },
+  ],
+}
+```
+
+### Когда использовать `$fx_` vs out-effect trigger
+
+| Ситуация | Подход |
+|---|---|
+| Запуск загрузки из action | `$fx_` |
+| Запуск загрузки на child из parent action | `$fx_` + rel path |
+| Реакция на изменение attr (любой источник) | out-effect trigger |
+| Периодический refresh по таймеру | out-effect + `self.refreshState()` |
+| Обработка результата state_request | out-effect (dispatch result) |
+
+---
+
+## 5. comp attrs для производных данных
 
 ### Когда использовать comp
 
@@ -270,7 +421,7 @@ const SHAPE = { temperatureC: null, weatherCode: null }
 
 ---
 
-## 5. state_request lifecycle
+## 6. state_request lifecycle
 
 ### Полный цикл
 
@@ -311,7 +462,7 @@ self.refreshState('weatherData')
 
 ---
 
-## 6. API injection через effects.api
+## 7. API injection через effects.api
 
 ### Почему не прямой import
 
@@ -345,7 +496,7 @@ effects: {
 
 ---
 
-## 7. Организация файлов
+## 8. Организация файлов
 
 ### Маленькая модель (<200 строк)
 
@@ -388,7 +539,7 @@ src/models/PopoverRouter/helpers.ts      # types, validators, builders, normaliz
 
 ---
 
-## 8. Refs для create-and-link
+## 9. Refs для create-and-link
 
 ### Паттерн: создать ноду + привязать input rel
 
@@ -427,7 +578,7 @@ actions: {
 
 ---
 
-## 9. Именование и идентификаторы
+## 10. Именование и идентификаторы
 
 ### state_request: три идентификатора
 
@@ -463,7 +614,7 @@ effects: {
 
 ---
 
-## 10. Root model — особый случай
+## 11. Root model — особый случай
 
 ### API timing
 
@@ -493,7 +644,7 @@ effects: {
 
 ---
 
-## 11. Типизация
+## 12. Типизация
 
 ### Известные TS-ограничения
 
@@ -519,7 +670,7 @@ if (!isValidPayload(payload)) return '$noop'
 
 ---
 
-## 12. Тестирование
+## 13. Тестирование
 
 ### Стратегия
 
@@ -550,4 +701,7 @@ if (!isValidPayload(payload)) return '$noop'
 - [ ] Нет typeof на собственных input attrs
 - [ ] Нет дублирующихся type guards / helpers
 - [ ] `as const` на deps arrays в effects fn
+- [ ] `$fx_` target name matches `states[]` attr в state_request
+- [ ] Cross-model `$fx_` — нет промежуточного action на child, прямой rel path
+- [ ] Trigger out-effects заменены на `$fx_` где это action-initiated загрузка
 - [ ] Tests pass: 0 failures, 0 regressions

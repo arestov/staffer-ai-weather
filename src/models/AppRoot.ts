@@ -244,6 +244,17 @@ const app_props = mergeDcl({
       },
       {
         to: {
+          _fxWeather: ['< $fx_weatherData < weatherLocation', { intent: 'request' }],
+        },
+        fn: [
+          ['$now'] as const,
+          (_payload: unknown, now: number) => ({
+            _fxWeather: { at: now },
+          }),
+        ],
+      },
+      {
+        to: {
           location: [
             '<< location',
             {

@@ -401,17 +401,6 @@ export const WeatherLocation = model({
       },
     },
     out: {
-      triggerWeatherLoad: {
-        api: ['self', 'weatherApi'],
-        trigger: ['latitude'],
-        require: ['latitude', 'longitude'],
-        create_when: {
-          api_inits: true,
-        },
-        fn: (self: { requestState: (name: string) => unknown }) => {
-          self.requestState('weatherData')
-        },
-      },
       applyFetchedWeatherData: {
         api: ['self'],
         trigger: ['weatherData'],
