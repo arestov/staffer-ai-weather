@@ -244,7 +244,7 @@ const app_props = mergeDcl({
       },
       {
         to: {
-          _fxWeather: ['< $fx_weatherData < weatherLocation', { intent: 'request' }],
+          _fxWeather: ['< $fx_loadWeather < weatherLocation', { intent: 'request' }],
         },
         fn: [
           ['$now'] as const,
@@ -310,7 +310,7 @@ const app_props = mergeDcl({
           savedSearchLocationsSyncError: ['savedSearchLocationsSyncError'],
           savedSearchLocationsSyncRequest: ['savedSearchLocationsSyncRequest'],
           activeSavedSearchLocationsSyncRequestId: ['activeSavedSearchLocationsSyncRequestId'],
-          _fxSync: ['$fx_savedSearchLocationsSyncResult', { intent: 'reload' }],
+          _fxSync: ['$fx_syncSavedSearchLocationsData', { intent: 'reload' }],
         },
         fn: [
           ['activeSavedSearchLocationsSyncRequestId'] as const,
@@ -336,7 +336,7 @@ const app_props = mergeDcl({
         to: {
           autoGeoStatus: ['autoGeoStatus'],
           autoGeoError: ['autoGeoError'],
-          _fxGeo: ['$fx_autoDetectedLocation', { intent: 'request' }],
+          _fxGeo: ['$fx_detectGeoLocation', { intent: 'request' }],
         },
         fn: () => ({
           autoGeoStatus: 'pending',
@@ -352,7 +352,7 @@ const app_props = mergeDcl({
         savedSearchLocationsSyncError: ['savedSearchLocationsSyncError'],
         savedSearchLocationsSyncRequest: ['savedSearchLocationsSyncRequest'],
         activeSavedSearchLocationsSyncRequestId: ['activeSavedSearchLocationsSyncRequestId'],
-        _fxSync: ['$fx_savedSearchLocationsSyncResult', { intent: 'reload' }],
+        _fxSync: ['$fx_syncSavedSearchLocationsData', { intent: 'reload' }],
       },
       fn: [
         ['$noop', 'savedSearchLocations', 'activeSavedSearchLocationsSyncRequestId'] as const,
@@ -396,7 +396,7 @@ const app_props = mergeDcl({
         savedSearchLocationsSyncError: ['savedSearchLocationsSyncError'],
         savedSearchLocationsSyncRequest: ['savedSearchLocationsSyncRequest'],
         activeSavedSearchLocationsSyncRequestId: ['activeSavedSearchLocationsSyncRequestId'],
-        _fxSync: ['$fx_savedSearchLocationsSyncResult', { intent: 'reload' }],
+        _fxSync: ['$fx_syncSavedSearchLocationsData', { intent: 'reload' }],
       },
       fn: [
         ['$noop', 'savedSearchLocations', 'activeSavedSearchLocationsSyncRequestId'] as const,

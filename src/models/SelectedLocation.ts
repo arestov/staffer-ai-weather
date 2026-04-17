@@ -63,7 +63,7 @@ export const SelectedLocation = model({
       },
       {
         to: {
-          _fxWeather: ['< $fx_weatherData < weatherLocation', { intent: 'request' }],
+          _fxWeather: ['< $fx_loadWeather < weatherLocation', { intent: 'request' }],
         },
         fn: () => ({
           _fxWeather: {},
@@ -110,7 +110,7 @@ export const SelectedLocation = model({
       },
       {
         to: {
-          _fxWeather: ['< $fx_weatherData < weatherLocation', { intent: 'request' }],
+          _fxWeather: ['< $fx_loadWeather < weatherLocation', { intent: 'request' }],
         },
         fn: () => ({
           _fxWeather: {},

@@ -349,7 +349,7 @@ export const WeatherLocation = model({
     },
     retryWeatherLoad: {
       to: {
-        _fx: ['$fx_weatherData', { intent: 'reload' }],
+        _fx: ['$fx_loadWeather', { intent: 'reload' }],
       },
       fn: () => ({
         _fx: {},

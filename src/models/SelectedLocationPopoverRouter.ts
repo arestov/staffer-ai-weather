@@ -135,7 +135,7 @@ export const SelectedLocationPopoverRouter = model({
         currentLocationRequest: ['currentLocationRequest'],
         searchRequest: ['searchRequest'],
         activeSearchRequestId: ['activeSearchRequestId'],
-        _fxSearch: ['$fx_searchResponseData', { intent: 'reload' }],
+        _fxSearch: ['$fx_executeLocationSearch', { intent: 'reload' }],
       },
       fn: [
         ['$noop', 'searchQuery', 'searchResults', 'activeSearchRequestId'] as const,
@@ -234,7 +234,7 @@ export const SelectedLocationPopoverRouter = model({
         currentLocationError: ['currentLocationError'],
         currentLocationRequest: ['currentLocationRequest'],
         activeCurrentLocationRequestId: ['activeCurrentLocationRequestId'],
-        _fxLocation: ['$fx_currentLocationResponseData', { intent: 'reload' }],
+        _fxLocation: ['$fx_executeCurrentLocationLookup', { intent: 'reload' }],
       },
       fn: [
         ['$noop', 'activeCurrentLocationRequestId'] as const,
@@ -268,7 +268,7 @@ export const SelectedLocationPopoverRouter = model({
         currentLocationError: ['currentLocationError'],
         currentLocationRequest: ['currentLocationRequest'],
         activeCurrentLocationRequestId: ['activeCurrentLocationRequestId'],
-        _fxLocation: ['$fx_currentLocationResponseData', { intent: 'reload' }],
+        _fxLocation: ['$fx_executeCurrentLocationLookup', { intent: 'reload' }],
       },
       fn: [
         ['activeCurrentLocationRequestId'] as const,
