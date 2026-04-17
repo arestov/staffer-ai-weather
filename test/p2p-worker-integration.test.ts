@@ -133,6 +133,11 @@ class MockRTCPeerConnection {
   close() {
     this.connectionState = 'closed'
   }
+
+  simulateConnectionState(state: string) {
+    this.connectionState = state
+    this.onconnectionstatechange?.({})
+  }
 }
 
 // ── Mock SharedWorker (for proxy ports) ─────────────────────────
@@ -340,6 +345,46 @@ describe('PageP2PManager', () => {
     manager.destroy()
   })
 
+  test('client watchdog times out after disconnected state', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const { manager, events } = await createManager()
+      await flushAsync()
+
+      const ws = wsInstances[0]
+      const myPeerId = JSON.parse(ws.sent[0]).peerId
+
+      ws.receiveMessage({
+        type: 'room-state',
+        peers: [myPeerId, 'remote-server'],
+        leaderPeerId: 'remote-server',
+        epoch: 1,
+      })
+
+      await flushAsync()
+
+      expect(pcInstances).toHaveLength(1)
+      const pc = pcInstances[0]
+
+      pc.simulateConnectionState('connected')
+      pc.simulateConnectionState('disconnected')
+
+      await vi.advanceTimersByTimeAsync(9_999)
+      expect(events.onError).not.toHaveBeenCalled()
+
+      await vi.advanceTimersByTimeAsync(1)
+      expect(events.onError).toHaveBeenCalledTimes(1)
+      expect((events.onError.mock.calls[0][0] as Error).message).toBe(
+        'WebRTC connection timed out',
+      )
+
+      manager.destroy()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   test('server mode: incoming offer creates proxy for remote client', async () => {
     const { manager, events } = await createManager()
     await flushAsync()
@@ -501,6 +546,63 @@ describe('PageP2PManager', () => {
     // Should fall back to server
     expect(manager.role).toBe('server')
     expect(events.onBecomeServer).toHaveBeenCalledTimes(1)
+
+    manager.destroy()
+  })
+
+  test('server mode ignores signaling close after leader assignment', async () => {
+    const { manager, events } = await createManager()
+    await flushAsync()
+
+    const ws = wsInstances[0]
+    const myPeerId = JSON.parse(ws.sent[0]).peerId
+
+    ws.receiveMessage({
+      type: 'room-state',
+      peers: [myPeerId],
+      leaderPeerId: myPeerId,
+      epoch: 1,
+    })
+
+    await flushAsync()
+
+    ws.onclose?.({})
+    await flushAsync()
+
+    expect(events.onBecomeServer).toHaveBeenCalledTimes(1)
+    expect(events.onError).not.toHaveBeenCalled()
+    expect(events.onSessionLost).not.toHaveBeenCalled()
+    expect(manager.role).toBe('server')
+
+    manager.destroy()
+  })
+
+  test('client mode ignores signaling close after data channel opens', async () => {
+    const { manager, events } = await createManager()
+    await flushAsync()
+
+    const ws = wsInstances[0]
+    const myPeerId = JSON.parse(ws.sent[0]).peerId
+
+    ws.receiveMessage({
+      type: 'room-state',
+      peers: [myPeerId, 'remote-server'],
+      leaderPeerId: 'remote-server',
+      epoch: 1,
+    })
+
+    await flushAsync()
+
+    const dc = pcInstances[0].createdChannels[0]
+    dc.simulateOpen()
+
+    ws.onclose?.({})
+    await flushAsync()
+
+    expect(events.onBecomeClient).toHaveBeenCalledTimes(1)
+    expect(events.onError).not.toHaveBeenCalled()
+    expect(events.onSessionLost).not.toHaveBeenCalled()
+    expect(manager.role).toBe('client')
 
     manager.destroy()
   })

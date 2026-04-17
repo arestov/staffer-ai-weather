@@ -60,6 +60,8 @@ const RTC_CONFIG: RTCConfiguration = {
   iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
 }
 
+const CONNECTION_TIMEOUT_MS = 10_000
+
 export const createPageP2PManager = (
   config: PageP2PManagerConfig,
   events: PageP2PManagerEvents,
@@ -80,10 +82,42 @@ export const createPageP2PManager = (
 
   const proxyConnections = new Map<string, ProxyEntry>()
   const peerConnections = new Map<string, RTCPeerConnection>()
+  const dataChannels = new Map<string, RTCDataChannel>()
 
   // ── Client mode ──────────────────────────────────────────────
 
   let serverPeerId: string | null = null
+  let clientTransportReady = false
+  let connectionWatchdog: ReturnType<typeof setTimeout> | null = null
+
+  const clearConnectionWatchdog = () => {
+    if (connectionWatchdog == null) {
+      return
+    }
+
+    clearTimeout(connectionWatchdog)
+    connectionWatchdog = null
+  }
+
+  const scheduleConnectionWatchdog = (targetPeerId: string, pc: RTCPeerConnection) => {
+    clearConnectionWatchdog()
+
+    connectionWatchdog = setTimeout(() => {
+      connectionWatchdog = null
+
+      if (destroyed || role !== 'client' || serverPeerId !== targetPeerId) {
+        return
+      }
+
+      try {
+        pc.close()
+      } catch {
+        // ignore
+      }
+
+      events.onError(new Error('WebRTC connection timed out'))
+    }, CONNECTION_TIMEOUT_MS)
+  }
 
   // ── Signaling ────────────────────────────────────────────────
 
@@ -168,6 +202,7 @@ export const createPageP2PManager = (
 
     dc.onclose = () => {
       if (dcDestroyed || destroyed) return
+      clientTransportReady = false
       events.onSessionLost('server-gone')
     }
 
@@ -198,6 +233,8 @@ export const createPageP2PManager = (
 
   const becomeServer = () => {
     if (role === 'server' || destroyed) return
+    clientTransportReady = false
+    serverPeerId = null
     role = 'server'
     events.onBecomeServer()
   }
@@ -206,21 +243,29 @@ export const createPageP2PManager = (
     if (destroyed) return
     role = 'client'
     serverPeerId = targetPeerId
+    clientTransportReady = false
 
     // Create WebRTC connection to server
     const pc = new RTCPeerConnection(RTC_CONFIG)
     peerConnections.set(targetPeerId, pc)
 
     const dc = pc.createDataChannel('sync', { ordered: true })
+    dataChannels.set(targetPeerId, dc)
+    scheduleConnectionWatchdog(targetPeerId, pc)
 
     dc.onopen = () => {
       if (destroyed) return
+      clearConnectionWatchdog()
+      clientTransportReady = true
       const transport = createDCTransport(dc)
       events.onBecomeClient(transport)
     }
 
     dc.onclose = () => {
       if (destroyed) return
+      clearConnectionWatchdog()
+      clientTransportReady = false
+      dataChannels.delete(targetPeerId)
       events.onSessionLost('server-gone')
     }
 
@@ -237,7 +282,18 @@ export const createPageP2PManager = (
     }
 
     pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'connected') {
+        clearConnectionWatchdog()
+        return
+      }
+
+      if (pc.connectionState === 'disconnected') {
+        scheduleConnectionWatchdog(targetPeerId, pc)
+        return
+      }
+
       if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        clearConnectionWatchdog()
         if (!destroyed && role === 'client' && serverPeerId === targetPeerId) {
           events.onSessionLost('server-gone')
         }
@@ -381,6 +437,11 @@ export const createPageP2PManager = (
           becomeServer()
           return
         }
+
+        if (role === 'server' || (role === 'client' && clientTransportReady)) {
+          return
+        }
+
         events.onError(error)
       },
     },
@@ -399,6 +460,7 @@ export const createPageP2PManager = (
     destroy() {
       if (destroyed) return
       destroyed = true
+      clearConnectionWatchdog()
 
       // Clean up all proxy connections
       for (const [remotePeerId] of proxyConnections) {
@@ -410,6 +472,7 @@ export const createPageP2PManager = (
         pc.close()
       }
       peerConnections.clear()
+      dataChannels.clear()
 
       // Clean up signaling
       signaling?.sendBye?.()
