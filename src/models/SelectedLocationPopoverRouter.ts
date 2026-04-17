@@ -234,6 +234,7 @@ export const SelectedLocationPopoverRouter = model({
         currentLocationError: ['currentLocationError'],
         currentLocationRequest: ['currentLocationRequest'],
         activeCurrentLocationRequestId: ['activeCurrentLocationRequestId'],
+        _fxLocation: ['$fx_currentLocationResponseData', { intent: 'reload' }],
       },
       fn: [
         ['$noop', 'activeCurrentLocationRequestId'] as const,
@@ -256,6 +257,7 @@ export const SelectedLocationPopoverRouter = model({
               longitude: coordinates.longitude,
             },
             activeCurrentLocationRequestId: requestId,
+            _fxLocation: {},
           }
         },
       ],
@@ -266,6 +268,7 @@ export const SelectedLocationPopoverRouter = model({
         currentLocationError: ['currentLocationError'],
         currentLocationRequest: ['currentLocationRequest'],
         activeCurrentLocationRequestId: ['activeCurrentLocationRequestId'],
+        _fxLocation: ['$fx_currentLocationResponseData', { intent: 'reload' }],
       },
       fn: [
         ['activeCurrentLocationRequestId'] as const,
@@ -280,6 +283,7 @@ export const SelectedLocationPopoverRouter = model({
               kind: 'fallback',
             },
             activeCurrentLocationRequestId: requestId,
+            _fxLocation: {},
           }
         },
       ],

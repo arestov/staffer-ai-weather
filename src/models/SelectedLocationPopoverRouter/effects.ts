@@ -132,24 +132,7 @@ export const popoverRouterEffects = {
         },
       ],
     },
-    triggerCurrentLocationLookup: {
-      api: ['self', 'geoLocationApi'],
-      trigger: ['currentLocationRequest'],
-      require: ['currentLocationRequest'],
-      create_when: {
-        api_inits: true,
-      },
-      fn: (self: {
-        resetRequestedState: (name: string) => unknown
-        input: (callback: () => void) => unknown
-        requestState: (name: string) => unknown
-      }) => {
-        self.resetRequestedState('currentLocationResponseData')
-        self.input(() => {
-          self.requestState('currentLocationResponseData')
-        })
-      },
-    },
+
     applyCurrentLocationResult: {
       api: ['self'],
       trigger: ['currentLocationResponseData'],
