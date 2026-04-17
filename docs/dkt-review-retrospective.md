@@ -272,3 +272,105 @@ fn: [
 - trigger-зависимости в effects.out
 
 Это фундаментальная особенность: dkt — **реактивный** фреймворк, action fn — **чистая функция от состояния**. Для императивного "просто сделай" нужен уникальный маркер в зависимостях.
+
+---
+
+## 9. Проблема «dispatch result» out-effects
+
+### Суть паттерна
+
+После перехода на 3-tier effects и `$fx_` в кодовой базе остались out-effects, единственная задача которых — прочитать результат `state_request` и вызвать `self.dispatch()` для маршрутизации ok/error в разные actions. Это **императивный мост** между декларативным state_request и декларативными actions.
+
+Затронутые out-effects:
+
+| Out-effect | Модель | Что делает |
+|---|---|---|
+| `applyDetectedGeoLocation` | AppRoot/effects.ts | `autoDetectedLocation` → `applyAutoDetectedLocation` / `failAutoGeoDetection` |
+| `applyFetchedWeatherData` | WeatherLocation.ts | `weatherData` → `applyWeather` / `failWeather` |
+| `applySearchResponseData` | PopoverRouter/effects.ts | `searchResponseData` → `applyLocationSearchResponse` / `failLocationSearchResponse` |
+| `applyCurrentLocationResult` | PopoverRouter/effects.ts | `currentLocationResponseData` → `applyCurrentLocationLookupResponse` / `failCurrentLocationLookupResponse` |
+| `applySavedSearchLocationsSyncData` | AppRoot/effects.ts | `savedSearchLocationsSyncResult` → `applySavedSearchLocationsSyncResult` / `failSavedSearchLocationsSyncRequest` |
+
+### Анатомия проблемы на примере `applyDetectedGeoLocation`
+
+Полная цепочка geo-detection:
+
+```
+handleInit step 6
+  → $fx_autoDetectedLocation { intent: 'request' }
+    → detectGeoLocation state_request (effects.in)
+      → api.detectLocation()
+        → parse: { autoDetectedLocation: result }
+          → attr autoDetectedLocation = { ok, data } | { ok: false, message }
+            → applyDetectedGeoLocation (effects.out)    ← ПРОБЛЕМНЫЙ СЛОЙ
+              → self.dispatch('applyAutoDetectedLocation', result.data)
+                → action: sets autoGeoStatus='done', inline_subwalker → applyAutoLocation
+                  → SelectedLocation: create WeatherLocation + $fx_weatherData
+              ИЛИ
+              → self.dispatch('failAutoGeoDetection', result.message)
+                → action: sets autoGeoStatus='error', autoGeoError=message
+```
+
+Out-effect `applyDetectedGeoLocation` занимает ~15 строк кода:
+
+```ts
+applyDetectedGeoLocation: {
+  api: ['self'],
+  trigger: ['autoDetectedLocation'],
+  require: ['autoDetectedLocation'],
+  create_when: { api_inits: true },
+  is_async: true,
+  fn: [
+    ['autoDetectedLocation'] as const,
+    async (self, _task, autoDetectedLocation) => {
+      const result = autoDetectedLocation as { ok: boolean; data?: unknown; message?: string }
+      if (result.ok) {
+        await self.dispatch('applyAutoDetectedLocation', result.data)
+      } else {
+        await self.dispatch('failAutoGeoDetection', result.message)
+      }
+    },
+  ],
+}
+```
+
+Этот код:
+- Не делает async работы (dispatch — единственный вызов)
+- Не использует внешние API (только `self`)
+- Является чистой маршрутизацией по полю `ok`
+- Повторяется с минимальными вариациями во всех 5 случаях
+
+### Почему это проблема
+
+1. **Boilerplate**: 5 почти-идентичных out-effects по ~15 строк = ~75 строк кода, которые делают одно: `if (result.ok) dispatch(A) else dispatch(B)`
+2. **`is_async: true`**: каждый dispatch result effect объявлен как async, хотя реальной async-логики нет — `self.dispatch()` мог бы быть sync
+3. **`create_when: { api_inits: true }`**: нужен только чтобы гарантировать создание эффекта на root — но сам эффект не использует никакого API кроме `self`
+4. **Скрытая связность**: out-effect знает имена actions (`'applyAutoDetectedLocation'`, `'failAutoGeoDetection'`) через строковые литералы — нет compile-time проверки
+5. **Промежуточный attr**: `autoDetectedLocation` существует исключительно как канал данных между state_request и out-effect → action. Если бы routing ok/error был декларативным, этот attr не нужен
+
+### Что могло бы заменить этот паттерн
+
+Идеальное решение на уровне DKT — декларативная маршрутизация результата state_request:
+
+```ts
+// Гипотетический синтаксис — НЕ реализован в DKT
+effects: {
+  in: {
+    detectGeoLocation: {
+      type: 'state_request',
+      states: ['autoDetectedLocation'],
+      api: 'geoLocationSource',
+      // Декларативный routing вместо out-effect
+      on_ok: { action: 'applyAutoDetectedLocation', field: 'data' },
+      on_error: { action: 'failAutoGeoDetection', field: 'message' },
+      fn: [/* ... */],
+    },
+  },
+}
+```
+
+Это устранило бы все 5 dispatch result out-effects и промежуточные attrs.
+
+### Текущий статус
+
+Dispatch result out-effects остаются в коде. Они работают корректно, но представляют собой самый объёмный и наименее декларативный слой в 3-tier effects architecture. Это кандидат №1 для следующего этапа упрощения DKT framework.
