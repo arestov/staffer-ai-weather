@@ -135,11 +135,13 @@ export const SelectedLocationPopoverRouter = model({
         currentLocationRequest: ['currentLocationRequest'],
         searchRequest: ['searchRequest'],
         activeSearchRequestId: ['activeSearchRequestId'],
+        _fxSearch: ['$fx_searchResponseData', { intent: 'reload' }],
       },
       fn: [
-        ['searchQuery', 'searchResults', 'activeSearchRequestId'] as const,
+        ['$noop', 'searchQuery', 'searchResults', 'activeSearchRequestId'] as const,
         (
           payload: unknown,
+          noop: unknown,
           searchQuery: unknown,
           searchResults: unknown,
           activeSearchRequestId: number,
@@ -148,14 +150,19 @@ export const SelectedLocationPopoverRouter = model({
             normalizeSearchRequestQuery(payload) || normalizeSearchRequestQuery(searchQuery)
 
           if (query.length < MIN_LOCATION_SEARCH_QUERY_LENGTH) {
-            return {}
+            return noop
           }
 
-          return buildSearchingState(
+          const state = buildSearchingState(
             query,
             activeSearchRequestId + 1,
             Array.isArray(searchResults) ? searchResults.filter((item) => Boolean(item)) : [],
           )
+
+          return {
+            ...state,
+            _fxSearch: {},
+          }
         },
       ],
     },

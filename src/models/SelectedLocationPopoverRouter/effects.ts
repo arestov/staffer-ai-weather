@@ -97,24 +97,6 @@ export const popoverRouterEffects = {
     },
   },
   out: {
-    triggerLocationSearch: {
-      api: ['self', 'locationSearchApi'],
-      trigger: ['searchRequest'],
-      require: ['searchRequest'],
-      create_when: {
-        api_inits: true,
-      },
-      fn: (self: {
-        resetRequestedState: (name: string) => unknown
-        input: (callback: () => void) => unknown
-        requestState: (name: string) => unknown
-      }) => {
-        self.resetRequestedState('searchResponseData')
-        self.input(() => {
-          self.requestState('searchResponseData')
-        })
-      },
-    },
     applySearchResponseData: {
       api: ['self'],
       trigger: ['searchResponseData'],
