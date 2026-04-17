@@ -77,15 +77,11 @@ export const appRootEffects = {
       states: ['autoDetectedLocation'],
       api: 'geoLocationSource',
       parse: (result: unknown) => ({ autoDetectedLocation: result }),
+      action: 'onAutoGeoDetected',
       fn: [
         [] as const,
         async (api: { detectLocation: () => Promise<unknown> }) => {
-          try {
-            const result = await api.detectLocation()
-            return { ok: true as const, data: result }
-          } catch (error) {
-            return { ok: false as const, message: toErrorMessage(error) }
-          }
+          return await api.detectLocation()
         },
       ],
     },
@@ -133,31 +129,6 @@ export const appRootEffects = {
     },
   },
   out: {
-    applyDetectedGeoLocation: {
-      api: ['self'],
-      trigger: ['autoDetectedLocation'],
-      require: ['autoDetectedLocation'],
-      create_when: {
-        api_inits: true,
-      },
-      is_async: true,
-      fn: [
-        ['autoDetectedLocation'] as const,
-        async (
-          self: { dispatch: (actionName: string, payload?: unknown) => Promise<void> | void },
-          _task: unknown,
-          autoDetectedLocation: unknown,
-        ) => {
-          const result = autoDetectedLocation as { ok: boolean; data?: unknown; message?: string }
-          if (result.ok) {
-            await self.dispatch('applyAutoDetectedLocation', result.data)
-          } else {
-            await self.dispatch('failAutoGeoDetection', result.message)
-          }
-        },
-      ],
-    },
-
     applySavedSearchLocationsSyncData: {
       api: ['self'],
       trigger: ['savedSearchLocationsSyncResult'],
