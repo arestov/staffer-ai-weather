@@ -12,7 +12,7 @@
 3. **3-tier effects** — `effects.api` → `effects.in` → `effects.out` для всей async-логики
 4. **`$fx_` — декларативный запуск effects из actions** — замена trigger out-effects
 5. **comp attrs для производных данных** — формулы вместо записи в actions
-6. **state_request lifecycle** — request → parse → attrs, с cancellation через reset
+6. **state_request lifecycle** — request → parse → attrs, action, handleAttr:, $meta$error
 7. **API injection через effects.api** — не importировать сервисы напрямую
 8. **Организация файлов** — shell + effects + helpers для больших моделей
 9. **Refs для create-and-link** — `hold_ref_id` / `use_ref_id` в actions
@@ -136,7 +136,7 @@ effects.api  →  effects.in (state_request)  →  effects.out (trigger/apply)
  (lifecycle)      (async fetch)                 (orchestration)
 ```
 
-> **Примечание**: trigger out-effects для запуска state_request из actions заменены на `$fx_` targets (см. раздел 4). Out-effects по-прежнему нужны для: обработки результатов (dispatch result), периодического refresh по таймеру, реакции на изменения attrs из любого источника.
+> **Примечание**: trigger out-effects для запуска state_request из actions заменены на `$fx_` targets (см. раздел 4). Dispatch-result out-effects часто заменяются на `state_request.action` + `handleAttr:` (см. раздел 6). Out-effects по-прежнему нужны для: периодического refresh по таймеру, сложной orchestration с несколькими dispatch, реакции на attrs когда нужен доступ к API.
 
 ### effects.api — объявление внешних сервисов
 
@@ -210,6 +210,7 @@ effects: {
       ],
     },
     // Apply — обработка результата state_request
+    // ⚠️ Рассмотри замену на state_request.action + handleAttr: (раздел 6)
     applyLoadResult: {
       api: ['self'],
       trigger: ['weatherData'],
@@ -380,9 +381,10 @@ actions: {
 |---|---|
 | Запуск загрузки из action | `$fx_` |
 | Запуск загрузки на child из parent action | `$fx_` + rel path |
-| Реакция на изменение attr (любой источник) | out-effect trigger |
+| Реакция на изменение attr (любой источник) | `handleAttr:` action или out-effect trigger |
 | Периодический refresh по таймеру | out-effect + `self.refreshState()` |
-| Обработка результата state_request | out-effect (dispatch result) |
+| Обработка результата state_request (простой forward) | `state_request.action` + `handleAttr:` |
+| Обработка результата state_request (сложная логика) | out-effect (dispatch result) |
 
 ---
 
@@ -434,7 +436,169 @@ const SHAPE = { temperatureC: null, weatherCode: null }
 5. fn возвращает result
 6. parse(result) возвращает { attrName: value }
 7. Attrs обновляются
-8. effects.out apply fires, dispatches action
+8. Если задан action — dispatches action (см. ниже)
+9. handleAttr: actions fire для изменённых attrs
+10. effects.out apply fires (если есть)
+```
+
+### `action` — действие после успешного parse
+
+Поле `action` в state_request позволяет автоматически dispatch action после успешного завершения:
+
+```ts
+effects: {
+  in: {
+    detectGeoLocation: {
+      type: 'state_request',
+      states: ['autoDetectedLocation'],
+      api: 'geoLocationSource',
+      parse: (result: unknown) => ({ autoDetectedLocation: result }),
+      action: 'onAutoGeoDetected',  // ← вызывается после успешного parse
+      fn: [
+        [] as const,
+        async (api: { detectLocation: () => Promise<unknown> }) => {
+          return await api.detectLocation()
+        },
+      ],
+    },
+  },
+}
+```
+
+**Ограничение**: Action, указанный в `action`, НЕ должен содержать `inline_subwalker` forwarding в своих `to` declarations. Используй его для простых операций (установка статус-attrs).
+
+При ошибке в fn action НЕ вызывается, ошибка попадает в `$meta$error` (см. ниже).
+
+### `$meta$error` — автоматическая обработка ошибок
+
+DKT автоматически управляет error-attrs:
+
+- `$meta$attrs$<attr>$error` — ошибка последнего state_request, записавшего `<attr>`
+- `$meta$fx$<fx_name>$error` — ошибка по имени эффекта
+
+Если fn в state_request выбрасывает исключение:
+1. Ошибка записывается в `$meta$error` attr
+2. `action` НЕ вызывается
+3. При следующем успешном запросе `$meta$error` сбрасывается
+
+Это позволяет убрать try/catch + ok/error dispatch из fn:
+
+```ts
+// ❌ Старый паттерн — ручная обработка ошибок
+fn: [
+  [] as const,
+  async (api) => {
+    try {
+      const result = await api.detectLocation()
+      return { ok: true, data: result }
+    } catch (error) {
+      return { ok: false, message: toErrorMessage(error) }
+    }
+  },
+],
+
+// ✅ Новый паттерн — ошибки в $meta$error
+fn: [
+  [] as const,
+  async (api) => {
+    return await api.detectLocation()
+  },
+],
+```
+
+### `handleAttr:` — реакция на изменение attr
+
+`handleAttr:<attrName>` — специальный action, который автоматически dispatch при изменении attr. Заменяет dispatch-result out-effects, убирая boilerplate:
+
+```ts
+// ❌ Старый паттерн — out-effect для forwarding результата
+effects: {
+  out: {
+    forwardAutoDetectedLocation: {
+      api: ['self'],
+      trigger: ['autoDetectedLocation'],
+      require: ['autoDetectedLocation'],
+      is_async: true,
+      fn: [
+        ['autoDetectedLocation'] as const,
+        async (self, _task, location) => {
+          await self.dispatch('applyAutoDetectedLocation', location)
+        },
+      ],
+    },
+  },
+}
+
+// ✅ Новый паттерн — handleAttr реагирует на attr change
+actions: {
+  'handleAttr:autoDetectedLocation': [
+    {
+      to: {
+        applyAutoLocation: [
+          '<< mainLocation',
+          { action: 'applyAutoLocation', inline_subwalker: true },
+        ],
+      },
+      fn: (payload: unknown) => {
+        const value =
+          payload != null && typeof payload === 'object' && 'next_value' in payload
+            ? (payload as { next_value: unknown }).next_value
+            : null
+
+        if (!isLocationSearchResult(value)) {
+          return {}
+        }
+
+        return { applyAutoLocation: value }
+      },
+    },
+  ],
+}
+```
+
+**Payload формат**: `{ next_value: <новое значение>, prev_value: <старое значение> }`
+
+**Когда использовать handleAttr: вместо out-effect**:
+- Forwarding attr на child через `inline_subwalker`
+- Преобразование attr и dispatch в другой action
+- Любая чистая (sync) реакция на изменение attr
+
+**Когда out-effect всё ещё нужен**:
+- Нужен доступ к API (`api: ['self', 'myApi']`)
+- Async операции (таймеры, сложный orchestration)
+- Реакция на несколько attrs одновременно (`trigger: ['a', 'b']`)
+
+### Комбинация: action + handleAttr: (полный паттерн)
+
+Для замены out-effect dispatch-result:
+
+```ts
+// state_request: action для статусов, handleAttr для forwarding
+effects: {
+  in: {
+    detectGeoLocation: {
+      type: 'state_request',
+      states: ['autoDetectedLocation'],
+      parse: (result) => ({ autoDetectedLocation: result }),
+      action: 'onAutoGeoDetected',      // статус: done
+      fn: [[], async (api) => api.detectLocation()],
+    },
+  },
+},
+actions: {
+  onAutoGeoDetected: {                   // простой статус (без forwarding)
+    to: { status: ['autoGeoStatus'], error: ['autoGeoError'] },
+    fn: () => ({ status: 'done', error: null }),
+  },
+  'handleAttr:autoDetectedLocation': [{  // forwarding на child
+    to: { applyAutoLocation: ['<< mainLocation', { action: 'applyAutoLocation', inline_subwalker: true }] },
+    fn: (payload) => {
+      const value = payload?.next_value
+      if (!isValid(value)) return {}
+      return { applyAutoLocation: value }
+    },
+  }],
+}
 ```
 
 ### requestState + resetRequestedState
@@ -704,4 +868,8 @@ if (!isValidPayload(payload)) return '$noop'
 - [ ] `$fx_` target name matches `states[]` attr в state_request
 - [ ] Cross-model `$fx_` — нет промежуточного action на child, прямой rel path
 - [ ] Trigger out-effects заменены на `$fx_` где это action-initiated загрузка
+- [ ] Dispatch-result out-effects → рассмотри `state_request.action` + `handleAttr:`
+- [ ] `handleAttr:` payload — извлекай `next_value`, не используй payload напрямую
+- [ ] `state_request.action` — action без `inline_subwalker` в `to`
+- [ ] fn в state_request — не оборачивай в try/catch, ошибки идут в `$meta$error`
 - [ ] Tests pass: 0 failures, 0 regressions
