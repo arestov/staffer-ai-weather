@@ -506,10 +506,7 @@ const app_props = mergeDcl({
           ],
         },
         fn: (payload: unknown) => {
-          const value =
-            payload != null && typeof payload === 'object' && 'next_value' in payload
-              ? (payload as { next_value: unknown }).next_value
-              : null
+          const value = (payload as { next_value?: unknown } | null)?.next_value ?? null
 
           if (!isLocationSearchResult(value)) {
             return {}
