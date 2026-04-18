@@ -480,20 +480,62 @@ describe('createDoSignalingFactory', () => {
       events,
     })
 
-    // Fail initial + 3 retries = 4 WebSocket instances (error without open)
-    for (let i = 0; i < 4; i++) {
+    // Fail initial + 4 retries = 5 WebSocket instances (error without open)
+    for (let i = 0; i < 5; i++) {
       const ws = MockWebSocket.instances[i]
       expect(ws).toBeDefined()
       ws.simulateError()
 
-      if (i < 3) {
+      if (i < 4) {
         // Advance past retry delay
-        await vi.advanceTimersByTimeAsync(500 * 2 ** i + 10)
+        await vi.advanceTimersByTimeAsync(300 * 2 ** i + 10)
       }
     }
 
     expect(events.onError).toHaveBeenCalledTimes(1)
     expect(events.onError.mock.calls[0][0]).toBeInstanceOf(Error)
+
+    vi.useRealTimers()
+  })
+
+  test('WebSocket open then close before room-state retries (proxy tunnel scenario)', async () => {
+    vi.useFakeTimers()
+    const createDoSignalingFactory = await importFactory()
+    const factory = createDoSignalingFactory('ws://127.0.0.1:8790')
+    const events = createEvents()
+
+    factory({
+      roomId: 'room-1',
+      peerId: 'peer-a',
+      joinedAt: Date.now(),
+      events,
+    })
+
+    // First attempt: WS opens (101) but proxy tunnel breaks → onclose only
+    const ws1 = MockWebSocket.instances[0]
+    ws1.simulateOpen()
+    ws1.simulateClose()
+
+    // Should not have reported error — should schedule retry
+    expect(events.onError).not.toHaveBeenCalled()
+
+    // Advance to retry
+    await vi.advanceTimersByTimeAsync(310)
+
+    // Second attempt: succeeds
+    const ws2 = MockWebSocket.instances[1]
+    expect(ws2).toBeDefined()
+    ws2.simulateOpen()
+    ws2.simulateMessage({
+      type: 'room-state',
+      roomId: 'room-1',
+      epoch: 1,
+      leaderPeerId: 'peer-a',
+      peers: ['peer-a'],
+    })
+
+    expect(events.onConnected).toHaveBeenCalledTimes(1)
+    expect(events.onError).not.toHaveBeenCalled()
 
     vi.useRealTimers()
   })

@@ -42,8 +42,8 @@ export type BridgeSignalingFactory = (params: {
 
 // ── DO WebSocket signaling ──────────────────────────────────────
 
-const MAX_CONNECT_RETRIES = 3
-const RETRY_BASE_MS = 500
+const MAX_CONNECT_RETRIES = 4
+const RETRY_BASE_MS = 300
 
 export const createDoSignalingFactory = (signalUrl: string): BridgeSignalingFactory => {
   return ({ roomId, peerId, events }) => {
@@ -73,7 +73,7 @@ export const createDoSignalingFactory = (signalUrl: string): BridgeSignalingFact
 
       ws.onopen = () => {
         if (destroyed) return
-        retryCount = 0
+        // retryCount resets only after full connection (room-state received)
         ws!.send(JSON.stringify({ type: 'join', roomId, peerId }))
       }
 
@@ -125,6 +125,7 @@ export const createDoSignalingFactory = (signalUrl: string): BridgeSignalingFact
           }
 
           connected = true
+          retryCount = 0
           events.onLeaderAssigned(leaderPeerId, epoch)
           events.onConnected()
           break
@@ -165,8 +166,6 @@ export const createDoSignalingFactory = (signalUrl: string): BridgeSignalingFact
 
     const onError = () => {
       if (destroyed) return
-      // Before connection is established, onerror + onclose both fire.
-      // Report only once: onerror takes precedence, onclose is suppressed.
       if (!connected) {
         try { ws?.close() } catch { /* ignore */ }
         ws = null
@@ -178,7 +177,15 @@ export const createDoSignalingFactory = (signalUrl: string): BridgeSignalingFact
 
     const onClose = () => {
       if (destroyed) return
-      if (!connected) return // already handled by onError
+      if (!connected) {
+        // WS opened (101) but died before room-state — e.g. proxy tunnel broke.
+        // Skip if onError already scheduled a retry (ws nulled).
+        if (ws) {
+          ws = null
+          scheduleRetry()
+        }
+        return
+      }
       events.onError(new Error('WebSocket signaling closed'))
     }
 
