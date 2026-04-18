@@ -6,7 +6,8 @@ const backendUrl = process.env.WEATHER_BACKEND_URL?.trim() || 'http://127.0.0.1:
 
 const spawnOptions = (extraEnv = {}) => ({
   stdio: 'inherit',
-  detached: !isWindows,
+  detached: true,
+  windowsHide: true,
   env: {
     ...process.env,
     ...extraEnv,
