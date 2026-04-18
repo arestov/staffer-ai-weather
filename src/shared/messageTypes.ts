@@ -3,6 +3,7 @@ export const APP_MSG = {
   CONTROL_BOOTSTRAP_SESSION: 'control:bootstrap-session',
   CONTROL_CLOSE_SESSION: 'control:close-session',
   CONTROL_DISPATCH_APP_ACTION: 'control:dispatch-app-action',
+  CONTROL_WARM_APP: 'control:warm-app',
 
   MODEL_BOOTED: 'model:booted',
   SESSION_BOOTED: 'session:booted',
@@ -96,6 +97,11 @@ export type ReactSyncSyncRequireShapeMessage = {
   data: unknown
 }
 
+export type ReactSyncControlWarmAppMessage = {
+  type: typeof APP_MSG.CONTROL_WARM_APP
+  session_key: string
+}
+
 export type ReactSyncP2PSessionLostMessage = {
   type: typeof APP_MSG.P2P_SESSION_LOST
   reason: 'server-gone' | 'failover'
@@ -106,6 +112,7 @@ export type ReactSyncTransportMessage =
   | ReactSyncControlBootstrapSessionMessage
   | ReactSyncControlCloseSessionMessage
   | ReactSyncControlDispatchAppActionMessage
+  | ReactSyncControlWarmAppMessage
   | ReactSyncModelBootedMessage
   | ReactSyncSessionBootedMessage
   | ReactSyncRuntimeLogMessage

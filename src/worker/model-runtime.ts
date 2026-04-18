@@ -495,6 +495,13 @@ export const createWeatherModelRuntime = (options?: { weatherBackendBaseUrl?: st
         })
         return
       }
+      case APP_MSG.CONTROL_WARM_APP: {
+        const warmKey = normalizeSessionKey(message.session_key)
+        if (warmKey) {
+          ensureAppEntry(warmKey).catch(() => {})
+        }
+        return
+      }
       case APP_MSG.CONTROL_CLOSE_SESSION: {
         if (connection.sessionKey || connection.sessionId) {
           const appEntry = getConnectionAppEntry(connection)

@@ -533,21 +533,30 @@ describe('PageP2PManager', () => {
   })
 
   test('signaling error before role decided falls back to server', async () => {
-    const { manager, events } = await createManager()
-    await flushAsync()
+    vi.useFakeTimers()
+    try {
+      const { manager, events } = await createManager()
+      await flushAsync()
 
-    const ws = wsInstances[0]
+      // Close each WebSocket that gets created during retries
+      // (BridgeSignaling retries up to MAX_CONNECT_RETRIES=4 times before calling onError)
+      for (let i = 0; i < 5; i++) {
+        const ws = wsInstances[wsInstances.length - 1]
+        if (!ws) break
+        ws.onclose?.({})
+        await flushAsync()
+        await vi.advanceTimersByTimeAsync(10_000)
+        await flushAsync()
+      }
 
-    // Simulate signaling error before any room-state
-    ws.onclose?.({})
+      // Should fall back to server after all retries exhausted
+      expect(manager.role).toBe('server')
+      expect(events.onBecomeServer).toHaveBeenCalledTimes(1)
 
-    await flushAsync()
-
-    // Should fall back to server
-    expect(manager.role).toBe('server')
-    expect(events.onBecomeServer).toHaveBeenCalledTimes(1)
-
-    manager.destroy()
+      manager.destroy()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   test('server mode ignores signaling close after leader assignment', async () => {

@@ -87,58 +87,40 @@ describe('createWeatherAppSession', () => {
   test('falls back to worker-only when P2P startup never becomes healthy', async () => {
     vi.stubEnv('VITE_P2P_SIGNAL_URL', 'ws://example.invalid/signal')
 
-    const scheduledTimers: Array<{ active: boolean; callback: () => void }> = []
-    const setTimeoutSpy = vi
-      .spyOn(globalThis, 'setTimeout')
-      .mockImplementation(((handler: TimerHandler, _timeout?: number, ...args: unknown[]) => {
-        const timer = {
-          active: true,
-          callback: () => {
-            if (!timer.active) {
-              return
-            }
+    // Capture the events callbacks passed to createPageP2PManager
+    let capturedEvents: Record<string, (...args: unknown[]) => void> = {}
+    mockState.createWeatherAppP2PManager.mockImplementation(
+      (_config: unknown, events: Record<string, (...args: unknown[]) => void>) => {
+        capturedEvents = events
+        return { destroy: vi.fn() }
+      },
+    )
 
-            if (typeof handler === 'function') {
-              handler(...args)
-            }
-          },
-        }
+    const { createWeatherAppSession } = await import('../src/page/createWeatherAppSession')
+    const session = createWeatherAppSession()
 
-        scheduledTimers.push(timer)
-        return timer as unknown as ReturnType<typeof setTimeout>
-      }) as typeof setTimeout)
-    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout').mockImplementation((handle) => {
-      const timer = scheduledTimers.find((entry) => entry === handle)
-      if (timer) {
-        timer.active = false
-      }
+    session.bootstrap({ sessionKey: 'room-1', sessionId: 'session-1' })
+
+    expect(session.p2pStatus).toBe('undecided')
+    // Only the warm-up message should have been sent (not the bootstrap)
+    expect(mockState.sharedWorkerTransport.sent).toHaveLength(1)
+    expect(mockState.sharedWorkerTransport.sent[0]).toEqual({
+      type: APP_MSG.CONTROL_WARM_APP,
+      session_key: 'room-1',
     })
 
-    try {
-      const { createWeatherAppSession } = await import('../src/page/createWeatherAppSession')
-      const session = createWeatherAppSession()
+    // Simulate P2P signaling failure (e.g. retries exhausted)
+    capturedEvents.onError(new Error('WebSocket signaling error'))
 
-      session.bootstrap({ sessionKey: 'room-1', sessionId: 'session-1' })
+    expect(session.p2pStatus).toBe('disabled')
+    // Bridge flushed the buffered bootstrap message to workerTransport
+    expect(mockState.sharedWorkerTransport.sent).toHaveLength(2)
+    expect(mockState.sharedWorkerTransport.sent[1]).toEqual({
+      type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
+      session_key: 'room-1',
+    })
+    expect(mockState.createWeatherAppP2PManager).toHaveBeenCalledTimes(1)
 
-      expect(session.p2pStatus).toBe('undecided')
-      expect(mockState.sharedWorkerTransport.sent).toHaveLength(0)
-
-      expect(scheduledTimers).toHaveLength(1)
-      scheduledTimers[0]?.callback()
-
-      expect(session.p2pStatus).toBe('disabled')
-      expect(mockState.sharedWorkerTransport.sent).toHaveLength(1)
-      expect(mockState.sharedWorkerTransport.sent[0]).toEqual({
-        type: APP_MSG.CONTROL_BOOTSTRAP_SESSION,
-        session_key: 'room-1',
-      })
-      expect(mockState.createWeatherAppP2PManager).toHaveBeenCalledTimes(1)
-
-      session.destroy()
-    } finally {
-      setTimeoutSpy.mockRestore()
-      clearTimeoutSpy.mockRestore()
-      vi.useRealTimers()
-    }
+    session.destroy()
   })
 })

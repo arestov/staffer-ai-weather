@@ -7,8 +7,6 @@ import sharedWorkerScriptUrl from '../worker/shared-worker.ts?sharedworker&url'
 
 export type WeatherAppP2PStatus = 'disabled' | 'undecided' | 'server' | 'client'
 
-const P2P_STARTUP_TIMEOUT_MS = 10_000
-
 const APP_ROOT_SCOPE: ReactSyncScopeHandle = {
   kind: 'scope',
   _nodeId: 'ROOT',
@@ -180,42 +178,18 @@ export const createWeatherAppSession = (): WeatherAppSession => {
   let p2pManager: PageP2PManager | null = null
   let activeP2PSessionKey: string | null = null
   let p2pFallbackToWorkerOnly = false
-  let p2pFallbackSessionKey: string | null = null
-  let p2pStartupTimer: ReturnType<typeof setTimeout> | null = null
 
-  const clearP2PStartupTimer = () => {
-    if (p2pStartupTimer == null) {
-      return
-    }
-
-    clearTimeout(p2pStartupTimer)
-    p2pStartupTimer = null
-  }
-
-  const connectWorkerOnlyMode = () => {
-    setP2PStatus('disabled')
-    bridgedTransport.connectTo(workerTransport)
-  }
-
-  const switchToWorkerOnlyMode = (sessionKey: string | null, emitSessionLost: boolean) => {
+  const recoverToWorkerOnlyMode = () => {
     p2pFallbackToWorkerOnly = true
-    p2pFallbackSessionKey = sessionKey
-    clearP2PStartupTimer()
     p2pManager?.destroy()
     p2pManager = null
     activeP2PSessionKey = null
-    connectWorkerOnlyMode()
-
-    if (emitSessionLost) {
-      bridgedTransport.receive({
-        type: APP_MSG.P2P_SESSION_LOST,
-        reason: 'server-gone',
-      })
-    }
-  }
-
-  const recoverToWorkerOnlyMode = () => {
-    switchToWorkerOnlyMode(activeP2PSessionKey, true)
+    setP2PStatus('disabled')
+    bridgedTransport.connectTo(workerTransport)
+    bridgedTransport.receive({
+      type: APP_MSG.P2P_SESSION_LOST,
+      reason: 'server-gone',
+    })
   }
 
   const startP2PForSession = (sessionKey: string) => {
@@ -229,18 +203,9 @@ export const createWeatherAppSession = (): WeatherAppSession => {
     if (activeP2PSessionKey === sessionKey && p2pManager) return
 
     bridgedTransport.disconnect()
-    clearP2PStartupTimer()
     p2pManager?.destroy()
     activeP2PSessionKey = sessionKey
     setP2PStatus('undecided')
-
-    p2pStartupTimer = setTimeout(() => {
-      if (activeP2PSessionKey !== sessionKey) {
-        return
-      }
-
-      switchToWorkerOnlyMode(sessionKey, false)
-    }, P2P_STARTUP_TIMEOUT_MS)
 
     p2pManager = createPageP2PManager(
       {
@@ -250,17 +215,14 @@ export const createWeatherAppSession = (): WeatherAppSession => {
       },
       {
         onBecomeServer() {
-          clearP2PStartupTimer()
           setP2PStatus('server')
           bridgedTransport.connectTo(workerTransport)
         },
         onBecomeClient(transport) {
-          clearP2PStartupTimer()
           setP2PStatus('client')
           bridgedTransport.connectTo(transport)
         },
         onSessionLost(reason) {
-          clearP2PStartupTimer()
           p2pManager?.destroy()
           p2pManager = null
           activeP2PSessionKey = null
@@ -273,11 +235,6 @@ export const createWeatherAppSession = (): WeatherAppSession => {
         },
         onError(err) {
           console.error('[P2P]', err)
-          if (p2pStatus === 'undecided') {
-            switchToWorkerOnlyMode(activeP2PSessionKey, false)
-            return
-          }
-
           recoverToWorkerOnlyMode()
         },
       },
@@ -292,16 +249,12 @@ export const createWeatherAppSession = (): WeatherAppSession => {
     const nextSessionKey = options?.sessionKey ?? runtime.getSnapshot().sessionKey ?? null
 
     if (nextSessionKey) {
-      if (p2pFallbackToWorkerOnly && nextSessionKey !== p2pFallbackSessionKey) {
-        p2pFallbackToWorkerOnly = false
-        p2pFallbackSessionKey = null
-      }
-
       startP2PForSession(nextSessionKey)
+      // Pre-warm: start loading AppRoot in the SharedWorker in parallel
+      // with P2P signaling, so it's ready when the role is decided.
+      workerTransport.send({ type: APP_MSG.CONTROL_WARM_APP, session_key: nextSessionKey })
     } else {
       p2pFallbackToWorkerOnly = false
-      p2pFallbackSessionKey = null
-      clearP2PStartupTimer()
       p2pManager?.destroy()
       p2pManager = null
       activeP2PSessionKey = null
@@ -335,12 +288,10 @@ export const createWeatherAppSession = (): WeatherAppSession => {
       }
     },
     destroy() {
-      clearP2PStartupTimer()
       p2pManager?.destroy()
       p2pManager = null
       activeP2PSessionKey = null
       p2pFallbackToWorkerOnly = false
-      p2pFallbackSessionKey = null
       runtime.destroy()
     },
   }
