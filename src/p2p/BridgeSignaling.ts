@@ -42,6 +42,9 @@ export type BridgeSignalingFactory = (params: {
 
 // ── DO WebSocket signaling ──────────────────────────────────────
 
+const MAX_CONNECT_RETRIES = 3
+const RETRY_BASE_MS = 500
+
 export const createDoSignalingFactory = (signalUrl: string): BridgeSignalingFactory => {
   return ({ roomId, peerId, events }) => {
     let destroyed = false
@@ -59,15 +62,37 @@ export const createDoSignalingFactory = (signalUrl: string): BridgeSignalingFact
       wsUrl = `${base}/api/signal/${encodeURIComponent(roomId)}`
     }
 
-    let ws: WebSocket | null = new WebSocket(wsUrl)
+    let ws: WebSocket | null = null
     let connected = false
+    let retryCount = 0
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
 
-    ws.onopen = () => {
+    const connect = () => {
       if (destroyed) return
-      ws!.send(JSON.stringify({ type: 'join', roomId, peerId }))
+      ws = new WebSocket(wsUrl)
+
+      ws.onopen = () => {
+        if (destroyed) return
+        retryCount = 0
+        ws!.send(JSON.stringify({ type: 'join', roomId, peerId }))
+      }
+
+      ws.onmessage = onMessage
+      ws.onerror = onError
+      ws.onclose = onClose
     }
 
-    ws.onmessage = (ev) => {
+    const scheduleRetry = () => {
+      if (destroyed || retryCount >= MAX_CONNECT_RETRIES) {
+        events.onError(new Error('WebSocket signaling error'))
+        return
+      }
+      const delay = RETRY_BASE_MS * 2 ** retryCount
+      retryCount++
+      retryTimer = setTimeout(connect, delay)
+    }
+
+    const onMessage = (ev: MessageEvent) => {
       if (destroyed) return
       let msg: Record<string, unknown>
       try {
@@ -138,22 +163,26 @@ export const createDoSignalingFactory = (signalUrl: string): BridgeSignalingFact
       }
     }
 
-    ws.onerror = () => {
+    const onError = () => {
       if (destroyed) return
       // Before connection is established, onerror + onclose both fire.
       // Report only once: onerror takes precedence, onclose is suppressed.
       if (!connected) {
-        destroyed = true
         try { ws?.close() } catch { /* ignore */ }
         ws = null
+        scheduleRetry()
+        return
       }
       events.onError(new Error('WebSocket signaling error'))
     }
 
-    ws.onclose = () => {
+    const onClose = () => {
       if (destroyed) return
+      if (!connected) return // already handled by onError
       events.onError(new Error('WebSocket signaling closed'))
     }
+
+    connect()
 
     const sendToServer = (data: Record<string, unknown>) => {
       if (!ws || ws.readyState !== WebSocket.OPEN) return
@@ -185,6 +214,7 @@ export const createDoSignalingFactory = (signalUrl: string): BridgeSignalingFact
       destroy() {
         if (destroyed) return
         destroyed = true
+        if (retryTimer) clearTimeout(retryTimer)
         ws?.close()
         ws = null
       },

@@ -412,7 +412,7 @@ describe('createDoSignalingFactory', () => {
     expect(ws.readyState).toBe(MockWebSocket.CLOSED)
   })
 
-  test('WebSocket error triggers onError', async () => {
+  test('WebSocket error after connected triggers onError', async () => {
     const createDoSignalingFactory = await importFactory()
     const factory = createDoSignalingFactory('ws://127.0.0.1:8790')
     const events = createEvents()
@@ -426,13 +426,21 @@ describe('createDoSignalingFactory', () => {
 
     const ws = MockWebSocket.instances[0]
     ws.simulateOpen()
+    ws.simulateMessage({
+      type: 'room-state',
+      roomId: 'room-1',
+      epoch: 1,
+      leaderPeerId: 'peer-a',
+      peers: ['peer-a'],
+    })
+
     ws.simulateError()
 
     expect(events.onError).toHaveBeenCalledTimes(1)
     expect(events.onError.mock.calls[0][0]).toBeInstanceOf(Error)
   })
 
-  test('WebSocket close triggers onError', async () => {
+  test('WebSocket close after connected triggers onError', async () => {
     const createDoSignalingFactory = await importFactory()
     const factory = createDoSignalingFactory('ws://127.0.0.1:8790')
     const events = createEvents()
@@ -446,9 +454,48 @@ describe('createDoSignalingFactory', () => {
 
     const ws = MockWebSocket.instances[0]
     ws.simulateOpen()
+    ws.simulateMessage({
+      type: 'room-state',
+      roomId: 'room-1',
+      epoch: 1,
+      leaderPeerId: 'peer-a',
+      peers: ['peer-a'],
+    })
+
     ws.simulateClose()
 
     expect(events.onError).toHaveBeenCalledTimes(1)
+  })
+
+  test('WebSocket error before connected retries and eventually fires onError', async () => {
+    vi.useFakeTimers()
+    const createDoSignalingFactory = await importFactory()
+    const factory = createDoSignalingFactory('ws://127.0.0.1:8790')
+    const events = createEvents()
+
+    factory({
+      roomId: 'room-1',
+      peerId: 'peer-a',
+      joinedAt: Date.now(),
+      events,
+    })
+
+    // Fail initial + 3 retries = 4 WebSocket instances (error without open)
+    for (let i = 0; i < 4; i++) {
+      const ws = MockWebSocket.instances[i]
+      expect(ws).toBeDefined()
+      ws.simulateError()
+
+      if (i < 3) {
+        // Advance past retry delay
+        await vi.advanceTimersByTimeAsync(500 * 2 ** i + 10)
+      }
+    }
+
+    expect(events.onError).toHaveBeenCalledTimes(1)
+    expect(events.onError.mock.calls[0][0]).toBeInstanceOf(Error)
+
+    vi.useRealTimers()
   })
 
   test('URL construction: appends /api/signal/<roomId> when not present', async () => {
