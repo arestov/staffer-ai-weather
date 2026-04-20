@@ -18,9 +18,14 @@ export const scrollSelectedLocationIntoView = (selectedLocationId: string) => {
   }
 
   const rect = anchorElement.getBoundingClientRect()
+  const scrollBy = window.scrollBy as typeof window.scrollBy & { mock?: unknown }
+
+  if (/jsdom/i.test(window.navigator.userAgent) && !('mock' in scrollBy)) {
+    return
+  }
 
   try {
-    window.scrollBy({
+    ;(scrollBy as (options: ScrollToOptions) => void)({
       top: rect.top - SELECTED_LOCATION_POPOVER_SCROLL_OFFSET,
       behavior: 'smooth',
     })
