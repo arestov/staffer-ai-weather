@@ -56,21 +56,19 @@ export type LocationSearchResult = {
   timezone: string | null
 }
 
-type WeatherDataResult = { ok: true; data: ApplyWeatherPayload } | { ok: false; message: string }
-
-const isWeatherDataResult = (value: unknown): value is WeatherDataResult => {
+const isApplyWeatherPayload = (value: unknown): value is ApplyWeatherPayload => {
   if (!value || typeof value !== 'object') {
     return false
   }
 
-  const candidate = value as Partial<WeatherDataResult>
+  const candidate = value as Partial<ApplyWeatherPayload>
 
-  if (candidate.ok === true) {
-    const data = (candidate as { data?: unknown }).data
-    return Boolean(data && typeof data === 'object')
-  }
-
-  return candidate.ok === false && typeof (candidate as { message?: unknown }).message === 'string'
+  return (
+    Boolean(candidate.current && typeof candidate.current === 'object') &&
+    Array.isArray(candidate.hourly) &&
+    Array.isArray(candidate.daily) &&
+    typeof candidate.fetchedAt === 'string'
+  )
 }
 
 export const isLocationSearchResult = (value: unknown): value is LocationSearchResult => {
@@ -282,6 +280,7 @@ export const WeatherLocation = model({
     lastError: ['input', null],
     weatherFetchedAt: ['input', null],
     weatherData: ['input', null],
+    '$meta$fx_loadWeather$error': ['input', null],
 
     hourlySparkline: [
       'comp',
@@ -413,17 +412,31 @@ export const WeatherLocation = model({
         ) => {
           const nextValue = (payload as { next_value?: unknown } | null)?.next_value
 
-          if (!isWeatherDataResult(nextValue)) {
+          if (!isApplyWeatherPayload(nextValue)) {
             return noop
           }
 
-          if (nextValue.ok) {
-            return buildApplyWeatherState(nextValue.data, locationName)
+          return buildApplyWeatherState(nextValue, locationName)
+        },
+      ],
+    },
+    'handleAttr:$meta$fx_loadWeather$error': {
+      to: {
+        loadStatus: ['loadStatus'],
+        lastError: ['lastError'],
+      },
+      fn: [
+        ['$noop'] as const,
+        (payload: unknown, noop: unknown) => {
+          const nextValue = (payload as { next_value?: unknown } | null)?.next_value
+
+          if (typeof nextValue !== 'string' || !nextValue) {
+            return noop
           }
 
           return {
             loadStatus: 'error',
-            lastError: nextValue.message,
+            lastError: nextValue,
           }
         },
       ],
@@ -457,18 +470,10 @@ export const WeatherLocation = model({
             lat: unknown,
             lon: unknown,
           ) => {
-            try {
-              const data = await api.loadByCoordinates({
-                latitude: lat as number,
-                longitude: lon as number,
-              })
-              return { ok: true as const, data }
-            } catch (error) {
-              return {
-                ok: false as const,
-                message: error instanceof Error ? error.message : String(error),
-              }
-            }
+            return await api.loadByCoordinates({
+              latitude: lat as number,
+              longitude: lon as number,
+            })
           },
         ],
       },
