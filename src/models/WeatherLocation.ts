@@ -58,6 +58,21 @@ export type LocationSearchResult = {
 
 type WeatherDataResult = { ok: true; data: ApplyWeatherPayload } | { ok: false; message: string }
 
+const isWeatherDataResult = (value: unknown): value is WeatherDataResult => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Partial<WeatherDataResult>
+
+  if (candidate.ok === true) {
+    const data = (candidate as { data?: unknown }).data
+    return Boolean(data && typeof data === 'object')
+  }
+
+  return candidate.ok === false && typeof (candidate as { message?: unknown }).message === 'string'
+}
+
 export const isLocationSearchResult = (value: unknown): value is LocationSearchResult => {
   if (!value || typeof value !== 'object') {
     return false
@@ -212,6 +227,49 @@ const buildDailySparkline = (
   }
 }
 
+const buildApplyWeatherState = (payload: ApplyWeatherPayload, locationName: unknown) => {
+  const name = typeof locationName === 'string' ? locationName : ''
+  const c = payload.current
+
+  return {
+    loadStatus: 'ready' as const,
+    lastError: null,
+    weatherFetchedAt: payload.fetchedAt,
+    currentWeather: {
+      attrs: {
+        location: name,
+        updatedAt: payload.fetchedAt,
+        temperatureC: c.temperatureC,
+        apparentTemperatureC: c.apparentTemperatureC,
+        weatherCode: c.weatherCode,
+        isDay: c.isDay,
+        windSpeed10m: c.windSpeed10m,
+      },
+    },
+    hourlyForecastSeries: payload.hourly.map((h) => ({
+      attrs: {
+        time: h.time,
+        temperatureC: h.temperatureC,
+        precipitationProbability: h.precipitationProbability,
+        weatherCode: h.weatherCode,
+        windSpeed10m: h.windSpeed10m,
+      },
+    })),
+    dailyForecastSeries: payload.daily.map((d) => ({
+      attrs: {
+        date: d.date,
+        temperatureMaxC: d.temperatureMaxC,
+        temperatureMinC: d.temperatureMinC,
+        precipitationProbabilityMax: d.precipitationProbabilityMax,
+        weatherCode: d.weatherCode,
+        windSpeedMax: d.windSpeedMax,
+        sunrise: d.sunrise,
+        sunset: d.sunset,
+      },
+    })),
+  }
+}
+
 export const WeatherLocation = model({
   model_name: 'weather_location',
   use_extra: true,
@@ -294,46 +352,7 @@ export const WeatherLocation = model({
       fn: [
         ['name'] as const,
         (payload: ApplyWeatherPayload, locationName: unknown) => {
-          const name = typeof locationName === 'string' ? locationName : ''
-          const c = payload.current
-
-          return {
-            loadStatus: 'ready',
-            lastError: null,
-            weatherFetchedAt: payload.fetchedAt,
-            currentWeather: {
-              attrs: {
-                location: name,
-                updatedAt: payload.fetchedAt,
-                temperatureC: c.temperatureC,
-                apparentTemperatureC: c.apparentTemperatureC,
-                weatherCode: c.weatherCode,
-                isDay: c.isDay,
-                windSpeed10m: c.windSpeed10m,
-              },
-            },
-            hourlyForecastSeries: payload.hourly.map((h) => ({
-              attrs: {
-                time: h.time,
-                temperatureC: h.temperatureC,
-                precipitationProbability: h.precipitationProbability,
-                weatherCode: h.weatherCode,
-                windSpeed10m: h.windSpeed10m,
-              },
-            })),
-            dailyForecastSeries: payload.daily.map((d) => ({
-              attrs: {
-                date: d.date,
-                temperatureMaxC: d.temperatureMaxC,
-                temperatureMinC: d.temperatureMinC,
-                precipitationProbabilityMax: d.precipitationProbabilityMax,
-                weatherCode: d.weatherCode,
-                windSpeedMax: d.windSpeedMax,
-                sunrise: d.sunrise,
-                sunset: d.sunset,
-              },
-            })),
-          }
+          return buildApplyWeatherState(payload, locationName)
         },
       ],
     },
@@ -354,6 +373,60 @@ export const WeatherLocation = model({
       fn: () => ({
         _fx: {},
       }),
+    },
+    'handleAttr:weatherData': {
+      to: {
+        loadStatus: ['loadStatus'],
+        lastError: ['lastError'],
+        weatherFetchedAt: ['weatherFetchedAt'],
+        currentWeather: [
+          '<< currentWeather',
+          {
+            method: 'set_one',
+            can_create: true,
+            creation_shape: CURRENT_WEATHER_CREATION_SHAPE,
+          },
+        ],
+        hourlyForecastSeries: [
+          '<< hourlyForecastSeries',
+          {
+            method: 'set_many',
+            can_create: true,
+            creation_shape: FORECAST_SERIES_CREATION_SHAPE,
+          },
+        ],
+        dailyForecastSeries: [
+          '<< dailyForecastSeries',
+          {
+            method: 'set_many',
+            can_create: true,
+            creation_shape: FORECAST_SERIES_CREATION_SHAPE,
+          },
+        ],
+      },
+      fn: [
+        ['name', '$noop'] as const,
+        (
+          payload: unknown,
+          locationName: unknown,
+          noop: unknown,
+        ) => {
+          const nextValue = (payload as { next_value?: unknown } | null)?.next_value
+
+          if (!isWeatherDataResult(nextValue)) {
+            return noop
+          }
+
+          if (nextValue.ok) {
+            return buildApplyWeatherState(nextValue.data, locationName)
+          }
+
+          return {
+            loadStatus: 'error',
+            lastError: nextValue.message,
+          }
+        },
+      ],
     },
   },
   effects: {
@@ -401,37 +474,6 @@ export const WeatherLocation = model({
       },
     },
     out: {
-      applyFetchedWeatherData: {
-        api: ['self'],
-        trigger: ['weatherData'],
-        require: ['weatherData'],
-        create_when: {
-          api_inits: true,
-        },
-        is_async: true,
-        fn: [
-          ['weatherData'] as const,
-          async (
-            self: {
-              dispatch: (actionName: string, payload?: unknown) => Promise<void> | void
-            },
-            _task: unknown,
-            weatherData: unknown,
-          ) => {
-            if (!weatherData || typeof weatherData !== 'object') {
-              return
-            }
-
-            const wd = weatherData as WeatherDataResult
-            if (wd.ok) {
-              await self.dispatch('applyWeather', wd.data)
-            } else {
-              await self.dispatch('failWeather', { message: wd.message })
-            }
-          },
-        ],
-      },
-
       scheduleNextRefresh: {
         api: ['self', 'time'],
         trigger: ['loadStatus'],
