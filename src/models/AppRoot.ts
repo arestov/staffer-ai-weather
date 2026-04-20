@@ -487,6 +487,45 @@ const app_props = mergeDcl({
         },
       ],
     },
+    'handleAttr:savedSearchLocationsSyncResult': {
+      to: {
+        savedSearchLocations: ['savedSearchLocations'],
+        savedSearchLocationsSyncStatus: ['savedSearchLocationsSyncStatus'],
+        savedSearchLocationsSyncError: ['savedSearchLocationsSyncError'],
+        savedSearchLocationsSyncRequest: ['savedSearchLocationsSyncRequest'],
+      },
+      fn: [
+        ['$noop', 'activeSavedSearchLocationsSyncRequestId'] as const,
+        (payload: unknown, noop: unknown, activeSavedSearchLocationsSyncRequestId: number) => {
+          const nextValue = (payload as { next_value?: unknown } | null)?.next_value
+
+          if (
+            isSavedSearchLocationsSyncResponsePayload(nextValue) &&
+            nextValue.requestId === activeSavedSearchLocationsSyncRequestId
+          ) {
+            return {
+              savedSearchLocations: nextValue.places,
+              savedSearchLocationsSyncStatus: 'ready',
+              savedSearchLocationsSyncError: null,
+              savedSearchLocationsSyncRequest: null,
+            }
+          }
+
+          if (
+            isSavedSearchLocationsSyncFailurePayload(nextValue) &&
+            nextValue.requestId === activeSavedSearchLocationsSyncRequestId
+          ) {
+            return {
+              savedSearchLocationsSyncStatus: 'error',
+              savedSearchLocationsSyncError: nextValue.message,
+              savedSearchLocationsSyncRequest: null,
+            }
+          }
+
+          return noop
+        },
+      ],
+    },
     onAutoGeoDetected: {
       to: {
         autoGeoStatus: ['autoGeoStatus'],

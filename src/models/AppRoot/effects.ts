@@ -128,41 +128,4 @@ export const appRootEffects = {
       ],
     },
   },
-  out: {
-    applySavedSearchLocationsSyncData: {
-      api: ['self'],
-      trigger: ['savedSearchLocationsSyncResult'],
-      require: ['savedSearchLocationsSyncResult'],
-      create_when: {
-        api_inits: true,
-      },
-      is_async: true,
-      fn: [
-        ['savedSearchLocationsSyncResult'] as const,
-        async (
-          self: { dispatch: (actionName: string, payload?: unknown) => Promise<void> | void },
-          _task: unknown,
-          savedSearchLocationsSyncResult: unknown,
-        ) => {
-          const result = savedSearchLocationsSyncResult as {
-            ok: boolean
-            requestId?: number
-            places?: unknown[]
-            message?: string
-          }
-          if (result.ok) {
-            await self.dispatch('applySavedSearchLocationsSyncResult', {
-              requestId: result.requestId,
-              places: result.places,
-            })
-          } else if (result.requestId != null) {
-            await self.dispatch('failSavedSearchLocationsSyncRequest', {
-              requestId: result.requestId,
-              message: result.message,
-            })
-          }
-        },
-      ],
-    },
-  },
 } as const
