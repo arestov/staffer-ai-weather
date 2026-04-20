@@ -196,14 +196,20 @@ export const SelectedLocationPopoverRouter = model({
       fn: [
         ['$noop', 'activeSearchRequestId'] as const,
         (payload: unknown, noop: unknown, activeSearchRequestId: number) => {
-          if (!isSearchResponsePayload(payload) || payload.requestId !== activeSearchRequestId) {
+          const resolvedPayload =
+            (payload as { searchResponseData?: unknown } | null)?.searchResponseData ?? payload
+
+          if (
+            !isSearchResponsePayload(resolvedPayload) ||
+            resolvedPayload.requestId !== activeSearchRequestId
+          ) {
             return noop
           }
 
           return {
             searchStatus: 'ready',
             searchError: null,
-            searchResults: payload.results,
+            searchResults: resolvedPayload.results,
           }
         },
       ],
@@ -225,32 +231,6 @@ export const SelectedLocationPopoverRouter = model({
             searchStatus: 'error',
             searchError: payload.message,
             searchResults: [],
-          }
-        },
-      ],
-    },
-    'handleAttr:searchResponseData': {
-      to: {
-        searchStatus: ['searchStatus'],
-        searchError: ['searchError'],
-        searchResults: ['searchResults'],
-      },
-      fn: [
-        ['$noop', 'activeSearchRequestId'] as const,
-        (payload: unknown, noop: unknown, activeSearchRequestId: number) => {
-          const nextValue = (payload as { next_value?: unknown } | null)?.next_value
-
-          if (
-            !isSearchResponsePayload(nextValue) ||
-            nextValue.requestId !== activeSearchRequestId
-          ) {
-            return noop
-          }
-
-          return {
-            searchStatus: 'ready',
-            searchError: null,
-            searchResults: nextValue.results,
           }
         },
       ],

@@ -91,6 +91,7 @@ export const appRootEffects = {
       states: ['savedSearchLocationsSyncResult'],
       api: 'weatherBackendSource',
       parse: (result: unknown) => ({ savedSearchLocationsSyncResult: result }),
+      action: 'applySavedSearchLocationsSyncResult',
       fn: [
         ['savedSearchLocationsSyncRequest', 'savedSearchLocations'] as const,
         async (

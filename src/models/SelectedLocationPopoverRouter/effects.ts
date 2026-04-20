@@ -21,6 +21,7 @@ export const popoverRouterEffects = {
       states: ['searchResponseData'],
       api: 'locationSearchApi',
       parse: (result: unknown) => ({ searchResponseData: result }),
+      action: 'applyLocationSearchResponse',
       fn: [
         ['searchRequest'] as const,
         async (

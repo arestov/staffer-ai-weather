@@ -449,15 +449,19 @@ const app_props = mergeDcl({
       fn: [
         ['$noop', 'activeSavedSearchLocationsSyncRequestId'] as const,
         (payload: unknown, noop: unknown, activeSavedSearchLocationsSyncRequestId: number) => {
+          const resolvedPayload =
+            (payload as { savedSearchLocationsSyncResult?: unknown } | null)
+              ?.savedSearchLocationsSyncResult ?? payload
+
           if (
-            !isSavedSearchLocationsSyncResponsePayload(payload) ||
-            payload.requestId !== activeSavedSearchLocationsSyncRequestId
+            !isSavedSearchLocationsSyncResponsePayload(resolvedPayload) ||
+            resolvedPayload.requestId !== activeSavedSearchLocationsSyncRequestId
           ) {
             return noop
           }
 
           return {
-            savedSearchLocations: payload.places,
+            savedSearchLocations: resolvedPayload.places,
             savedSearchLocationsSyncStatus: 'ready',
             savedSearchLocationsSyncError: null,
             savedSearchLocationsSyncRequest: null,
@@ -486,34 +490,6 @@ const app_props = mergeDcl({
             savedSearchLocationsSyncError: payload.message,
             savedSearchLocationsSyncRequest: null,
           }
-        },
-      ],
-    },
-    'handleAttr:savedSearchLocationsSyncResult': {
-      to: {
-        savedSearchLocations: ['savedSearchLocations'],
-        savedSearchLocationsSyncStatus: ['savedSearchLocationsSyncStatus'],
-        savedSearchLocationsSyncError: ['savedSearchLocationsSyncError'],
-        savedSearchLocationsSyncRequest: ['savedSearchLocationsSyncRequest'],
-      },
-      fn: [
-        ['$noop', 'activeSavedSearchLocationsSyncRequestId'] as const,
-        (payload: unknown, noop: unknown, activeSavedSearchLocationsSyncRequestId: number) => {
-          const nextValue = (payload as { next_value?: unknown } | null)?.next_value
-
-          if (
-            isSavedSearchLocationsSyncResponsePayload(nextValue) &&
-            nextValue.requestId === activeSavedSearchLocationsSyncRequestId
-          ) {
-            return {
-              savedSearchLocations: nextValue.places,
-              savedSearchLocationsSyncStatus: 'ready',
-              savedSearchLocationsSyncError: null,
-              savedSearchLocationsSyncRequest: null,
-            }
-          }
-
-          return noop
         },
       ],
     },
