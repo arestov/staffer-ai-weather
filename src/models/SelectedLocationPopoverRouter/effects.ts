@@ -1,4 +1,4 @@
-import { toErrorMessage } from '../weatherFormat'
+import { createTaggedRequestError } from '../requestTaggedError'
 import { isCurrentLocationRequest, isSearchRequest } from './helpers'
 
 export const popoverRouterEffects = {
@@ -29,22 +29,17 @@ export const popoverRouterEffects = {
           searchRequest: unknown,
         ) => {
           if (!isSearchRequest(searchRequest)) {
-            return { ok: false as const, message: 'Invalid search request' }
+            return null
           }
 
           try {
             const results = await api.search(searchRequest.query)
             return {
-              ok: true as const,
               requestId: searchRequest.requestId,
               results,
             }
           } catch (error) {
-            return {
-              ok: false as const,
-              requestId: searchRequest.requestId,
-              message: toErrorMessage(error),
-            }
+            throw createTaggedRequestError(searchRequest.requestId, error)
           }
         },
       ],
@@ -69,7 +64,7 @@ export const popoverRouterEffects = {
           currentLocationRequest: unknown,
         ) => {
           if (!isCurrentLocationRequest(currentLocationRequest)) {
-            return { ok: false as const, message: 'Invalid current location request' }
+            return null
           }
 
           try {
@@ -81,16 +76,11 @@ export const popoverRouterEffects = {
                   })
                 : await api.detectLocation()
             return {
-              ok: true as const,
               requestId: currentLocationRequest.requestId,
               result,
             }
           } catch (error) {
-            return {
-              ok: false as const,
-              requestId: currentLocationRequest.requestId,
-              message: toErrorMessage(error),
-            }
+            throw createTaggedRequestError(currentLocationRequest.requestId, error)
           }
         },
       ],

@@ -1,6 +1,7 @@
 import { appRoot } from 'dkt/appRoot.js'
 import { merge as mergeDcl } from 'dkt/dcl/merge.js'
 import { appRootEffects } from './AppRoot/effects'
+import { parseTaggedRequestError } from './requestTaggedError'
 import { SelectedLocation } from './SelectedLocation'
 import { SessionRoot } from './SessionRoot'
 import type { LocationSearchResult } from './WeatherLocation'
@@ -218,6 +219,7 @@ const app_props = mergeDcl({
     savedSearchLocationsSyncRequest: ['input', null],
     activeSavedSearchLocationsSyncRequestId: ['input', 0],
     savedSearchLocationsSyncResult: ['input', null],
+    '$meta$fx_syncSavedSearchLocationsData$error': ['input', null],
     autoGeoStatus: ['input', 'idle'],
     autoGeoError: ['input', null],
     autoDetectedLocation: ['input', null],
@@ -511,18 +513,34 @@ const app_props = mergeDcl({
             }
           }
 
+          return noop
+        },
+      ],
+    },
+    'handleAttr:$meta$fx_syncSavedSearchLocationsData$error': {
+      to: {
+        savedSearchLocationsSyncStatus: ['savedSearchLocationsSyncStatus'],
+        savedSearchLocationsSyncError: ['savedSearchLocationsSyncError'],
+        savedSearchLocationsSyncRequest: ['savedSearchLocationsSyncRequest'],
+      },
+      fn: [
+        ['$noop', 'activeSavedSearchLocationsSyncRequestId'] as const,
+        (payload: unknown, noop: unknown, activeSavedSearchLocationsSyncRequestId: number) => {
+          const nextValue = (payload as { next_value?: unknown } | null)?.next_value
+          const taggedError = parseTaggedRequestError(nextValue)
+
           if (
-            isSavedSearchLocationsSyncFailurePayload(nextValue) &&
-            nextValue.requestId === activeSavedSearchLocationsSyncRequestId
+            !taggedError ||
+            taggedError.requestId !== activeSavedSearchLocationsSyncRequestId
           ) {
-            return {
-              savedSearchLocationsSyncStatus: 'error',
-              savedSearchLocationsSyncError: nextValue.message,
-              savedSearchLocationsSyncRequest: null,
-            }
+            return noop
           }
 
-          return noop
+          return {
+            savedSearchLocationsSyncStatus: 'error',
+            savedSearchLocationsSyncError: taggedError.message,
+            savedSearchLocationsSyncRequest: null,
+          }
         },
       ],
     },

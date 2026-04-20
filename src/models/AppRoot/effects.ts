@@ -1,7 +1,7 @@
 import type { WeatherBackendApi } from '../../worker/weather-backend-api'
 import type { LocationSearchResult } from '../WeatherLocation'
 import { isLocationSearchResult } from '../WeatherLocation'
-import { toErrorMessage } from '../weatherFormat'
+import { createTaggedRequestError } from '../requestTaggedError'
 
 type SavedSearchLocationsSyncRequest =
   | {
@@ -100,7 +100,7 @@ export const appRootEffects = {
           savedSearchLocations: unknown,
         ) => {
           if (!isSavedSearchLocationsSyncRequest(savedSearchLocationsSyncRequest)) {
-            return { ok: false as const, message: 'Invalid sync request' }
+            return null
           }
 
           try {
@@ -113,16 +113,11 @@ export const appRootEffects = {
               : getLocationSearchResults(savedSearchLocations)
 
             return {
-              ok: true as const,
               requestId: savedSearchLocationsSyncRequest.requestId,
               places,
             }
           } catch (error) {
-            return {
-              ok: false as const,
-              requestId: savedSearchLocationsSyncRequest.requestId,
-              message: toErrorMessage(error),
-            }
+            throw createTaggedRequestError(savedSearchLocationsSyncRequest.requestId, error)
           }
         },
       ],

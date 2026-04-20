@@ -2,12 +2,11 @@ import { input as inputAttrs } from 'dkt/dcl/attrs/input.js'
 import { model } from 'dkt/model.js'
 import { Router as RouterCore } from 'dkt-all/models/Router.js'
 import { popoverRouterEffects } from './SelectedLocationPopoverRouter/effects'
+import { parseTaggedRequestError } from './requestTaggedError'
 import {
   buildSearchingState,
   buildSearchResetState,
-  isCurrentLocationFailurePayload,
   isCurrentLocationResponsePayload,
-  isSearchFailurePayload,
   isSearchResponsePayload,
   MIN_LOCATION_SEARCH_QUERY_LENGTH,
   normalizeBrowserCoordinates,
@@ -42,7 +41,9 @@ export const SelectedLocationPopoverRouter = model({
         Array.isArray(savedSearchLocations) ? savedSearchLocations : [],
     ],
     searchResponseData: ['input', null],
+    '$meta$fx_executeLocationSearch$error': ['input', null],
     currentLocationResponseData: ['input', null],
+    '$meta$fx_executeCurrentLocationLookup$error': ['input', null],
     searchRequest: ['input', null],
     activeSearchRequestId: ['input', 0],
   },
@@ -239,58 +240,42 @@ export const SelectedLocationPopoverRouter = model({
         (payload: unknown, noop: unknown, activeSearchRequestId: number) => {
           const nextValue = (payload as { next_value?: unknown } | null)?.next_value
 
-          if (!nextValue || typeof nextValue !== 'object') {
+          if (
+            !isSearchResponsePayload(nextValue) ||
+            nextValue.requestId !== activeSearchRequestId
+          ) {
             return noop
           }
 
-          const candidate = nextValue as {
-            ok?: unknown
-            requestId?: unknown
-            results?: unknown
-            message?: unknown
+          return {
+            searchStatus: 'ready',
+            searchError: null,
+            searchResults: nextValue.results,
+          }
+        },
+      ],
+    },
+    'handleAttr:$meta$fx_executeLocationSearch$error': {
+      to: {
+        searchStatus: ['searchStatus'],
+        searchError: ['searchError'],
+        searchResults: ['searchResults'],
+      },
+      fn: [
+        ['$noop', 'activeSearchRequestId'] as const,
+        (payload: unknown, noop: unknown, activeSearchRequestId: number) => {
+          const nextValue = (payload as { next_value?: unknown } | null)?.next_value
+          const taggedError = parseTaggedRequestError(nextValue)
+
+          if (!taggedError || taggedError.requestId !== activeSearchRequestId) {
+            return noop
           }
 
-          if (candidate.ok === true) {
-            const successPayload = {
-              requestId: candidate.requestId,
-              results: candidate.results,
-            }
-
-            if (
-              !isSearchResponsePayload(successPayload) ||
-              successPayload.requestId !== activeSearchRequestId
-            ) {
-              return noop
-            }
-
-            return {
-              searchStatus: 'ready',
-              searchError: null,
-              searchResults: successPayload.results,
-            }
+          return {
+            searchStatus: 'error',
+            searchError: taggedError.message,
+            searchResults: [],
           }
-
-          if (candidate.ok === false) {
-            const failurePayload = {
-              requestId: candidate.requestId,
-              message: candidate.message,
-            }
-
-            if (
-              !isSearchFailurePayload(failurePayload) ||
-              failurePayload.requestId !== activeSearchRequestId
-            ) {
-              return noop
-            }
-
-            return {
-              searchStatus: 'error',
-              searchError: failurePayload.message,
-              searchResults: [],
-            }
-          }
-
-          return noop
         },
       ],
     },
@@ -447,57 +432,43 @@ export const SelectedLocationPopoverRouter = model({
           ) => {
             const nextValue = (payload as { next_value?: unknown } | null)?.next_value
 
-            if (!nextValue || typeof nextValue !== 'object') {
+            if (
+              !isCurrentLocationResponsePayload(nextValue) ||
+              nextValue.requestId !== activeCurrentLocationRequestId
+            ) {
               return noop
             }
 
-            const candidate = nextValue as {
-              ok?: unknown
-              requestId?: unknown
-              result?: unknown
-              message?: unknown
+            return {
+              ...buildSearchResetState(activeSearchRequestId + 1),
+              replaceWeatherLocation: nextValue.result,
+            }
+          },
+        ],
+      },
+    ],
+    'handleAttr:$meta$fx_executeCurrentLocationLookup$error': [
+      {
+        to: {
+          currentLocationStatus: ['currentLocationStatus'],
+          currentLocationError: ['currentLocationError'],
+          currentLocationRequest: ['currentLocationRequest'],
+        },
+        fn: [
+          ['$noop', 'activeCurrentLocationRequestId'] as const,
+          (payload: unknown, noop: unknown, activeCurrentLocationRequestId: number) => {
+            const nextValue = (payload as { next_value?: unknown } | null)?.next_value
+            const taggedError = parseTaggedRequestError(nextValue)
+
+            if (!taggedError || taggedError.requestId !== activeCurrentLocationRequestId) {
+              return noop
             }
 
-            if (candidate.ok === true) {
-              const successPayload = {
-                requestId: candidate.requestId,
-                result: candidate.result,
-              }
-
-              if (
-                !isCurrentLocationResponsePayload(successPayload) ||
-                successPayload.requestId !== activeCurrentLocationRequestId
-              ) {
-                return noop
-              }
-
-              return {
-                ...buildSearchResetState(activeSearchRequestId + 1),
-                replaceWeatherLocation: successPayload.result,
-              }
+            return {
+              currentLocationStatus: 'error',
+              currentLocationError: taggedError.message,
+              currentLocationRequest: null,
             }
-
-            if (candidate.ok === false) {
-              const failurePayload = {
-                requestId: candidate.requestId,
-                message: candidate.message,
-              }
-
-              if (
-                !isCurrentLocationFailurePayload(failurePayload) ||
-                failurePayload.requestId !== activeCurrentLocationRequestId
-              ) {
-                return noop
-              }
-
-              return {
-                currentLocationStatus: 'error',
-                currentLocationError: failurePayload.message,
-                currentLocationRequest: null,
-              }
-            }
-
-            return noop
           },
         ],
       },
