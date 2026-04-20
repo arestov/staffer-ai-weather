@@ -21,11 +21,6 @@ type SavedSearchLocationsSyncResponsePayload = {
   places: LocationSearchResult[]
 }
 
-type SavedSearchLocationsSyncFailurePayload = {
-  requestId: number
-  message: string
-}
-
 const getLocationSearchResults = (value: unknown) => {
   return Array.isArray(value) ? value.filter(isLocationSearchResult) : []
 }
@@ -141,18 +136,6 @@ const isSavedSearchLocationsSyncResponsePayload = (
     Array.isArray(candidate.places) &&
     candidate.places.every(isLocationSearchResult)
   )
-}
-
-const isSavedSearchLocationsSyncFailurePayload = (
-  value: unknown,
-): value is SavedSearchLocationsSyncFailurePayload => {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const candidate = value as Partial<SavedSearchLocationsSyncFailurePayload>
-
-  return typeof candidate.requestId === 'number' && typeof candidate.message === 'string'
 }
 
 const makeRootParentRel = () =>
@@ -464,30 +447,6 @@ const app_props = mergeDcl({
             savedSearchLocations: resolvedPayload.places,
             savedSearchLocationsSyncStatus: 'ready',
             savedSearchLocationsSyncError: null,
-            savedSearchLocationsSyncRequest: null,
-          }
-        },
-      ],
-    },
-    failSavedSearchLocationsSyncRequest: {
-      to: {
-        savedSearchLocationsSyncStatus: ['savedSearchLocationsSyncStatus'],
-        savedSearchLocationsSyncError: ['savedSearchLocationsSyncError'],
-        savedSearchLocationsSyncRequest: ['savedSearchLocationsSyncRequest'],
-      },
-      fn: [
-        ['$noop', 'activeSavedSearchLocationsSyncRequestId'] as const,
-        (payload: unknown, noop: unknown, activeSavedSearchLocationsSyncRequestId: number) => {
-          if (
-            !isSavedSearchLocationsSyncFailurePayload(payload) ||
-            payload.requestId !== activeSavedSearchLocationsSyncRequestId
-          ) {
-            return noop
-          }
-
-          return {
-            savedSearchLocationsSyncStatus: 'error',
-            savedSearchLocationsSyncError: payload.message,
             savedSearchLocationsSyncRequest: null,
           }
         },

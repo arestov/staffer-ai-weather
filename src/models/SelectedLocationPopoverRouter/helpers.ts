@@ -1,6 +1,5 @@
 import type { LocationSearchResult } from '../WeatherLocation'
 import { isLocationSearchResult } from '../WeatherLocation'
-import { toErrorMessage } from '../weatherFormat'
 
 type SearchStatus = 'idle' | 'loading' | 'ready' | 'error'
 
@@ -12,11 +11,6 @@ type SearchRequest = {
 type SearchResponsePayload = {
   requestId: number
   results: LocationSearchResult[]
-}
-
-type SearchFailurePayload = {
-  requestId: number
-  message: string
 }
 
 type CurrentLocationStatus = 'idle' | 'loading' | 'error'
@@ -36,11 +30,6 @@ type CurrentLocationRequest =
 type CurrentLocationResponsePayload = {
   requestId: number
   result: LocationSearchResult
-}
-
-type CurrentLocationFailurePayload = {
-  requestId: number
-  message: string
 }
 
 export const MIN_LOCATION_SEARCH_QUERY_LENGTH = 3
@@ -91,16 +80,6 @@ export const isSearchResponsePayload = (value: unknown): value is SearchResponse
     Array.isArray(candidate.results) &&
     candidate.results.every(isLocationSearchResult)
   )
-}
-
-export const isSearchFailurePayload = (value: unknown): value is SearchFailurePayload => {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const candidate = value as Partial<SearchFailurePayload>
-
-  return typeof candidate.requestId === 'number' && typeof candidate.message === 'string'
 }
 
 export const buildSearchResetState = (
@@ -198,14 +177,3 @@ export const isCurrentLocationResponsePayload = (
   return typeof candidate.requestId === 'number' && isLocationSearchResult(candidate.result)
 }
 
-export const isCurrentLocationFailurePayload = (
-  value: unknown,
-): value is CurrentLocationFailurePayload => {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const candidate = value as Partial<CurrentLocationFailurePayload>
-
-  return typeof candidate.requestId === 'number' && typeof candidate.message === 'string'
-}

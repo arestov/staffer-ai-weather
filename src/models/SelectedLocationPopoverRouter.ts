@@ -214,27 +214,6 @@ export const SelectedLocationPopoverRouter = model({
         },
       ],
     },
-    failLocationSearchResponse: {
-      to: {
-        searchStatus: ['searchStatus'],
-        searchError: ['searchError'],
-        searchResults: ['searchResults'],
-      },
-      fn: [
-        ['$noop', 'activeSearchRequestId'] as const,
-        (payload: unknown, noop: unknown, activeSearchRequestId: number) => {
-          if (!isSearchFailurePayload(payload) || payload.requestId !== activeSearchRequestId) {
-            return noop
-          }
-
-          return {
-            searchStatus: 'error',
-            searchError: payload.message,
-            searchResults: [],
-          }
-        },
-      ],
-    },
     'handleAttr:$meta$fx_executeLocationSearch$error': {
       to: {
         searchStatus: ['searchStatus'],
@@ -315,71 +294,6 @@ export const SelectedLocationPopoverRouter = model({
             },
             activeCurrentLocationRequestId: requestId,
             _fxLocation: {},
-          }
-        },
-      ],
-    },
-    applyCurrentLocationLookupResponse: [
-      {
-        to: {
-          isEditingLocation: ['isEditingLocation'],
-          searchQuery: ['searchQuery'],
-          searchStatus: ['searchStatus'],
-          searchError: ['searchError'],
-          searchResults: ['searchResults'],
-          searchRequest: ['searchRequest'],
-          activeSearchRequestId: ['activeSearchRequestId'],
-          currentLocationStatus: ['currentLocationStatus'],
-          currentLocationError: ['currentLocationError'],
-          currentLocationRequest: ['currentLocationRequest'],
-          replaceWeatherLocation: [
-            '<< current_mp_md',
-            { action: 'replaceWeatherLocation', inline_subwalker: true },
-          ],
-        },
-        fn: [
-          ['$noop', 'activeCurrentLocationRequestId', 'activeSearchRequestId'] as const,
-          (
-            payload: unknown,
-            noop: unknown,
-            activeCurrentLocationRequestId: number,
-            activeSearchRequestId: number,
-          ) => {
-            if (
-              !isCurrentLocationResponsePayload(payload) ||
-              payload.requestId !== activeCurrentLocationRequestId
-            ) {
-              return noop
-            }
-
-            return {
-              ...buildSearchResetState(activeSearchRequestId + 1),
-              replaceWeatherLocation: payload.result,
-            }
-          },
-        ],
-      },
-    ],
-    failCurrentLocationLookupResponse: {
-      to: {
-        currentLocationStatus: ['currentLocationStatus'],
-        currentLocationError: ['currentLocationError'],
-        currentLocationRequest: ['currentLocationRequest'],
-      },
-      fn: [
-        ['$noop', 'activeCurrentLocationRequestId'] as const,
-        (payload: unknown, noop: unknown, activeCurrentLocationRequestId: number) => {
-          if (
-            !isCurrentLocationFailurePayload(payload) ||
-            payload.requestId !== activeCurrentLocationRequestId
-          ) {
-            return noop
-          }
-
-          return {
-            currentLocationStatus: 'error',
-            currentLocationError: payload.message,
-            currentLocationRequest: null,
           }
         },
       ],
