@@ -228,6 +228,72 @@ export const SelectedLocationPopoverRouter = model({
         },
       ],
     },
+    'handleAttr:searchResponseData': {
+      to: {
+        searchStatus: ['searchStatus'],
+        searchError: ['searchError'],
+        searchResults: ['searchResults'],
+      },
+      fn: [
+        ['$noop', 'activeSearchRequestId'] as const,
+        (payload: unknown, noop: unknown, activeSearchRequestId: number) => {
+          const nextValue = (payload as { next_value?: unknown } | null)?.next_value
+
+          if (!nextValue || typeof nextValue !== 'object') {
+            return noop
+          }
+
+          const candidate = nextValue as {
+            ok?: unknown
+            requestId?: unknown
+            results?: unknown
+            message?: unknown
+          }
+
+          if (candidate.ok === true) {
+            const successPayload = {
+              requestId: candidate.requestId,
+              results: candidate.results,
+            }
+
+            if (
+              !isSearchResponsePayload(successPayload) ||
+              successPayload.requestId !== activeSearchRequestId
+            ) {
+              return noop
+            }
+
+            return {
+              searchStatus: 'ready',
+              searchError: null,
+              searchResults: successPayload.results,
+            }
+          }
+
+          if (candidate.ok === false) {
+            const failurePayload = {
+              requestId: candidate.requestId,
+              message: candidate.message,
+            }
+
+            if (
+              !isSearchFailurePayload(failurePayload) ||
+              failurePayload.requestId !== activeSearchRequestId
+            ) {
+              return noop
+            }
+
+            return {
+              searchStatus: 'error',
+              searchError: failurePayload.message,
+              searchResults: [],
+            }
+          }
+
+          return noop
+        },
+      ],
+    },
     requestCurrentLocationFromBrowser: {
       to: {
         currentLocationStatus: ['currentLocationStatus'],
@@ -353,6 +419,89 @@ export const SelectedLocationPopoverRouter = model({
         },
       ],
     },
+    'handleAttr:currentLocationResponseData': [
+      {
+        to: {
+          isEditingLocation: ['isEditingLocation'],
+          searchQuery: ['searchQuery'],
+          searchStatus: ['searchStatus'],
+          searchError: ['searchError'],
+          searchResults: ['searchResults'],
+          searchRequest: ['searchRequest'],
+          activeSearchRequestId: ['activeSearchRequestId'],
+          currentLocationStatus: ['currentLocationStatus'],
+          currentLocationError: ['currentLocationError'],
+          currentLocationRequest: ['currentLocationRequest'],
+          replaceWeatherLocation: [
+            '<< current_mp_md',
+            { action: 'replaceWeatherLocation', inline_subwalker: true },
+          ],
+        },
+        fn: [
+          ['$noop', 'activeCurrentLocationRequestId', 'activeSearchRequestId'] as const,
+          (
+            payload: unknown,
+            noop: unknown,
+            activeCurrentLocationRequestId: number,
+            activeSearchRequestId: number,
+          ) => {
+            const nextValue = (payload as { next_value?: unknown } | null)?.next_value
+
+            if (!nextValue || typeof nextValue !== 'object') {
+              return noop
+            }
+
+            const candidate = nextValue as {
+              ok?: unknown
+              requestId?: unknown
+              result?: unknown
+              message?: unknown
+            }
+
+            if (candidate.ok === true) {
+              const successPayload = {
+                requestId: candidate.requestId,
+                result: candidate.result,
+              }
+
+              if (
+                !isCurrentLocationResponsePayload(successPayload) ||
+                successPayload.requestId !== activeCurrentLocationRequestId
+              ) {
+                return noop
+              }
+
+              return {
+                ...buildSearchResetState(activeSearchRequestId + 1),
+                replaceWeatherLocation: successPayload.result,
+              }
+            }
+
+            if (candidate.ok === false) {
+              const failurePayload = {
+                requestId: candidate.requestId,
+                message: candidate.message,
+              }
+
+              if (
+                !isCurrentLocationFailurePayload(failurePayload) ||
+                failurePayload.requestId !== activeCurrentLocationRequestId
+              ) {
+                return noop
+              }
+
+              return {
+                currentLocationStatus: 'error',
+                currentLocationError: failurePayload.message,
+                currentLocationRequest: null,
+              }
+            }
+
+            return noop
+          },
+        ],
+      },
+    ],
     selectLocationSearchResult: [
       {
         to: {
