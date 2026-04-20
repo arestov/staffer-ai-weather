@@ -993,7 +993,9 @@ describe('SelectedLocation popover router', () => {
 
     expect(timestampButton).not.toBeNull()
     expect(timestampButton?.tagName).toBe('BUTTON')
-    expect(timestampButton?.getAttribute('aria-label')).toContain('Refresh weather for all locations')
+    expect(timestampButton?.getAttribute('aria-label')).toContain(
+      'Refresh weather for all locations',
+    )
 
     ;(timestampButton as HTMLButtonElement).click()
     harness.session.dispatchAppAction('retryWeatherLoad')

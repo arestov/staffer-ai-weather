@@ -167,7 +167,11 @@ export const createDoSignalingFactory = (signalUrl: string): BridgeSignalingFact
     const onError = () => {
       if (destroyed) return
       if (!connected) {
-        try { ws?.close() } catch { /* ignore */ }
+        try {
+          ws?.close()
+        } catch {
+          /* ignore */
+        }
         ws = null
         scheduleRetry()
         return

@@ -107,9 +107,7 @@ const getAppState = async (harness: WeatherTestHarness) => {
 }
 
 const getAllWeatherLocations = (appState: DebugAppState) => {
-  return (
-    appState?.runtimeModels.filter((model) => model.modelName === 'weather_location') ?? []
-  )
+  return appState?.runtimeModels.filter((model) => model.modelName === 'weather_location') ?? []
 }
 
 const waitForAllWeatherLoaded = async (harness: WeatherTestHarness) => {

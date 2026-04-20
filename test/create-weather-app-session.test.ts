@@ -23,7 +23,11 @@ const mockState = vi.hoisted(() => ({
     },
   },
   createWeatherAppP2PManager: vi.fn(),
-  createPageSyncReceiverRuntime({ transport }: { transport: { send(message: ReactSyncTransportMessage): void } }) {
+  createPageSyncReceiverRuntime({
+    transport,
+  }: {
+    transport: { send(message: ReactSyncTransportMessage): void }
+  }) {
     const snapshot = {
       booted: false,
       ready: false,
@@ -67,7 +71,10 @@ vi.mock('../src/shared/createSharedWorkerTransport', () => ({
 
 class MockSharedWorker {
   port = {}
-  constructor(public url: string | URL, public options?: unknown) {}
+  constructor(
+    public url: string | URL,
+    public options?: unknown,
+  ) {}
 }
 
 vi.stubGlobal('SharedWorker', MockSharedWorker)

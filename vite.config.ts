@@ -25,10 +25,7 @@ export default defineConfig({
           ) {
             return 'dkt'
           }
-          if (
-            id.includes('node_modules/react') ||
-            id.includes('node_modules/react-dom')
-          ) {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
             return 'react'
           }
         },

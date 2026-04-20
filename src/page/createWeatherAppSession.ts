@@ -2,8 +2,8 @@ import type { ReactSyncScopeHandle } from '../dkt-react-sync/scope/ScopeHandle'
 import { createPageP2PManager, type PageP2PManager } from '../p2p/PageP2PManager'
 import { createSharedWorkerTransport } from '../shared/createSharedWorkerTransport'
 import { APP_MSG, type ReactSyncTransportMessage } from '../shared/messageTypes'
-import { createPageSyncReceiverRuntime } from './createPageSyncReceiverRuntime'
 import sharedWorkerScriptUrl from '../worker/shared-worker.ts?sharedworker&url'
+import { createPageSyncReceiverRuntime } from './createPageSyncReceiverRuntime'
 
 export type WeatherAppP2PStatus = 'disabled' | 'undecided' | 'server' | 'client'
 

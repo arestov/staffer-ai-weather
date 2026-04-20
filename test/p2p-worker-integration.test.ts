@@ -375,9 +375,7 @@ describe('PageP2PManager', () => {
 
       await vi.advanceTimersByTimeAsync(1)
       expect(events.onError).toHaveBeenCalledTimes(1)
-      expect((events.onError.mock.calls[0][0] as Error).message).toBe(
-        'WebRTC connection timed out',
-      )
+      expect((events.onError.mock.calls[0][0] as Error).message).toBe('WebRTC connection timed out')
 
       manager.destroy()
     } finally {

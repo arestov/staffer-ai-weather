@@ -1,12 +1,4 @@
-import {
-  lazy,
-  Suspense,
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { lazy, Suspense, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Many } from '../dkt-react-sync/components/Many'
 import { One } from '../dkt-react-sync/components/One'
 import { useActions } from '../dkt-react-sync/hooks/useActions'

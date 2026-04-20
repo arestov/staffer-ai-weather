@@ -10,18 +10,18 @@ import type { LocationSearchResult } from '../models/WeatherLocation'
 import { readBooleanAttr, readNullableStringAttr, readStringAttr } from '../shared/attrReaders'
 import { SelectedLocationSearchPanel } from './SelectedLocationSearchPanel'
 import {
+  SELECTED_LOCATION_POPOVER_ARROW_ID,
+  SELECTED_LOCATION_POPOVER_ID,
+  SELECTED_LOCATION_POPOVER_ROUTER_NAME,
+  scrollSelectedLocationIntoView,
+} from './selected-location-popover/constants'
+import {
   CurrentWeatherCard,
   PopoverForecastColumns,
   PopoverWeatherSectionFallback,
   WeatherReadoutError,
   WeatherReadoutFallback,
 } from './WeatherCards'
-import {
-  SELECTED_LOCATION_POPOVER_ARROW_ID,
-  SELECTED_LOCATION_POPOVER_ID,
-  SELECTED_LOCATION_POPOVER_ROUTER_NAME,
-  scrollSelectedLocationIntoView,
-} from './selected-location-popover/constants'
 
 export {
   SELECTED_LOCATION_POPOVER_ID,

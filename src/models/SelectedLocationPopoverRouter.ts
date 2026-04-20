@@ -1,8 +1,8 @@
 import { input as inputAttrs } from 'dkt/dcl/attrs/input.js'
 import { model } from 'dkt/model.js'
 import { Router as RouterCore } from 'dkt-all/models/Router.js'
-import { popoverRouterEffects } from './SelectedLocationPopoverRouter/effects'
 import { parseTaggedRequestError } from './requestTaggedError'
+import { popoverRouterEffects } from './SelectedLocationPopoverRouter/effects'
 import {
   buildSearchingState,
   buildSearchResetState,
@@ -41,9 +41,9 @@ export const SelectedLocationPopoverRouter = model({
         Array.isArray(savedSearchLocations) ? savedSearchLocations : [],
     ],
     searchResponseData: ['input', null],
-    '$meta$fx_executeLocationSearch$error': ['input', null],
+    $meta$fx_executeLocationSearch$error: ['input', null],
     currentLocationResponseData: ['input', null],
-    '$meta$fx_executeCurrentLocationLookup$error': ['input', null],
+    $meta$fx_executeCurrentLocationLookup$error: ['input', null],
     searchRequest: ['input', null],
     activeSearchRequestId: ['input', 0],
   },

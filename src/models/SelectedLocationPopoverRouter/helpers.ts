@@ -176,4 +176,3 @@ export const isCurrentLocationResponsePayload = (
 
   return typeof candidate.requestId === 'number' && isLocationSearchResult(candidate.result)
 }
-

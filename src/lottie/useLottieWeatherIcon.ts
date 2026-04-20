@@ -5,8 +5,7 @@ import { loadMeteoconData } from './meteoconData'
 type LottieModule = typeof LottieCanvasWorker
 type LottieAnimation = ReturnType<LottieModule['loadAnimation']>
 
-const canUseLottie = () =>
-  typeof window !== 'undefined' && typeof document !== 'undefined'
+const canUseLottie = () => typeof window !== 'undefined' && typeof document !== 'undefined'
 
 // Singleton: lazily load the lottie canvas module once
 let lottieModulePromise: Promise<LottieModule> | null = null
@@ -16,9 +15,9 @@ const getLottieModule = (): Promise<LottieModule> | null => {
     return null
   }
   if (!lottieModulePromise) {
-    lottieModulePromise = import(
-      'lottie-web/build/player/esm/lottie_canvas.min.js'
-    ).then((mod) => mod.default ?? mod)
+    lottieModulePromise = import('lottie-web/build/player/esm/lottie_canvas.min.js').then(
+      (mod) => mod.default ?? mod,
+    )
   }
   return lottieModulePromise
 }

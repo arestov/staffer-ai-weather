@@ -324,16 +324,25 @@ function SparklineSectionFallback({
       <h3 className="sparkline-title">
         <span className="sparkline-title__heading">{heading}</span>
         <span className="sparkline-title__detail">
-          <span className="skeleton skeleton-line skeleton-line--meta" style={{ width: detailWidth }} />
+          <span
+            className="skeleton skeleton-line skeleton-line--meta"
+            style={{ width: detailWidth }}
+          />
         </span>
       </h3>
       <div className="sparkline-panel">
         <div className="sparkline-endpoints">
           <span className="sparkline-endpoint">
-            <span className="skeleton skeleton-line skeleton-line--meta" style={{ width: '4.4rem' }} />
+            <span
+              className="skeleton skeleton-line skeleton-line--meta"
+              style={{ width: '4.4rem' }}
+            />
           </span>
           <span className="sparkline-endpoint sparkline-endpoint--end">
-            <span className="skeleton skeleton-line skeleton-line--meta" style={{ width: '4.4rem' }} />
+            <span
+              className="skeleton skeleton-line skeleton-line--meta"
+              style={{ width: '4.4rem' }}
+            />
           </span>
         </div>
         <div className="sparkline-svg skeleton" aria-hidden="true" />

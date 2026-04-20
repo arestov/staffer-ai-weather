@@ -280,7 +280,7 @@ export const WeatherLocation = model({
     lastError: ['input', null],
     weatherFetchedAt: ['input', null],
     weatherData: ['input', null],
-    '$meta$fx_loadWeather$error': ['input', null],
+    $meta$fx_loadWeather$error: ['input', null],
 
     hourlySparkline: [
       'comp',
@@ -405,11 +405,7 @@ export const WeatherLocation = model({
       },
       fn: [
         ['name', '$noop'] as const,
-        (
-          payload: unknown,
-          locationName: unknown,
-          noop: unknown,
-        ) => {
+        (payload: unknown, locationName: unknown, noop: unknown) => {
           const nextValue = (payload as { next_value?: unknown } | null)?.next_value
 
           if (!isApplyWeatherPayload(nextValue)) {

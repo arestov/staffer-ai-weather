@@ -202,7 +202,7 @@ const app_props = mergeDcl({
     savedSearchLocationsSyncRequest: ['input', null],
     activeSavedSearchLocationsSyncRequestId: ['input', 0],
     savedSearchLocationsSyncResult: ['input', null],
-    '$meta$fx_syncSavedSearchLocationsData$error': ['input', null],
+    $meta$fx_syncSavedSearchLocationsData$error: ['input', null],
     autoGeoStatus: ['input', 'idle'],
     autoGeoError: ['input', null],
     autoDetectedLocation: ['input', null],
@@ -464,10 +464,7 @@ const app_props = mergeDcl({
           const nextValue = (payload as { next_value?: unknown } | null)?.next_value
           const taggedError = parseTaggedRequestError(nextValue)
 
-          if (
-            !taggedError ||
-            taggedError.requestId !== activeSavedSearchLocationsSyncRequestId
-          ) {
+          if (!taggedError || taggedError.requestId !== activeSavedSearchLocationsSyncRequestId) {
             return noop
           }
 

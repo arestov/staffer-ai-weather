@@ -1,7 +1,7 @@
 import type { WeatherBackendApi } from '../../worker/weather-backend-api'
+import { createTaggedRequestError } from '../requestTaggedError'
 import type { LocationSearchResult } from '../WeatherLocation'
 import { isLocationSearchResult } from '../WeatherLocation'
-import { createTaggedRequestError } from '../requestTaggedError'
 
 type SavedSearchLocationsSyncRequest =
   | {
