@@ -474,7 +474,7 @@ effects: {
 DKT автоматически управляет error-attrs:
 
 - `$meta$attrs$<attr>$error` — ошибка последнего state_request, записавшего `<attr>`
-- `$meta$fx$<fx_name>$error` — ошибка по имени эффекта
+- `$meta$fx_<fx_name>$error` — ошибка по имени эффекта
 
 Если fn в state_request выбрасывает исключение:
 1. Ошибка записывается в `$meta$error` attr
